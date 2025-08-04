@@ -1,9 +1,21 @@
 import React from "react";
-import ReactDOM from "react-dom/client";
+import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 import App from "./App";
+import { DirectoryProvider } from "./contexts/DirectoryContext";
+import { EditingProvider } from "./contexts/EditingContext";
+import { AppearanceProvider } from "./contexts/AppearanceContext";
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <BrowserRouter>
+      <AppearanceProvider>
+        <DirectoryProvider>
+          <EditingProvider>
+            <App />
+          </EditingProvider>
+        </DirectoryProvider>
+      </AppearanceProvider>
+    </BrowserRouter>
   </React.StrictMode>,
 );
