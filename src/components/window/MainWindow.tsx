@@ -12,7 +12,6 @@ export const MainWindow = memo(function MainWindow({ selectedFile }: MainWindowP
     <div className="flex-1 flex flex-col min-w-0">
       {selectedFile ? (
         <div className="h-full flex flex-col">
-          <WindowHeader selectedFile={selectedFile} />
           <WindowContent selectedFile={selectedFile} />
         </div>
       ) : (

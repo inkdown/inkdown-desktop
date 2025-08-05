@@ -4,6 +4,7 @@ import { FileNode } from '../contexts/DirectoryContext';
 import { ContextMenu } from './ContextMenu';
 import { useFileOperations } from '../hooks/useFileOperations';
 import { useEditing } from '../contexts/EditingContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface FileTreeItemProps {
   node: FileNode;
@@ -21,6 +22,7 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
   
   const { createDirectory, createFile, deleteFileOrDirectory, renameFileOrDirectory, getLastError } = useFileOperations();
   const { editingPath, setEditingPath, isEditing } = useEditing();
+  const { currentTheme } = useTheme();
   
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedFile === node.path;
@@ -115,30 +117,41 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
   const icon = useMemo(() => {
     if (node.is_directory) {
       return isExpanded ? 
-        <FolderOpen size={16} className="text-blue-600" /> : 
-        <Folder size={16} className="text-blue-500" />;
+        <FolderOpen size={16} style={{ color: currentTheme.colors.primary }} /> : 
+        <Folder size={16} style={{ color: currentTheme.colors.primary }} />;
     }
-    return <FileText size={16} className="text-gray-500" />;
-  }, [node.is_directory, isExpanded]);
+    return <FileText size={16} style={{ color: currentTheme.colors.mutedForeground }} />;
+  }, [node.is_directory, isExpanded, currentTheme.colors.primary, currentTheme.colors.mutedForeground]);
 
   return (
     <div className="select-none">
       <div
-        className={`
-          flex items-center py-1 px-2 cursor-pointer hover:bg-gray-100 rounded
-          ${isSelected ? 'bg-blue-100 text-blue-800' : ''}
-          ${!node.is_directory ? 'hover:bg-blue-50' : ''}
-        `}
-        style={{ paddingLeft: `${level * 16 + 8}px` }}
+        className="flex items-center py-1 px-2 cursor-pointer rounded theme-transition"
+        style={{ 
+          paddingLeft: `${level * 16 + 8}px`,
+          backgroundColor: isSelected ? currentTheme.colors.primary : 'transparent',
+          color: isSelected ? currentTheme.colors.primaryForeground : currentTheme.colors.sidebar.foreground
+        }}
+        onMouseEnter={(e) => {
+          if (!isSelected) {
+            e.currentTarget.style.backgroundColor = currentTheme.colors.sidebar.hover;
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isSelected) {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }
+        }}
         onClick={node.is_directory ? handleToggle : handleSelect}
         onContextMenu={handleContextMenu}
       >
         {hasChildren && (
           <ChevronRight 
             size={14} 
-            className={`mr-1 text-gray-500 hover:text-gray-700 transition-transform duration-150 ${
+            className={`mr-1 transition-transform duration-150 ${
               isExpanded ? 'rotate-90' : ''
             }`}
+            style={{ color: currentTheme.colors.mutedForeground }}
           />
         )}
         
@@ -152,17 +165,18 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={handleEditKeyDown}
             onBlur={handleEditSubmit}
-            className="flex-1 text-sm bg-white border border-blue-500 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="flex-1 text-sm theme-input rounded px-1 py-0.5 theme-focus-ring"
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
           <span 
-            className={`
-              text-sm truncate flex-1
-              ${node.is_directory ? 'font-medium text-gray-700' : 'text-gray-600'}
-              ${isSelected ? 'font-semibold' : ''}
-            `}
+            className={`text-sm truncate flex-1 ${node.is_directory ? 'font-medium' : ''} ${isSelected ? 'font-semibold' : ''}`}
             title={node.name}
+            style={{ 
+              color: isSelected ? currentTheme.colors.primaryForeground : 
+                     node.is_directory ? currentTheme.colors.sidebar.foreground : 
+                     currentTheme.colors.mutedForeground
+            }}
           >
             {node.name}
           </span>
@@ -210,14 +224,19 @@ interface FileTreeProps {
 }
 
 export function FileTree({ fileTree, onFileSelect, selectedFile, className = '' }: FileTreeProps) {
+  const { currentTheme } = useTheme();
+  
   const handleRefresh = useCallback(() => {
   }, []);
 
   const memoizedTree = useMemo(() => {
     return (
-      <div className={`h-full overflow-auto ${className}`}>
+      <div className={`h-full overflow-auto theme-scrollbar ${className}`}>
         <div className="p-2">
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-2">
+          <div 
+            className="text-xs font-semibold uppercase tracking-wide mb-2 px-2"
+            style={{ color: currentTheme.colors.mutedForeground }}
+          >
             Explorer
           </div>
           {fileTree.children?.map((child) => (
@@ -241,7 +260,7 @@ export function FileTree({ fileTree, onFileSelect, selectedFile, className = '' 
         </div>
       </div>
     );
-  }, [fileTree, onFileSelect, selectedFile, className, handleRefresh]);
+  }, [fileTree, onFileSelect, selectedFile, className, handleRefresh, currentTheme.colors.mutedForeground]);
 
   return memoizedTree;
 }

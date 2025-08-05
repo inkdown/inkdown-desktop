@@ -1,9 +1,13 @@
-// Placeholder para componentes do editor de markdown
-// Este diretório será usado para:
-// - Editor de markdown
-// - Preview de markdown  
-// - Toolbar do editor
-// - Syntax highlighting
-// etc.
+export { Editor } from './core/Editor';
+export type { EditorConfig, EditorStateInfo } from './core/Editor';
 
-export {};
+export { MarkdownPreview } from './preview/MarkdownPreview';
+export type { PreviewConfig } from './preview/MarkdownPreview';
+
+export { EventEmitter } from './utils/EventEmitter';
+export type { EventListener } from './utils/EventEmitter';
+
+export { EditorComponent } from './EditorComponent';
+export type { EditorComponentProps, EditorComponentHandle } from './EditorComponent';
+
+export { EditorComponent as default } from './EditorComponent';

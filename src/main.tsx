@@ -5,17 +5,23 @@ import App from "./App";
 import { DirectoryProvider } from "./contexts/DirectoryContext";
 import { EditingProvider } from "./contexts/EditingContext";
 import { AppearanceProvider } from "./contexts/AppearanceContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <AppearanceProvider>
-        <DirectoryProvider>
-          <EditingProvider>
-            <App />
-          </EditingProvider>
-        </DirectoryProvider>
-      </AppearanceProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <ThemeProvider>
+          <AppearanceProvider>
+            <DirectoryProvider>
+              <EditingProvider>
+                <App />
+              </EditingProvider>
+            </DirectoryProvider>
+          </AppearanceProvider>
+        </ThemeProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

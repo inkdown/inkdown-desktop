@@ -130,6 +130,46 @@ fn save_appearance_config(config: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn rename_file(old_path: String, new_name: String) -> Result<String, String> {
+    let old_path_obj = Path::new(&old_path);
+    
+    if !old_path_obj.exists() {
+        return Err("File does not exist".to_string());
+    }
+    
+    // Get parent directory
+    let parent_dir = old_path_obj.parent()
+        .ok_or("Could not get parent directory".to_string())?;
+    
+    // Get file extension
+    let extension = old_path_obj.extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("");
+    
+    // Create new filename with extension
+    let new_filename = if extension.is_empty() {
+        new_name
+    } else {
+        format!("{}.{}", new_name, extension)
+    };
+    
+    // Create new path
+    let new_path = parent_dir.join(&new_filename);
+    
+    // Check if new path already exists
+    if new_path.exists() {
+        return Err("A file with this name already exists".to_string());
+    }
+    
+    // Rename the file
+    fs::rename(&old_path_obj, &new_path)
+        .map_err(|e| format!("Failed to rename file: {}", e))?;
+    
+    // Return the new path
+    Ok(new_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
 fn load_appearance_config() -> Result<String, String> {
     let config_dir = get_or_create_config_dir()?;
     let config_file = config_dir.join("appearance.json");
@@ -160,12 +200,74 @@ fn save_workspace_config(workspace_path: String) -> Result<(), String> {
     let config_dir = get_or_create_config_dir()?;
     let config_file = config_dir.join("workspace.json");
     
-    let workspace_config = format!(r#"{{"workspace_path": "{}"}}"#, workspace_path.replace("\\", "\\\\"));
+    let current_config = if config_file.exists() {
+        fs::read_to_string(&config_file).unwrap_or_default()
+    } else {
+        String::new()
+    };
     
-    fs::write(config_file, workspace_config)
+    let mut config: serde_json::Value = if current_config.is_empty() {
+        create_default_workspace_config()
+    } else {
+        serde_json::from_str(&current_config).unwrap_or_else(|_| create_default_workspace_config())
+    };
+    
+    config["workspace_path"] = serde_json::Value::String(workspace_path);
+    
+    let config_string = serde_json::to_string_pretty(&config)
+        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+    
+    fs::write(config_file, config_string)
         .map_err(|e| format!("Failed to save workspace config: {}", e))?;
     
     Ok(())
+}
+
+#[tauri::command]
+fn update_workspace_config(config: serde_json::Value) -> Result<(), String> {
+    let config_dir = get_or_create_config_dir()?;
+    let config_file = config_dir.join("workspace.json");
+    
+    let current_config = if config_file.exists() {
+        fs::read_to_string(&config_file).unwrap_or_default()
+    } else {
+        String::new()
+    };
+    
+    let mut current_config: serde_json::Value = if current_config.is_empty() {
+        create_default_workspace_config()
+    } else {
+        serde_json::from_str(&current_config).unwrap_or_else(|_| create_default_workspace_config())
+    };
+    
+    // Atualiza apenas os campos fornecidos
+    if let serde_json::Value::Object(config_map) = config {
+        for (key, value) in config_map {
+            current_config[key] = value;
+        }
+    }
+    
+    let config_string = serde_json::to_string_pretty(&current_config)
+        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+    
+    fs::write(config_file, config_string)
+        .map_err(|e| format!("Failed to update workspace config: {}", e))?;
+    
+    Ok(())
+}
+
+fn create_default_workspace_config() -> serde_json::Value {
+    serde_json::json!({
+        "workspace_path": "/home/furqas/Documents/notation",
+        "vimMode": true,
+        "showLineNumbers": false,
+        "highlightCurrentLine": true,
+        "markdown": true,
+        "theme": "light",
+        "fontSize": 14,
+        "fontFamily": "SF Mono, Monaco, Cascadia Code, Roboto Mono, Consolas, monospace",
+        "readOnly": false
+    })
 }
 
 #[tauri::command]
@@ -174,11 +276,38 @@ fn load_workspace_config() -> Result<String, String> {
     let config_file = config_dir.join("workspace.json");
     
     if !config_file.exists() {
-        return Ok(r#"{"workspace_path": null}"#.to_string());
+        let default_config = create_default_workspace_config();
+        let config_string = serde_json::to_string_pretty(&default_config)
+            .map_err(|e| format!("Failed to serialize default config: {}", e))?;
+        
+        fs::write(&config_file, &config_string)
+            .map_err(|e| format!("Failed to create default workspace config: {}", e))?;
+        
+        return Ok(config_string);
     }
     
-    fs::read_to_string(config_file)
-        .map_err(|e| format!("Failed to load workspace config: {}", e))
+    let config_content = fs::read_to_string(&config_file)
+        .map_err(|e| format!("Failed to load workspace config: {}", e))?;
+    
+    let mut config: serde_json::Value = serde_json::from_str(&config_content)
+        .unwrap_or_else(|_| create_default_workspace_config());
+    
+    let default_config = create_default_workspace_config();
+    for (key, default_value) in default_config.as_object().unwrap() {
+        if !config.as_object().unwrap().contains_key(key) {
+            config[key] = default_value.clone();
+        }
+    }
+    
+    let updated_config_string = serde_json::to_string_pretty(&config)
+        .map_err(|e| format!("Failed to serialize updated config: {}", e))?;
+    
+    if updated_config_string != config_content {
+        fs::write(&config_file, &updated_config_string)
+            .map_err(|e| format!("Failed to update workspace config: {}", e))?;
+    }
+    
+    Ok(updated_config_string)
 }
 
 #[tauri::command]
@@ -291,6 +420,89 @@ fn rename_file_or_directory(old_path: String, new_name: String) -> Result<String
     Ok(new_path.to_string_lossy().to_string())
 }
 
+#[tauri::command]
+fn read_file(path: String) -> Result<String, String> {
+    let path_obj = Path::new(&path);
+    
+    if !path_obj.exists() {
+        return Err("File does not exist".to_string());
+    }
+    
+    if !path_obj.is_file() {
+        return Err("Path is not a file".to_string());
+    }
+    
+    // Verifica se é um arquivo markdown
+    if let Some(extension) = path_obj.extension() {
+        let ext_str = extension.to_string_lossy().to_lowercase();
+        if !["md", "markdown", "mdown", "mkd"].contains(&ext_str.as_str()) {
+            return Err("File is not a markdown file".to_string());
+        }
+    } else {
+        return Err("File has no extension".to_string());
+    }
+    
+    fs::read_to_string(path_obj)
+        .map_err(|e| format!("Failed to read file: {}", e))
+}
+
+#[tauri::command]
+fn write_file(path: String, content: String) -> Result<(), String> {
+    let path_obj = Path::new(&path);
+    
+    // Verifica se é um arquivo markdown
+    if let Some(extension) = path_obj.extension() {
+        let ext_str = extension.to_string_lossy().to_lowercase();
+        if !["md", "markdown", "mdown", "mkd"].contains(&ext_str.as_str()) {
+            return Err("File is not a markdown file".to_string());
+        }
+    } else {
+        return Err("File has no extension".to_string());
+    }
+    
+    // Cria diretórios pais se não existirem
+    if let Some(parent) = path_obj.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create parent directories: {}", e))?;
+        }
+    }
+    
+    fs::write(path_obj, content)
+        .map_err(|e| format!("Failed to write file: {}", e))
+}
+
+#[tauri::command]
+fn get_file_metadata(path: String) -> Result<serde_json::Value, String> {
+    let path_obj = Path::new(&path);
+    
+    if !path_obj.exists() {
+        return Err("File does not exist".to_string());
+    }
+    
+    let metadata = fs::metadata(path_obj)
+        .map_err(|e| format!("Failed to get metadata: {}", e))?;
+    
+    let mut result = serde_json::Map::new();
+    result.insert("size".to_string(), serde_json::Value::Number(metadata.len().into()));
+    result.insert("is_file".to_string(), serde_json::Value::Bool(metadata.is_file()));
+    result.insert("is_directory".to_string(), serde_json::Value::Bool(metadata.is_dir()));
+    
+    if let Ok(modified) = metadata.modified() {
+        if let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH) {
+            result.insert("modified".to_string(), serde_json::Value::Number(duration.as_secs().into()));
+        }
+    }
+    
+    if let Ok(created) = metadata.created() {
+        if let Ok(duration) = created.duration_since(std::time::UNIX_EPOCH) {
+            result.insert("created".to_string(), serde_json::Value::Number(duration.as_secs().into()));
+        }
+    }
+    
+    Ok(serde_json::Value::Object(result))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -303,12 +515,17 @@ pub fn run() {
             save_appearance_config,
             load_appearance_config,
             save_workspace_config,
+            update_workspace_config,
             load_workspace_config,
+            rename_file,
             clear_workspace_config,
             create_directory,
             create_file,
             delete_file_or_directory,
-            rename_file_or_directory
+            rename_file_or_directory,
+            read_file,
+            write_file,
+            get_file_metadata
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

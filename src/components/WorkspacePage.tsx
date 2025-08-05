@@ -4,6 +4,7 @@ import { useDirectory } from '../contexts/DirectoryContext';
 import { useSidebarResize } from '../hooks/useSidebarResize';
 import { Sidebar, SidebarResizer } from './sidebar';
 import { MainWindow } from './window';
+import { ThemeToggle } from './ui/ThemeToggle';
 
 export function WorkspacePage() {
   const { fileTree, currentDirectory } = useDirectory();
@@ -18,17 +19,20 @@ export function WorkspacePage() {
 
   if (!fileTree || !currentDirectory) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
+      <div className="h-screen flex items-center justify-center theme-card relative">
+        <div className="absolute top-4 right-4">
+          <ThemeToggle />
+        </div>
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-700 mb-2">
+          <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--theme-foreground)' }}>
             Nenhum diretório selecionado
           </h2>
-          <p className="text-gray-500 mb-4">
+          <p className="theme-text-muted mb-4">
             Selecione um diretório para começar a editar
           </p>
           <button
             onClick={() => navigate('/')}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg"
+            className="theme-button px-4 py-2 rounded-lg"
           >
             Voltar ao Início
           </button>
@@ -38,7 +42,12 @@ export function WorkspacePage() {
   }
 
   return (
-    <div className="h-screen flex bg-gray-50">
+    <div className="h-screen flex theme-card relative">
+      {/* Theme Toggle positioned in top right */}
+      <div className="absolute top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
+      
       <Sidebar
         width={sidebarWidth}
         fileTree={fileTree}

@@ -17,6 +17,7 @@ interface DirectoryContextType {
   setDirectory: (path: string) => Promise<void>;
   clearDirectory: () => void;
   initializeWorkspace: () => Promise<void>;
+  refreshFileTree: () => Promise<void>;
 }
 
 const DirectoryContext = createContext<DirectoryContextType | undefined>(undefined);
@@ -92,6 +93,17 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
     }
   };
 
+  const refreshFileTree = async () => {
+    if (!currentDirectory) return;
+    
+    try {
+      const result = await invoke<FileNode>('scan_directory', { path: currentDirectory });
+      setFileTree(result);
+    } catch (err) {
+      console.error('Error refreshing file tree:', err);
+    }
+  };
+
   const clearDirectory = async () => {
     setCurrentDirectory(null);
     setFileTree(null);
@@ -110,7 +122,8 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
       error,
       setDirectory,
       clearDirectory,
-      initializeWorkspace
+      initializeWorkspace,
+      refreshFileTree
     }}>
       {children}
     </DirectoryContext.Provider>
