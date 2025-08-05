@@ -175,20 +175,19 @@ fn load_appearance_config() -> Result<String, String> {
     let config_file = config_dir.join("appearance.json");
     
     if !config_file.exists() {
-        // Retorna config padrão de aparência
-        let default_config = r#"{
-            "themes": [
-                {
-                    "name": "Gruvbox",
-                    "url": "",
-                    "author": "Lucas",
-                    "enable": true
-                }
-            ],
+        let default_config = serde_json::json!({
             "font-size": 14,
-            "font-family": "Inter, system-ui, sans-serif"
-        }"#;
-        return Ok(default_config.to_string());
+            "font-family": "Inter, system-ui, sans-serif",
+            "theme": "light"
+        });
+        
+        let config_string = serde_json::to_string_pretty(&default_config)
+            .map_err(|e| format!("Failed to serialize default appearance config: {}", e))?;
+            
+        fs::write(&config_file, &config_string)
+            .map_err(|e| format!("Failed to create default appearance config: {}", e))?;
+            
+        return Ok(config_string);
     }
     
     fs::read_to_string(config_file)
@@ -259,13 +258,10 @@ fn update_workspace_config(config: serde_json::Value) -> Result<(), String> {
 fn create_default_workspace_config() -> serde_json::Value {
     serde_json::json!({
         "workspace_path": "/home/furqas/Documents/notation",
-        "vimMode": true,
-        "showLineNumbers": false,
+        "vimMode": false,
+        "showLineNumbers": true,
         "highlightCurrentLine": true,
         "markdown": true,
-        "theme": "light",
-        "fontSize": 14,
-        "fontFamily": "SF Mono, Monaco, Cascadia Code, Roboto Mono, Consolas, monospace",
         "readOnly": false
     })
 }
@@ -289,25 +285,17 @@ fn load_workspace_config() -> Result<String, String> {
     let config_content = fs::read_to_string(&config_file)
         .map_err(|e| format!("Failed to load workspace config: {}", e))?;
     
-    let mut config: serde_json::Value = serde_json::from_str(&config_content)
-        .unwrap_or_else(|_| create_default_workspace_config());
+    // Parse and validate, but don't auto-merge on every load
+    let config: serde_json::Value = serde_json::from_str(&config_content)
+        .unwrap_or_else(|_| {
+            // Only create default if parsing failed
+            let default = create_default_workspace_config();
+            let _ = fs::write(&config_file, serde_json::to_string_pretty(&default).unwrap());
+            default
+        });
     
-    let default_config = create_default_workspace_config();
-    for (key, default_value) in default_config.as_object().unwrap() {
-        if !config.as_object().unwrap().contains_key(key) {
-            config[key] = default_value.clone();
-        }
-    }
-    
-    let updated_config_string = serde_json::to_string_pretty(&config)
-        .map_err(|e| format!("Failed to serialize updated config: {}", e))?;
-    
-    if updated_config_string != config_content {
-        fs::write(&config_file, &updated_config_string)
-            .map_err(|e| format!("Failed to update workspace config: {}", e))?;
-    }
-    
-    Ok(updated_config_string)
+    Ok(serde_json::to_string_pretty(&config)
+        .map_err(|e| format!("Failed to serialize config: {}", e))?)
 }
 
 #[tauri::command]

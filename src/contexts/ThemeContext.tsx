@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { ThemeMode, CustomTheme, ThemeColors, WorkspaceConfig } from '../types/config';
+import { ThemeMode, CustomTheme, ThemeColors, AppearanceConfig } from '../types/config';
 
 const defaultLightTheme: ThemeColors = {
   primary: '#6366f1',
@@ -177,15 +177,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     try {
       // Check if we're in a Tauri environment
       if (typeof window !== 'undefined' && window.__TAURI__) {
-        const configStr = await invoke<string>('load_workspace_config');
-        const config = JSON.parse(configStr) as WorkspaceConfig;
+        const configStr = await invoke<string>('load_appearance_config');
+        const config = JSON.parse(configStr);
         
         if (config.theme) {
           setThemeModeState(config.theme);
-        }
-        
-        if (config.customTheme) {
-          setCustomThemeId(config.customTheme);
         }
         return;
       }
@@ -214,17 +210,24 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     try {
       // Check if we're in a Tauri environment
       if (typeof window !== 'undefined' && window.__TAURI__) {
-        await invoke('update_workspace_config', {
-          config: {
-            theme: mode,
-            customTheme: customTheme || customThemeId,
-          }
+        // Load current appearance config
+        const configStr = await invoke<string>('load_appearance_config');
+        const currentConfig = JSON.parse(configStr);
+        
+        // Update with new theme
+        const newConfig = {
+          ...currentConfig,
+          theme: mode,
+        };
+        
+        await invoke('save_appearance_config', { 
+          config: JSON.stringify(newConfig)
         });
       } else {
         throw new Error('Tauri not available');
       }
     } catch (error) {
-      console.warn('Failed to save theme to workspace config, using localStorage:', error);
+      console.warn('Failed to save theme to appearance config, using localStorage:', error);
       try {
         localStorage.setItem('inkdown-theme-mode', mode);
         if (customTheme) {
@@ -275,6 +278,8 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       applyThemeToDOM(currentTheme);
     }
   }, [currentTheme]);
+
+  // Remove polling - we'll sync via ConfigManager
 
   useEffect(() => {
     if (themeMode === 'auto') {

@@ -6,9 +6,9 @@ export interface Theme {
 }
 
 export interface AppearanceConfig {
-  themes: Theme[];
   'font-size': number;
   'font-family': string;
+  theme: ThemeMode;
 }
 
 export type ThemeMode = 'light' | 'dark' | 'auto';
@@ -69,9 +69,5 @@ export interface WorkspaceConfig {
   showLineNumbers?: boolean;
   highlightCurrentLine?: boolean;
   markdown?: boolean;
-  theme?: ThemeMode;
-  customTheme?: string;
-  fontSize?: number;
-  fontFamily?: string;
   readOnly?: boolean;
 }

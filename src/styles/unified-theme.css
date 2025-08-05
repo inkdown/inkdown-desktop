@@ -1,0 +1,745 @@
+/* ==============================================
+   unified-theme.css - Sistema de Temas Unificado do Inkdown
+   ============================================== */
+
+/* === LIGHT THEME (Padrão) === */
+:root,
+[data-theme="light"],
+.theme-light {
+  color-scheme: light;
+  
+  /* === UI Base === */
+  --theme-primary: #6366f1;
+  --theme-primary-foreground: #ffffff;
+  --theme-secondary: #f1f5f9;
+  --theme-secondary-foreground: #0f172a;
+  --theme-background: #ffffff;
+  --theme-foreground: #0f172a;
+  --theme-muted: #f8fafc;
+  --theme-muted-foreground: #64748b;
+  --theme-accent: #f1f5f9;
+  --theme-accent-foreground: #0f172a;
+  --theme-border: #e2e8f0;
+  --theme-input: #ffffff;
+  --theme-ring: #6366f1;
+  --theme-destructive: #ef4444;
+  --theme-destructive-foreground: #ffffff;
+  
+  /* === Sidebar === */
+  --theme-sidebar-background: #f8fafc;
+  --theme-sidebar-foreground: #334155;
+  --theme-sidebar-border: #e2e8f0;
+  --theme-sidebar-hover: #f1f5f9;
+  --theme-sidebar-active: #e2e8f0;
+  
+  /* === Editor === */
+  --theme-editor-background: #ffffff;
+  --theme-editor-foreground: #24292f;
+  --theme-editor-selection: #6366f133;
+  --theme-editor-cursor: #24292f;
+  --theme-editor-border: #e2e8f0;
+  --theme-editor-line-number: #8c959f;
+  --theme-editor-active-line: #f6f8fa;
+  --theme-editor-scrollbar: #e2e8f0;
+  
+  /* === Syntax Highlighting === */
+  --syntax-keyword: #6366f1;
+  --syntax-string: #059669;
+  --syntax-number: #dc2626;
+  --syntax-comment: #64748b;
+  --syntax-strong: #0f172a;
+  --syntax-emphasis: #374151;
+  --syntax-heading: #dc2626;
+  --syntax-heading-h1: #dc2626;
+  --syntax-heading-h2: #ea580c;
+  --syntax-heading-h3: #d97706;
+  --syntax-heading-h4: #65a30d;
+  --syntax-heading-h5: #059669;
+  --syntax-heading-h6: #0891b2;
+  --syntax-link: #6366f1;
+  --syntax-url: #6366f1;
+  --syntax-strikethrough: #64748b;
+  --syntax-monospace: #dc2626;
+  --syntax-monospace-bg: #f8fafc;
+  --syntax-atom: #059669;
+  --syntax-bool: #dc2626;
+  --syntax-regexp: #dc2626;
+  --syntax-meta: #64748b;
+  --syntax-punctuation: #64748b;
+
+  /* === Inkdown Variables (Light) === */
+  --inkdown-editor-bg: #ffffff;
+  --inkdown-editor-fg: #24292f;
+  --inkdown-editor-selection: #6366f133;
+  --inkdown-editor-cursor: #24292f;
+  --inkdown-editor-border: #e2e8f0;
+  --inkdown-editor-line-number: #8c959f;
+  --inkdown-editor-active-line: #f6f8fa;
+  --inkdown-editor-scrollbar: #e2e8f0;
+
+  --inkdown-syntax-keyword: #6366f1;
+  --inkdown-syntax-string: #059669;
+  --inkdown-syntax-number: #dc2626;
+  --inkdown-syntax-comment: #64748b;
+  --inkdown-syntax-strong: #0f172a;
+  --inkdown-syntax-emphasis: #374151;
+  --inkdown-syntax-link: #6366f1;
+  --inkdown-syntax-url: #6366f1;
+  --inkdown-syntax-strikethrough: #64748b;
+  --inkdown-syntax-monospace: #dc2626;
+  --inkdown-syntax-monospace-bg: #f8fafc;
+
+  --inkdown-heading-h1: #dc2626;
+  --inkdown-heading-h2: #ea580c;
+  --inkdown-heading-h3: #d97706;
+  --inkdown-heading-h4: #65a30d;
+  --inkdown-heading-h5: #059669;
+  --inkdown-heading-h6: #0891b2;
+
+  --inkdown-syntax-atom: #059669;
+  --inkdown-syntax-bool: #dc2626;
+  --inkdown-syntax-regexp: #dc2626;
+  --inkdown-syntax-meta: #64748b;
+  --inkdown-syntax-punctuation: #64748b;
+  --inkdown-syntax-list: #64748b;
+  --inkdown-syntax-quote: #64748b;
+  --inkdown-syntax-separator: #64748b;
+
+  /* === Tipografia === */
+  --inkdown-editor-font-family: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --inkdown-editor-mono-font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
+  --inkdown-editor-font-size: 14px;
+  --inkdown-editor-line-height: 1.6;
+  --inkdown-editor-padding: 16px;
+
+  --inkdown-heading-font-weight: bold;
+  --inkdown-heading-line-height: 1.3;
+  --inkdown-heading-h1-size: 1.5em;
+  --inkdown-heading-h2-size: 1.3em;
+  --inkdown-heading-h3-size: 1.2em;
+  --inkdown-heading-h4-size: 1.1em;
+  --inkdown-heading-h5-size: 1.05em;
+  --inkdown-heading-h6-size: 1em;
+
+  --inkdown-code-font-size: 0.9em;
+  --inkdown-code-padding: 2px 4px;
+  --inkdown-code-border-radius: 3px;
+
+  --inkdown-quote-border-width: 4px;
+  --inkdown-quote-padding-left: 12px;
+  --inkdown-quote-margin-left: 4px;
+
+  --inkdown-scrollbar-width: 8px;
+  --inkdown-scrollbar-border-radius: 4px;
+}
+
+/* === DARK THEME === */
+[data-theme="dark"],
+.theme-dark {
+  color-scheme: dark;
+  
+  /* === UI Base === */
+  --theme-primary: #6366f1;
+  --theme-primary-foreground: #ffffff;
+  --theme-secondary: #1e293b;
+  --theme-secondary-foreground: #f8fafc;
+  --theme-background: #0f172a;
+  --theme-foreground: #f8fafc;
+  --theme-muted: #1e293b;
+  --theme-muted-foreground: #94a3b8;
+  --theme-accent: #1e293b;
+  --theme-accent-foreground: #f8fafc;
+  --theme-border: #334155;
+  --theme-input: #1e293b;
+  --theme-ring: #6366f1;
+  --theme-destructive: #ef4444;
+  --theme-destructive-foreground: #ffffff;
+  
+  /* === Sidebar === */
+  --theme-sidebar-background: #1e293b;
+  --theme-sidebar-foreground: #cbd5e1;
+  --theme-sidebar-border: #334155;
+  --theme-sidebar-hover: #334155;
+  --theme-sidebar-active: #475569;
+  
+  /* === Editor === */
+  --theme-editor-background: #0f172a;
+  --theme-editor-foreground: #e6edf3;
+  --theme-editor-selection: #6366f133;
+  --theme-editor-cursor: #e6edf3;
+  --theme-editor-border: #30363d;
+  --theme-editor-line-number: #7d8590;
+  --theme-editor-active-line: #161b22;
+  --theme-editor-scrollbar: #30363d;
+  
+  /* === Syntax Highlighting === */
+  --syntax-keyword: #a78bfa;
+  --syntax-string: #34d399;
+  --syntax-number: #fca5a5;
+  --syntax-comment: #94a3b8;
+  --syntax-strong: #f8fafc;
+  --syntax-emphasis: #f3f4f6;
+  --syntax-heading: #f87171;
+  --syntax-heading-h1: #f87171;
+  --syntax-heading-h2: #fb923c;
+  --syntax-heading-h3: #fbbf24;
+  --syntax-heading-h4: #a3e635;
+  --syntax-heading-h5: #34d399;
+  --syntax-heading-h6: #22d3ee;
+  --syntax-link: #8b5cf6;
+  --syntax-url: #8b5cf6;
+  --syntax-strikethrough: #94a3b8;
+  --syntax-monospace: #fca5a5;
+  --syntax-monospace-bg: #374151;
+  --syntax-atom: #34d399;
+  --syntax-bool: #fca5a5;
+  --syntax-regexp: #fca5a5;
+  --syntax-meta: #94a3b8;
+  --syntax-punctuation: #94a3b8;
+
+  /* === Inkdown Variables (Dark) === */
+  --inkdown-editor-bg: #0f172a;
+  --inkdown-editor-fg: #e6edf3;
+  --inkdown-editor-selection: #6366f133;
+  --inkdown-editor-cursor: #e6edf3;
+  --inkdown-editor-border: #30363d;
+  --inkdown-editor-line-number: #7d8590;
+  --inkdown-editor-active-line: #161b22;
+  --inkdown-editor-scrollbar: #30363d;
+
+  --inkdown-syntax-keyword: #a78bfa;
+  --inkdown-syntax-string: #34d399;
+  --inkdown-syntax-number: #fca5a5;
+  --inkdown-syntax-comment: #94a3b8;
+  --inkdown-syntax-strong: #f8fafc;
+  --inkdown-syntax-emphasis: #f3f4f6;
+  --inkdown-syntax-link: #8b5cf6;
+  --inkdown-syntax-url: #8b5cf6;
+  --inkdown-syntax-strikethrough: #94a3b8;
+  --inkdown-syntax-monospace: #fca5a5;
+  --inkdown-syntax-monospace-bg: #374151;
+
+  --inkdown-heading-h1: #f87171;
+  --inkdown-heading-h2: #fb923c;
+  --inkdown-heading-h3: #fbbf24;
+  --inkdown-heading-h4: #a3e635;
+  --inkdown-heading-h5: #34d399;
+  --inkdown-heading-h6: #22d3ee;
+
+  --inkdown-syntax-atom: #34d399;
+  --inkdown-syntax-bool: #fca5a5;
+  --inkdown-syntax-regexp: #fca5a5;
+  --inkdown-syntax-meta: #94a3b8;
+  --inkdown-syntax-punctuation: #94a3b8;
+  --inkdown-syntax-list: #94a3b8;
+  --inkdown-syntax-quote: #94a3b8;
+  --inkdown-syntax-separator: #94a3b8;
+}
+
+/* ==============================================
+   ESTILOS DE APLICAÇÃO
+   ============================================== */
+
+/* === Body === */
+body {
+  background-color: var(--theme-background);
+  color: var(--theme-foreground);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* === Editor Wrapper === */
+.editor-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 200px;
+}
+
+/* === CodeMirror Base === */
+.cm-editor,
+.cm-editor.cm-focused,
+.cm-content,
+.cm-scroller {
+  border: none !important;
+  outline: none !important;
+}
+
+.cm-editor {
+  height: 100%;
+  outline: none !important;
+  border: none !important;
+  background-color: var(--inkdown-editor-bg) !important;
+  color: var(--inkdown-editor-fg) !important;
+}
+
+.cm-theme-light .cm-editor,
+.cm-theme-dark .cm-editor {
+  background-color: var(--inkdown-editor-bg) !important;
+  color: var(--inkdown-editor-fg) !important;
+}
+
+/* === Editor Classes === */
+.inkdown-editor {
+  background-color: var(--inkdown-editor-bg);
+  color: var(--inkdown-editor-fg);
+  font-family: var(--inkdown-editor-font-family);
+  font-size: var(--inkdown-editor-font-size);
+  line-height: var(--inkdown-editor-line-height);
+  border: none;
+  outline: none;
+}
+
+.inkdown-editor-content {
+  padding: var(--inkdown-editor-padding);
+  caret-color: var(--inkdown-editor-cursor);
+  border: none;
+  outline: none;
+}
+
+/* === Seleção === */
+.cm-focused .cm-selectionBackground,
+.cm-editor ::selection {
+  background-color: var(--inkdown-editor-selection) !important;
+}
+
+/* === Cursor === */
+.cm-cursor {
+  border-left-color: var(--inkdown-editor-cursor) !important;
+}
+
+/* === Linha Ativa === */
+.cm-activeLine {
+  background-color: var(--inkdown-editor-active-line) !important;
+}
+
+/* === Números de Linha === */
+.cm-lineNumbers {
+  color: var(--inkdown-editor-line-number) !important;
+  background-color: var(--inkdown-editor-bg) !important;
+  border: none;
+}
+
+.cm-gutters {
+  background-color: var(--inkdown-editor-bg) !important;
+  color: var(--inkdown-editor-line-number) !important;
+  border: none !important;
+  border-right: none !important;
+}
+
+/* === Scrollbar === */
+.cm-scroller::-webkit-scrollbar {
+  width: var(--inkdown-scrollbar-width);
+  height: var(--inkdown-scrollbar-width);
+}
+
+.cm-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cm-scroller::-webkit-scrollbar-thumb {
+  background: var(--inkdown-editor-scrollbar);
+  border-radius: var(--inkdown-scrollbar-border-radius);
+}
+
+.cm-scroller::-webkit-scrollbar-thumb:hover {
+  opacity: 0.8;
+}
+
+/* === Syntax Highlighting === */
+.cm-header {
+  font-weight: var(--inkdown-heading-font-weight);
+  line-height: var(--inkdown-heading-line-height);
+}
+
+.cm-header1 { color: var(--inkdown-heading-h1) !important; font-size: var(--inkdown-heading-h1-size); }
+.cm-header2 { color: var(--inkdown-heading-h2) !important; font-size: var(--inkdown-heading-h2-size); }
+.cm-header3 { color: var(--inkdown-heading-h3) !important; font-size: var(--inkdown-heading-h3-size); }
+.cm-header4 { color: var(--inkdown-heading-h4) !important; font-size: var(--inkdown-heading-h4-size); }
+.cm-header5 { color: var(--inkdown-heading-h5) !important; font-size: var(--inkdown-heading-h5-size); }
+.cm-header6 { color: var(--inkdown-heading-h6) !important; font-size: var(--inkdown-heading-h6-size); }
+
+.cm-strong { color: var(--inkdown-syntax-strong) !important; font-weight: bold; }
+.cm-em { color: var(--inkdown-syntax-emphasis) !important; font-style: italic; }
+.cm-strikethrough { color: var(--inkdown-syntax-strikethrough) !important; text-decoration: line-through; }
+.cm-link { color: var(--inkdown-syntax-link) !important; text-decoration: underline; }
+.cm-url { color: var(--inkdown-syntax-url) !important; }
+
+.cm-inline-code {
+  color: var(--inkdown-syntax-monospace) !important;
+  background-color: var(--inkdown-syntax-monospace-bg) !important;
+  font-family: var(--inkdown-editor-mono-font-family);
+  font-size: var(--inkdown-code-font-size);
+  padding: var(--inkdown-code-padding);
+  border-radius: var(--inkdown-code-border-radius);
+}
+
+.cm-keyword { color: var(--inkdown-syntax-keyword) !important; font-weight: 500; }
+.cm-string { color: var(--inkdown-syntax-string) !important; }
+.cm-number { color: var(--inkdown-syntax-number) !important; }
+.cm-comment { color: var(--inkdown-syntax-comment) !important; font-style: italic; }
+.cm-atom { color: var(--inkdown-syntax-atom) !important; }
+.cm-bool { color: var(--inkdown-syntax-bool) !important; }
+.cm-regexp { color: var(--inkdown-syntax-regexp) !important; }
+.cm-meta { color: var(--inkdown-syntax-meta) !important; }
+.cm-punctuation { color: var(--inkdown-syntax-punctuation) !important; }
+.cm-list { color: var(--inkdown-syntax-list) !important; }
+.cm-quote { 
+  color: var(--inkdown-syntax-quote) !important; 
+  font-style: italic;
+  border-left: var(--inkdown-quote-border-width) solid var(--inkdown-syntax-quote);
+  padding-left: var(--inkdown-quote-padding-left);
+  margin-left: var(--inkdown-quote-margin-left);
+}
+.cm-hr { color: var(--inkdown-syntax-separator) !important; }
+
+/* === UI Components === */
+.theme-card {
+  background-color: var(--theme-background);
+  border: 1px solid var(--theme-border);
+  color: var(--theme-foreground);
+}
+
+.theme-button {
+  background-color: var(--theme-primary);
+  color: var(--theme-primary-foreground);
+  border: 1px solid var(--theme-primary);
+  transition: all 0.2s ease;
+}
+
+.theme-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.theme-button-secondary {
+  background-color: var(--theme-secondary);
+  color: var(--theme-secondary-foreground);
+  border: 1px solid var(--theme-border);
+}
+
+.theme-button-secondary:hover {
+  background-color: var(--theme-accent);
+}
+
+.theme-input {
+  background-color: var(--theme-input);
+  color: var(--theme-foreground);
+  border: 1px solid var(--theme-border);
+}
+
+.theme-input:focus {
+  outline: 2px solid var(--theme-ring);
+  outline-offset: 2px;
+}
+
+.theme-sidebar {
+  background-color: var(--theme-sidebar-background);
+  color: var(--theme-sidebar-foreground);
+  border-right: 1px solid var(--theme-sidebar-border);
+}
+
+.theme-sidebar-item {
+  color: var(--theme-sidebar-foreground);
+  transition: background-color 0.2s ease;
+}
+
+.theme-sidebar-item:hover {
+  background-color: var(--theme-sidebar-hover);
+}
+
+.theme-sidebar-item.active {
+  background-color: var(--theme-sidebar-active);
+  color: var(--theme-primary);
+}
+
+.theme-editor {
+  background-color: var(--theme-editor-background);
+  color: var(--theme-editor-foreground);
+  border: 1px solid var(--theme-editor-border);
+}
+
+.theme-file-tree {
+  background-color: var(--theme-sidebar-background);
+  color: var(--theme-sidebar-foreground);
+}
+
+.theme-file-tree-item {
+  color: var(--theme-sidebar-foreground);
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.theme-file-tree-item:hover {
+  background-color: var(--theme-sidebar-hover);
+}
+
+.theme-file-tree-item.selected {
+  background-color: var(--theme-primary);
+  color: var(--theme-primary-foreground);
+}
+
+.theme-file-tree-item.directory {
+  font-weight: 500;
+}
+
+.theme-file-tree-item.file {
+  font-weight: 400;
+}
+
+.theme-status-bar {
+  background-color: var(--theme-sidebar-background);
+  color: var(--theme-sidebar-foreground);
+  border-top: 1px solid var(--theme-sidebar-border);
+}
+
+.theme-tooltip {
+  background-color: var(--theme-muted);
+  color: var(--theme-muted-foreground);
+  border: 1px solid var(--theme-border);
+}
+
+.theme-dialog {
+  background-color: var(--theme-background);
+  color: var(--theme-foreground);
+  border: 1px solid var(--theme-border);
+}
+
+.theme-dialog-overlay {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.theme-menu {
+  background-color: var(--theme-background);
+  color: var(--theme-foreground);
+  border: 1px solid var(--theme-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.theme-menu-item {
+  color: var(--theme-foreground);
+  transition: background-color 0.2s ease;
+}
+
+.theme-menu-item:hover {
+  background-color: var(--theme-accent);
+}
+
+.theme-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.theme-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.theme-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--theme-border);
+  border-radius: 4px;
+}
+
+.theme-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-muted-foreground);
+}
+
+.theme-transition {
+  transition: all 0.2s ease;
+}
+
+.theme-fade-in {
+  animation: themeVFadeIn 0.2s ease-out;
+}
+
+@keyframes themeVFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.theme-text-primary {
+  color: var(--theme-primary);
+}
+
+.theme-text-muted {
+  color: var(--theme-muted-foreground);
+}
+
+.theme-bg-primary {
+  background-color: var(--theme-primary);
+}
+
+.theme-bg-secondary {
+  background-color: var(--theme-secondary);
+}
+
+.theme-border {
+  border-color: var(--theme-border);
+}
+
+.theme-focus-ring:focus {
+  outline: 2px solid var(--theme-ring);
+  outline-offset: 2px;
+}
+
+.theme-loading {
+  background: linear-gradient(
+    90deg,
+    var(--theme-muted) 25%,
+    var(--theme-accent) 50%,
+    var(--theme-muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: themeLoadingShimmer 2s infinite;
+}
+
+@keyframes themeLoadingShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* === Preview Container === */
+.preview-container {
+  padding: 16px;
+  overflow-y: auto;
+  font-family: var(--inkdown-editor-font-family);
+  font-size: var(--inkdown-editor-font-size);
+  line-height: var(--inkdown-editor-line-height);
+  background-color: var(--inkdown-editor-bg);
+  color: var(--inkdown-editor-fg);
+}
+
+.preview-container h1,
+.preview-container h2,
+.preview-container h3,
+.preview-container h4,
+.preview-container h5,
+.preview-container h6 {
+  font-weight: var(--inkdown-heading-font-weight);
+  line-height: var(--inkdown-heading-line-height);
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+
+.preview-container h1 {
+  font-size: var(--inkdown-heading-h1-size);
+  color: var(--inkdown-heading-h1);
+  border-bottom: 1px solid var(--inkdown-editor-border);
+  padding-bottom: 8px;
+}
+
+.preview-container h2 { font-size: var(--inkdown-heading-h2-size); color: var(--inkdown-heading-h2); }
+.preview-container h3 { font-size: var(--inkdown-heading-h3-size); color: var(--inkdown-heading-h3); }
+.preview-container h4 { font-size: var(--inkdown-heading-h4-size); color: var(--inkdown-heading-h4); }
+.preview-container h5 { font-size: var(--inkdown-heading-h5-size); color: var(--inkdown-heading-h5); }
+.preview-container h6 { font-size: var(--inkdown-heading-h6-size); color: var(--inkdown-heading-h6); }
+
+.preview-container p {
+  margin-bottom: 16px;
+}
+
+.preview-container code {
+  background: var(--inkdown-syntax-monospace-bg);
+  color: var(--inkdown-syntax-monospace);
+  padding: var(--inkdown-code-padding);
+  border-radius: var(--inkdown-code-border-radius);
+  font-family: var(--inkdown-editor-mono-font-family);
+  font-size: var(--inkdown-code-font-size);
+}
+
+.preview-container pre {
+  background: var(--inkdown-syntax-monospace-bg);
+  color: var(--inkdown-syntax-monospace);
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.preview-container pre code {
+  background: none;
+  padding: 0;
+}
+
+.preview-container blockquote {
+  border-left: var(--inkdown-quote-border-width) solid var(--inkdown-syntax-quote);
+  padding-left: var(--inkdown-quote-padding-left);
+  margin: 16px 0;
+  color: var(--inkdown-syntax-quote);
+  font-style: italic;
+}
+
+.preview-container ul,
+.preview-container ol {
+  padding-left: 24px;
+  margin: 16px 0;
+}
+
+.preview-container li {
+  margin: 4px 0;
+}
+
+.preview-container a {
+  color: var(--inkdown-syntax-link);
+  text-decoration: underline;
+}
+
+.preview-container a:hover {
+  opacity: 0.8;
+}
+
+.preview-container table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+}
+
+.preview-container th,
+.preview-container td {
+  border: 1px solid var(--inkdown-editor-border);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.preview-container th {
+  background: var(--inkdown-syntax-monospace-bg);
+  font-weight: 600;
+}
+
+.preview-container hr {
+  border: none;
+  border-top: 1px solid var(--inkdown-editor-border);
+  margin: 24px 0;
+}
+
+.preview-container::-webkit-scrollbar {
+  width: var(--inkdown-scrollbar-width);
+}
+
+.preview-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.preview-container::-webkit-scrollbar-thumb {
+  background: var(--inkdown-editor-scrollbar);
+  border-radius: var(--inkdown-scrollbar-border-radius);
+}
+
+.preview-container::-webkit-scrollbar-thumb:hover {
+  opacity: 0.8;
+}

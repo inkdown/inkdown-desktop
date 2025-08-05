@@ -7,8 +7,20 @@ interface SidebarResizerProps {
 export const SidebarResizer = memo(function SidebarResizer({ onMouseDown }: SidebarResizerProps) {
   return (
     <div
-      className="w-1 bg-gray-200 hover:bg-gray-300 cursor-ew-resize transition-colors"
+      className="w-1 cursor-ew-resize transition-colors"
+      style={{
+        backgroundColor: 'var(--theme-border)',
+        ':hover': {
+          backgroundColor: 'var(--theme-sidebar-hover)'
+        }
+      }}
       onMouseDown={onMouseDown}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = 'var(--theme-sidebar-hover)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = 'var(--theme-border)';
+      }}
     />
   );
 });

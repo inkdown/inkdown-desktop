@@ -1,8 +1,8 @@
-import { useRef, forwardRef, useImperativeHandle, useMemo, useEffect, useCallback } from 'react';
+import { useRef, forwardRef, useImperativeHandle, useMemo, useEffect } from 'react';
 import { Editor, EditorConfig, EditorStateInfo } from './core/Editor';
 import { MarkdownPreview } from './preview/MarkdownPreview';
-import { useTheme } from '../../contexts/ThemeContext';
-import './styles/editor.simple.css';
+import { useSimpleTheme } from '../../contexts/SimpleThemeContext';
+import '../../styles/unified-theme.css';
 
 export interface EditorComponentProps {
   initialContent?: string;
@@ -12,6 +12,8 @@ export interface EditorComponentProps {
   showPreview?: boolean;
   showLineNumbers?: boolean;
   highlightCurrentLine?: boolean;
+  fontSize?: number;
+  fontFamily?: string;
   className?: string;
   onContentChange?: (content: string) => void;
   onStateChange?: (state: EditorStateInfo) => void;
@@ -33,79 +35,96 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
   showPreview = false,
   showLineNumbers = true,
   highlightCurrentLine = true,
+  fontSize,
+  fontFamily,
   className = '',
   onContentChange,
   onStateChange,
   onSave,
   onError,
 }, ref) => {
-  const { currentTheme } = useTheme();
+  const { effectiveTheme } = useSimpleTheme();
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Editor | null>(null);
   const previewRef = useRef<MarkdownPreview | null>(null);
+  const isInitialized = useRef(false);
   
-  const effectiveTheme: 'light' | 'dark' = currentTheme.mode === 'auto' 
-    ? (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-    : (currentTheme.mode as 'light' | 'dark');
+  const finalTheme: 'light' | 'dark' = themeName || effectiveTheme;
 
-  const initializeEditor = useCallback(() => {
-    if (!editorContainerRef.current || editorRef.current) return;
+  const initializeEditor = () => {
+    if (!editorContainerRef.current || isInitialized.current) return;
 
     try {
       const config: EditorConfig = {
         container: editorContainerRef.current,
         content: initialContent,
         readOnly,
-        theme: effectiveTheme,
+        theme: finalTheme,
         markdown: true,
         vim: plugins.includes('vim'),
         showLineNumbers,
         highlightCurrentLine,
+        fontSize,
+        fontFamily,
       };
 
       editorRef.current = new Editor(config);
 
-      const handleChange = (state: EditorStateInfo) => {
+      editorRef.current.on('change', (state: EditorStateInfo) => {
         onStateChange?.(state);
         onContentChange?.(state.content);
-      };
-
-      editorRef.current.on('change', handleChange);
+      });
 
       if (showPreview && previewContainerRef.current) {
         previewRef.current = new MarkdownPreview({
           container: previewContainerRef.current,
-          theme: effectiveTheme,
+          theme: finalTheme,
         });
         previewRef.current.connectToEditor(editorRef.current);
       }
 
+      isInitialized.current = true;
+
     } catch (error) {
       onError?.(error as Error);
     }
-  }, [effectiveTheme, readOnly, showPreview, showLineNumbers, highlightCurrentLine, plugins, onStateChange, onContentChange, onError]);
-
-  const cleanup = useCallback(() => {
-    editorRef.current?.destroy();
-    previewRef.current?.destroy();
-    editorRef.current = null;
-    previewRef.current = null;
-  }, []);
+  };
 
   useEffect(() => {
     initializeEditor();
-    return cleanup;
-  }, [initializeEditor, cleanup]);
+    
+    return () => {
+      if (editorRef.current) {
+        editorRef.current.destroy();
+        editorRef.current = null;
+      }
+      if (previewRef.current) {
+        previewRef.current.destroy();
+        previewRef.current = null;
+      }
+      isInitialized.current = false;
+    };
+  }, []);
 
   useEffect(() => {
-    if (editorRef.current) {
-      editorRef.current.updateTheme(effectiveTheme);
+    if (editorRef.current && isInitialized.current) {
+      editorRef.current.updateTheme(finalTheme);
     }
     if (previewRef.current) {
-      previewRef.current.setTheme(effectiveTheme);
+      previewRef.current.setTheme(finalTheme);
     }
-  }, [effectiveTheme]);
+  }, [finalTheme]);
+
+  useEffect(() => {
+    if (editorRef.current && isInitialized.current) {
+      const currentContent = editorRef.current.getContent();
+      if (initialContent !== currentContent) {
+        editorRef.current.setContent(initialContent);
+      }
+    }
+  }, [initialContent]);
+
 
   useImperativeHandle(ref, () => ({
     getContent: () => editorRef.current?.getContent() || '',
@@ -118,8 +137,8 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
     gridTemplateColumns: showPreview ? '1fr 1fr' : '1fr',
     minHeight: '200px',
     gap: showPreview ? '1px' : '0',
-    backgroundColor: currentTheme.colors.border,
-  }), [showPreview, currentTheme.colors.border]);
+    backgroundColor: 'var(--theme-border)',
+  }), [showPreview]);
 
 
   return (
@@ -127,8 +146,8 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
       <div style={layoutStyle}>
         <div
           ref={editorContainerRef}
-          className={`editor-container cm-theme-${effectiveTheme}`}
-          style={{ backgroundColor: 'var(--theme-background)' }}
+          className={`editor-container inkdown-editor cm-theme-${finalTheme}`}
+          style={{ backgroundColor: 'var(--inkdown-editor-bg)' }}
         />
         {showPreview && (
           <div

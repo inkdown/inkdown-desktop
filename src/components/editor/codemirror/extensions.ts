@@ -5,8 +5,13 @@ import { markdown } from '@codemirror/lang-markdown';
 import { vim } from '@replit/codemirror-vim';
 import { createInkdownTheme } from './theme';
 
+interface FontConfig {
+  fontSize?: number;
+  fontFamily?: string;
+}
+
 export class ExtensionsFactory {
-  static getBasicExtensions(): Extension[] {
+  static getBasicExtensions(fontConfig?: FontConfig): Extension[] {
     return [
       history(),
       keymap.of([
@@ -15,8 +20,8 @@ export class ExtensionsFactory {
       ]),
       EditorView.theme({
         '&': {
-          fontSize: '14px',
-          fontFamily: '"SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace',
+          fontSize: fontConfig?.fontSize ? `${fontConfig.fontSize}px` : 'var(--inkdown-editor-font-size)',
+          fontFamily: fontConfig?.fontFamily || 'var(--inkdown-editor-font-family)',
         },
         '.cm-content': {
           padding: '16px',
@@ -61,10 +66,12 @@ export class ExtensionsFactory {
     showLineNumbers?: boolean;
     highlightCurrentLine?: boolean;
     theme?: 'light' | 'dark';
+    fontSize?: number;
+    fontFamily?: string;
     customExtensions?: Extension[];
   }): Extension[] {
     const extensions: Extension[] = [
-      ...this.getBasicExtensions(),
+      ...this.getBasicExtensions({ fontSize: config.fontSize, fontFamily: config.fontFamily }),
     ];
     
     if (config.theme) {

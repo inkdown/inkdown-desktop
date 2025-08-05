@@ -5,14 +5,14 @@ import App from "./App";
 import { DirectoryProvider } from "./contexts/DirectoryContext";
 import { EditingProvider } from "./contexts/EditingContext";
 import { AppearanceProvider } from "./contexts/AppearanceContext";
-import { ThemeProvider } from "./contexts/ThemeContext";
+import { SimpleThemeProvider } from "./contexts/SimpleThemeContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
-        <ThemeProvider>
+        <SimpleThemeProvider>
           <AppearanceProvider>
             <DirectoryProvider>
               <EditingProvider>
@@ -20,7 +20,7 @@ createRoot(document.getElementById("root") as HTMLElement).render(
               </EditingProvider>
             </DirectoryProvider>
           </AppearanceProvider>
-        </ThemeProvider>
+        </SimpleThemeProvider>
       </BrowserRouter>
     </ErrorBoundary>
   </React.StrictMode>,

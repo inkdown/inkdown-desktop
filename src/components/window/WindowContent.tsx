@@ -1,8 +1,11 @@
 import { memo, useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { Settings } from 'lucide-react';
 import { EditorComponent, EditorComponentHandle } from '../editor/EditorComponent';
 import { EditableTitle } from '../editor/EditableTitle';
+import { SettingsModal } from '../settings';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useConfigManager } from '../../hooks/useConfigManager';
 
 interface WindowContentProps {
   selectedFile: string;
@@ -10,13 +13,14 @@ interface WindowContentProps {
 
 export const WindowContent = memo(function WindowContent({ selectedFile }: WindowContentProps) {
   const { currentTheme } = useTheme();
+  const { workspaceConfig, appearanceConfig } = useConfigManager();
   const [fileContent, setFileContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const editorRef = useRef<EditorComponentHandle>(null);
 
-  // Load file content using Tauri
   const loadFileContent = useCallback(async (filePath: string) => {
     if (!filePath) return;
     
@@ -36,7 +40,6 @@ export const WindowContent = memo(function WindowContent({ selectedFile }: Windo
     }
   }, []);
 
-  // Save file content using Tauri
   const saveFileContent = useCallback(async (filePath: string, content: string) => {
     try {
       await invoke('write_file', { path: filePath, content });
@@ -56,20 +59,22 @@ export const WindowContent = memo(function WindowContent({ selectedFile }: Windo
   }, [selectedFile, loadFileContent]);
 
   // Handle content changes
-  const handleContentChange = useCallback((_content: string) => {
-    // Não atualizar fileContent para evitar re-renders desnecessários
-    // setFileContent(content); // REMOVIDO - causava re-render
+  const handleContentChange = useCallback((content: string) => {
+    setFileContent(content);
     setIsModified(true);
     setError(null);
   }, []);
 
   // Handle save
   const handleSave = useCallback(async (content: string) => {
+    if (!selectedFile) return;
+    
     try {
       const success = await saveFileContent(selectedFile, content);
       if (success) {
+        setFileContent(content);
         setIsModified(false);
-        // IMPORTANTE: Não recarregar o arquivo após salvar para evitar perder o conteúdo do editor
+        setError(null);
       }
     } catch (error) {
       console.error('Error in handleSave:', error);
@@ -165,7 +170,7 @@ export const WindowContent = memo(function WindowContent({ selectedFile }: Windo
       )}
       
       {/* Título editável */}
-      <div className="px-4 py-3 theme-border" style={{ 
+      <div className="px-4 py-3 theme-border flex items-center justify-between" style={{ 
         borderBottom: `1px solid ${currentTheme.colors.border}`,
         backgroundColor: currentTheme.colors.muted
       }}>
@@ -174,26 +179,40 @@ export const WindowContent = memo(function WindowContent({ selectedFile }: Windo
           onFilePathChange={handleFilePathChange}
           className="text-xl font-semibold theme-text-primary"
         />
+        <button
+          onClick={() => setIsSettingsOpen(true)}
+          className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+          title="Configurações"
+        >
+          <Settings size={16} className="text-gray-500 dark:text-gray-400" />
+        </button>
       </div>
 
       {/* Editor */}
       <div className="theme-editor">
         <EditorComponent
         ref={editorRef}
-        key={selectedFile}
         initialContent={fileContent}
-        themeName={currentTheme.mode === 'auto' 
+        themeName={appearanceConfig.theme === 'auto' 
           ? (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-          : (currentTheme.mode as 'light' | 'dark')}
-        plugins={['vim']}
+          : (appearanceConfig.theme as 'light' | 'dark')}
+        plugins={workspaceConfig.vimMode ? ['vim'] : []}
         showPreview={false}
-        showLineNumbers={true}
-        highlightCurrentLine={true}
+        showLineNumbers={workspaceConfig.showLineNumbers ?? true}
+        highlightCurrentLine={workspaceConfig.highlightCurrentLine ?? true}
+        readOnly={workspaceConfig.readOnly ?? false}
+        fontSize={appearanceConfig['font-size']}
+        fontFamily={appearanceConfig['font-family']}
         onContentChange={handleContentChange}
         onSave={handleSave}
         onError={handleError}
       />
       </div>
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   );
 });

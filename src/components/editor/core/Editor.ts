@@ -1,5 +1,5 @@
 import { EditorView } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
+import { EditorState, StateEffect } from '@codemirror/state';
 import { ExtensionsFactory } from '../codemirror/extensions';
 import { EventEmitter } from '../utils/EventEmitter';
 
@@ -12,6 +12,8 @@ export interface EditorConfig {
   vim?: boolean;
   showLineNumbers?: boolean;
   highlightCurrentLine?: boolean;
+  fontSize?: number;
+  fontFamily?: string;
 }
 
 export interface EditorStateInfo {
@@ -58,6 +60,8 @@ export class Editor extends EventEmitter {
       showLineNumbers: this.config.showLineNumbers !== false,
       highlightCurrentLine: this.config.highlightCurrentLine !== false,
       theme: this.config.theme || 'light',
+      fontSize: this.config.fontSize,
+      fontFamily: this.config.fontFamily,
     });
 
     const state = EditorState.create({
@@ -123,6 +127,8 @@ export class Editor extends EventEmitter {
   }
 
   public setContent(content: string): void {
+    if (this.getContent() === content) return;
+    
     this.view.dispatch({
       changes: {
         from: 0,
@@ -133,7 +139,6 @@ export class Editor extends EventEmitter {
     
     this.lastContent = content;
     this.isModified = false;
-    this.emit('change', this.getState());
   }
 
   public getState(): EditorStateInfo {
@@ -182,10 +187,23 @@ export class Editor extends EventEmitter {
   }
 
   public updateTheme(theme: 'light' | 'dark'): void {
+    if (this.config.theme === theme) return;
+    
     this.config.theme = theme;
     this.applyTheme();
-    const currentContent = this.getContent();
-    this.createEditor();
-    this.setContent(currentContent);
+    
+    const extensions = ExtensionsFactory.buildExtensions({
+      markdown: this.config.markdown !== false,
+      vim: this.config.vim || false,
+      showLineNumbers: this.config.showLineNumbers !== false,
+      highlightCurrentLine: this.config.highlightCurrentLine !== false,
+      theme: theme,
+      fontSize: this.config.fontSize,
+      fontFamily: this.config.fontFamily,
+    });
+    
+    this.view.dispatch({
+      effects: StateEffect.reconfigure.of(extensions)
+    });
   }
 }

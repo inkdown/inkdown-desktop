@@ -20,9 +20,6 @@ export function WorkspacePage() {
   if (!fileTree || !currentDirectory) {
     return (
       <div className="h-screen flex items-center justify-center theme-card relative">
-        <div className="absolute top-4 right-4">
-          <ThemeToggle />
-        </div>
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--theme-foreground)' }}>
             Nenhum diretório selecionado
@@ -43,10 +40,6 @@ export function WorkspacePage() {
 
   return (
     <div className="h-screen flex theme-card relative">
-      {/* Theme Toggle positioned in top right */}
-      <div className="absolute top-4 right-4 z-50">
-        <ThemeToggle />
-      </div>
       
       <Sidebar
         width={sidebarWidth}

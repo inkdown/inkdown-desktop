@@ -8,6 +8,8 @@ interface MainWindowProps {
 }
 
 export const MainWindow = memo(function MainWindow({ selectedFile }: MainWindowProps) {
+  useThemeSync();
+
   return (
     <div className="flex-1 flex flex-col min-w-0">
       {selectedFile ? (
