@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { FolderPlus, FileText, Edit, Trash2 } from 'lucide-react';
 import { useAppearance } from '../../../contexts/AppearanceContext';
 
@@ -50,6 +50,45 @@ export function ContextMenu({
     };
   }, [onClose]);
 
+  const menuItems = useMemo(() => {
+    const items = [];
+    
+    // Add folder/file creation options for directories
+    if (isDirectory) {
+      items.push({
+        icon: <FolderPlus size={16} />,
+        label: 'Nova Pasta',
+        onClick: onCreateFolder
+      });
+      items.push({
+        icon: <FileText size={16} />,
+        label: 'Nova Nota',
+        onClick: onCreateFile
+      });
+    }
+    
+    // Add rename option (not for root directories)
+    if (onRename && !isRootDirectory) {
+      items.push({
+        icon: <Edit size={16} />,
+        label: 'Renomear',
+        onClick: onRename
+      });
+    }
+    
+    // Add delete option (not for root directories)
+    if (onDelete && !isRootDirectory) {
+      items.push({
+        icon: <Trash2 size={16} />,
+        label: 'Excluir',
+        onClick: onDelete,
+        isDangerous: true
+      });
+    }
+    
+    return items;
+  }, [isDirectory, isRootDirectory, onCreateFolder, onCreateFile, onRename, onDelete]);
+
   useEffect(() => {
     if (menuRef.current) {
       const rect = menuRef.current.getBoundingClientRect();
@@ -60,11 +99,11 @@ export function ContextMenu({
       let adjustedY = y;
 
       if (x + rect.width > viewportWidth) {
-        adjustedX = viewportWidth - rect.width - 10;
+        adjustedX = Math.max(10, viewportWidth - rect.width - 10);
       }
 
       if (y + rect.height > viewportHeight) {
-        adjustedY = viewportHeight - rect.height - 10;
+        adjustedY = Math.max(10, viewportHeight - rect.height - 10);
       }
 
       menuRef.current.style.left = `${adjustedX}px`;
@@ -72,45 +111,22 @@ export function ContextMenu({
     }
   }, [x, y]);
 
-  const menuItems = [
-    ...(isDirectory ? [
-      {
-        icon: <FolderPlus size={16} />,
-        label: 'Nova Pasta',
-        onClick: onCreateFolder
-      },
-      {
-        icon: <FileText size={16} />,
-        label: 'Nova Nota',
-        onClick: onCreateFile
-      }
-    ] : []),
-    ...(!isRootDirectory && onRename ? [
-      {
-        icon: <Edit size={16} />,
-        label: 'Renomear',
-        onClick: onRename
-      }
-    ] : []),
-    ...(!isRootDirectory && onDelete ? [
-      {
-        icon: <Trash2 size={16} />,
-        label: 'Excluir',
-        onClick: onDelete,
-        isDangerous: true
-      }
-    ] : [])
-  ];
+  // Always render if we have at least one item
+  if (menuItems.length === 0) {
+    return null;
+  }
 
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 rounded-lg shadow-lg py-1 min-w-36"
+      className="fixed z-50 rounded-lg shadow-lg py-1"
       style={{ 
         left: x, 
         top: y,
         backgroundColor: currentTheme.background,
-        border: `1px solid ${currentTheme.border}`
+        border: `1px solid ${currentTheme.border}`,
+        minWidth: '160px',
+        width: 'max-content'
       }}
     >
       {menuItems.map((item, index) => (
@@ -120,7 +136,7 @@ export function ContextMenu({
             item.onClick();
             onClose();
           }}
-          className="w-full flex items-center px-3 py-2 text-sm text-left transition-colors"
+          className="w-full flex items-center px-4 py-2 text-sm text-left transition-colors whitespace-nowrap"
           style={{
             color: (item as any).isDangerous ? currentTheme.destructive : currentTheme.foreground
           }}

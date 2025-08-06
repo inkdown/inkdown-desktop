@@ -1,15 +1,12 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useDirectory } from "../contexts/DirectoryContext";
-import { useOptimizedNavigation } from "../hooks/useOptimizedNavigation";
-import { ThemeToggle } from "../components/ui/ThemeToggle";
 
 export default function HomePage() {
   const [showOfflineOptions, setShowOfflineOptions] = useState(false);
   const { setDirectory, isLoading, error, currentDirectory, initializeWorkspace } = useDirectory();
-  const { handleMouseEnter } = useOptimizedNavigation();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -53,11 +50,6 @@ export default function HomePage() {
   if (showOfflineOptions) {
     return (
       <main className="theme-card w-full h-[100vh] flex flex-col items-center justify-center space-y-8 relative">
-        {/* Theme Toggle - Positioned at top right */}
-        <div className="absolute top-4 right-4">
-          <ThemeToggle />
-        </div>
-        
         <div className="text-center space-y-4">
           <h2 className="text-2xl font-bold theme-text-primary">Modo Offline</h2>
           <p className="text-lg max-w-md text-center theme-text-muted">
@@ -105,11 +97,6 @@ export default function HomePage() {
 
   return (
     <main className="theme-card w-full h-[100vh] flex flex-col items-center justify-center space-y-8 relative">
-      {/* Theme Toggle - Positioned at top right */}
-      <div className="absolute top-4 right-4">
-        <ThemeToggle />
-      </div>
-      
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold">
           Bem-vindo ao <span className="theme-text-primary">inkdown</span>
@@ -160,17 +147,6 @@ export default function HomePage() {
       <p className="text-xs theme-text-muted text-center max-w-md">
         No modo offline, suas anotações ficam salvas localmente em seu computador
       </p>
-
-      {/* Link para benchmark */}
-      <div className="mt-8">
-        <Link
-          to="/bench"
-          onMouseEnter={() => handleMouseEnter('/bench')}
-          className="text-xs text-zinc-400 hover:text-zinc-600 underline"
-        >
-          Performance Benchmark
-        </Link>
-      </div>
     </main>
   );
 }

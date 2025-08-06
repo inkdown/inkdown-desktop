@@ -6,9 +6,10 @@ import { useAppearance } from '../../contexts/AppearanceContext';
 
 interface WindowContentProps {
   selectedFile: string;
+  onFilePathChange?: (newPath: string) => void;
 }
 
-export const WindowContent = memo(function WindowContent({ selectedFile }: WindowContentProps) {
+export const WindowContent = memo(function WindowContent({ selectedFile, onFilePathChange }: WindowContentProps) {
   const { currentTheme, themeMode } = useAppearance();
   const [fileContent, setFileContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -78,8 +79,9 @@ export const WindowContent = memo(function WindowContent({ selectedFile }: Windo
     setError(error.message);
   }, []);
 
-  const handleFilePathChange = useCallback((_: string) => {
-  }, []);
+  const handleFilePathChange = useCallback((newPath: string) => {
+    onFilePathChange?.(newPath);
+  }, [onFilePathChange]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

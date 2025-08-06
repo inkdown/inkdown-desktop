@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { SettingsSidebar } from './SettingsSidebar';
+import { WorkspaceSettings } from './sections/WorkspaceSettings';
 import { AppearanceSettings } from './sections/AppearanceSettings';
 import { EditorSettings } from './sections/EditorSettings';
 import { PreferencesSettings } from './sections/PreferencesSettings';
 import { useAppearance } from '../../contexts/AppearanceContext';
 
-export type SettingsSection = 'appearance' | 'editor' | 'preferences';
+export type SettingsSection = 'workspace' | 'appearance' | 'editor' | 'preferences';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -14,7 +15,7 @@ interface SettingsModalProps {
   initialSection?: SettingsSection;
 }
 
-export function SettingsModal({ isOpen, onClose, initialSection = 'appearance' }: SettingsModalProps) {
+export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }: SettingsModalProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
   const { currentTheme } = useAppearance();
 
@@ -22,6 +23,8 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'appearance' }
 
   const renderSection = () => {
     switch (activeSection) {
+      case 'workspace':
+        return <WorkspaceSettings />;
       case 'appearance':
         return <AppearanceSettings />;
       case 'editor':
@@ -29,7 +32,7 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'appearance' }
       case 'preferences':
         return <PreferencesSettings />;
       default:
-        return <AppearanceSettings />;
+        return <WorkspaceSettings />;
     }
   };
 

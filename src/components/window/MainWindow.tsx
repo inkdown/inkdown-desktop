@@ -5,16 +5,17 @@ import { useAppearance } from '../../contexts/AppearanceContext';
 
 interface MainWindowProps {
   selectedFile: string | null;
+  onFilePathChange?: (newPath: string) => void;
 }
 
-export const MainWindow = memo(function MainWindow({ selectedFile }: MainWindowProps) {
+export const MainWindow = memo(function MainWindow({ selectedFile, onFilePathChange }: MainWindowProps) {
   useAppearance(); // Inicializa o provider
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
       {selectedFile ? (
         <div className="h-full flex flex-col">
-          <WindowContent selectedFile={selectedFile} />
+          <WindowContent selectedFile={selectedFile} onFilePathChange={onFilePathChange} />
         </div>
       ) : (
         <WelcomeScreen />

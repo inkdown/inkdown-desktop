@@ -1,7 +1,6 @@
 import { EditorView } from '@codemirror/view';
 import { EditorState, StateEffect } from '@codemirror/state';
 import { ExtensionsFactory } from '../codemirror/extensions';
-import { EventEmitter } from '../utils/EventEmitter';
 
 export interface EditorConfig {
   container: HTMLElement;
@@ -14,6 +13,8 @@ export interface EditorConfig {
   highlightCurrentLine?: boolean;
   fontSize?: number;
   fontFamily?: string;
+  onChange?: (state: EditorStateInfo) => void;
+  onCursor?: (cursor: { line: number; column: number }) => void;
 }
 
 export interface EditorStateInfo {
@@ -30,7 +31,7 @@ export interface EditorStateInfo {
   totalLines: number;
 }
 
-export class Editor extends EventEmitter {
+export class Editor {
   private container: HTMLElement;
   private view!: EditorView;
   private config: EditorConfig;
@@ -39,7 +40,6 @@ export class Editor extends EventEmitter {
   private debounceTimer?: number;
 
   constructor(config: EditorConfig) {
-    super();
     this.config = config;
     this.container = config.container;
     this.lastContent = config.content || '';
@@ -48,7 +48,6 @@ export class Editor extends EventEmitter {
 
   private initialize(): void {
     this.createEditor();
-    this.emit('initialized');
   }
 
   private createEditor(): void {
@@ -108,7 +107,7 @@ export class Editor extends EventEmitter {
     if (content !== this.lastContent) {
       this.lastContent = content;
       this.isModified = true;
-      this.emit('change', this.getState());
+      this.config.onChange?.(this.getState());
     }
   }
 
@@ -119,7 +118,7 @@ export class Editor extends EventEmitter {
     const lineNumber = line.number - 1;
     const column = selection.head - line.from;
     
-    this.emit('cursor', { line: lineNumber, column });
+    this.config.onCursor?.({ line: lineNumber, column });
   }
 
   public getContent(): string {
@@ -183,7 +182,6 @@ export class Editor extends EventEmitter {
       clearTimeout(this.debounceTimer);
     }
     this.view.destroy();
-    this.removeAllListeners();
   }
 
   public isReady(): boolean {

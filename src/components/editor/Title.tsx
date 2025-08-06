@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useDirectory } from '../../contexts/DirectoryContext';
+import { useAppearance } from '../../contexts/AppearanceContext';
 
 interface TitleProps {
   filePath: string;
@@ -14,13 +15,17 @@ export const Title: React.FC<TitleProps> = ({
   className = '' 
 }) => {
   const { refreshFileTree } = useDirectory();
+  const { currentTheme } = useAppearance();
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const originalTitle = useRef('');
+  const currentFilePath = useRef('');
 
   const extractTitle = useCallback((path: string) => {
-    const filename = path.split('/').pop() || path.split('\\').pop() || '';
+    // Remove windows and unix separator stuff from the title. 
+    const normalizedPath = path.replace(/\\/g, '/');
+    const filename = normalizedPath.split('/').pop() || '';
     const lastDotIndex = filename.lastIndexOf('.');
     return lastDotIndex > 0 ? filename.substring(0, lastDotIndex) : filename;
   }, []);
@@ -29,17 +34,22 @@ export const Title: React.FC<TitleProps> = ({
     const extractedTitle = extractTitle(filePath);
     setTitle(extractedTitle);
     originalTitle.current = extractedTitle;
+    currentFilePath.current = filePath;
   }, [filePath, extractTitle]);
 
-  const handleDoubleClick = useCallback(() => {
-    setIsEditing(true);
-    originalTitle.current = title;
-  }, [title]);
+  const handleClick = useCallback(() => {
+    if (!isEditing) {
+      setIsEditing(true);
+      originalTitle.current = title;
+      currentFilePath.current = filePath;
+    }
+  }, [title, isEditing, filePath]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
-      inputRef.current.select();
+      const length = inputRef.current.value.length;
+      inputRef.current.setSelectionRange(length, length);
     }
   }, [isEditing]);
 
@@ -58,7 +68,7 @@ export const Title: React.FC<TitleProps> = ({
 
     try {
       const newPath = await invoke<string>('rename_file', {
-        oldPath: filePath,
+        oldPath: currentFilePath.current,
         newName: trimmedTitle
       });
 
@@ -74,7 +84,7 @@ export const Title: React.FC<TitleProps> = ({
       setIsEditing(false);
       alert(`Failed to rename file: ${error}`);
     }
-  }, [title, filePath, onFilePathChange, refreshFileTree]);
+  }, [title, onFilePathChange, refreshFileTree]);
 
   const handleCancel = useCallback(() => {
     setTitle(originalTitle.current);
@@ -95,51 +105,49 @@ export const Title: React.FC<TitleProps> = ({
     handleSave();
   }, [handleSave]);
 
-  if (isEditing) {
-    return (
-      <input
-        ref={inputRef}
-        type="text"
-        value={title}
-        onChange={handleInputChange}
-        onKeyDown={handleKeyDown}
-        onBlur={handleBlur}
-        className={`editable-title-input ${className}`}
-        style={{
-          background: 'transparent',
-          border: '1px solid #ccc',
-          borderRadius: '4px',
-          padding: '4px 8px',
-          fontSize: 'inherit',
-          fontWeight: 'inherit',
-          fontFamily: 'inherit',
-          outline: 'none',
-          minWidth: '200px',
-        }}
-      />
-    );
-  }
-
   return (
-    <h1
-      onDoubleClick={handleDoubleClick}
+    <input
+      ref={inputRef}
+      type="text"
+      value={title}
+      readOnly={!isEditing}
+      onChange={handleInputChange}
+      onKeyDown={handleKeyDown}
+      onBlur={isEditing ? handleBlur : undefined}
+      onClick={handleClick}
       className={`editable-title ${className}`}
+      title={isEditing ? undefined : "Click to edit"}
       style={{
-        cursor: 'pointer',
+        background: 'transparent',
+        border: 'none',
         margin: 0,
         padding: '4px 8px',
         borderRadius: '4px',
-        transition: 'background-color 0.2s',
+        outline: 'none',
+        cursor: isEditing ? 'text' : 'pointer',
+        fontSize: '1.5rem',
+        fontWeight: 'bold',
+        lineHeight: '2rem',
+        color: currentTheme.primary,
+        width: '100%',
+        minWidth: '200px',
+        transition: isEditing ? 'none' : 'background-color 0.2s',
+        fontFamily: 'inherit',
+        opacity: 1,
+        ...(isEditing && {
+          cursor: 'text',
+        }),
+        ...(!isEditing && {
+          cursor: 'pointer',
+          pointerEvents: 'auto',
+        }),
       }}
-      onMouseEnter={(e) => {
+      onMouseEnter={!isEditing ? (e) => {
         e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
-      }}
-      onMouseLeave={(e) => {
+      } : undefined}
+      onMouseLeave={!isEditing ? (e) => {
         e.currentTarget.style.backgroundColor = 'transparent';
-      }}
-      title="Double-click to edit"
-    >
-      {title}
-    </h1>
+      } : undefined}
+    />
   );
 };

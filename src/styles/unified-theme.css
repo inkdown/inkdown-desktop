@@ -1,8 +1,3 @@
-/* ==============================================
-   unified-theme.css - Sistema de Temas Unificado do Inkdown
-   ============================================== */
-
-/* === LIGHT THEME (Padrão) === */
 :root,
 [data-theme="light"],
 .theme-light {
@@ -265,9 +260,12 @@ body {
 .cm-editor,
 .cm-editor.cm-focused,
 .cm-content,
-.cm-scroller {
+.cm-scroller,
+.cm-wrap,
+.cm-gutters {
   border: none !important;
   outline: none !important;
+  box-shadow: none !important;
 }
 
 .cm-editor {
@@ -278,6 +276,15 @@ body {
   color: var(--inkdown-editor-fg) !important;
 }
 
+/* Remove any possible borders/outlines from all CodeMirror elements */
+.cm-editor *,
+.cm-editor *:focus,
+.cm-editor *:active {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 .cm-theme-light .cm-editor,
 .cm-theme-dark .cm-editor {
   background-color: var(--inkdown-editor-bg) !important;
@@ -285,13 +292,16 @@ body {
 }
 
 /* === Editor Classes === */
-.inkdown-editor {
+.inkdown-editor,
+.editor-container {
   background-color: var(--inkdown-editor-bg);
   color: var(--inkdown-editor-fg);
   font-family: var(--inkdown-editor-font-family);
   font-size: var(--inkdown-editor-font-size);
   line-height: var(--inkdown-editor-line-height);
-  border: none;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
   outline: none;
 }
 

@@ -1,4 +1,3 @@
-import { EventEmitter } from '../utils/EventEmitter';
 import type { Editor } from '../core/Editor';
 
 export interface PreviewConfig {
@@ -6,7 +5,7 @@ export interface PreviewConfig {
   theme?: 'light' | 'dark';
 }
 
-export class MarkdownPreview extends EventEmitter {
+export class MarkdownPreview {
   private container: HTMLElement;
   private previewElement!: HTMLElement;
   private editor?: Editor;
@@ -14,7 +13,6 @@ export class MarkdownPreview extends EventEmitter {
   private updateTimeout?: number;
 
   constructor(config: PreviewConfig) {
-    super();
     this.config = config;
     this.container = config.container;
     this.initialize();
@@ -22,7 +20,6 @@ export class MarkdownPreview extends EventEmitter {
 
   private initialize(): void {
     this.createPreviewElement();
-    this.emit('initialized');
   }
 
   private createPreviewElement(): void {
@@ -48,32 +45,21 @@ export class MarkdownPreview extends EventEmitter {
     this.container.appendChild(this.previewElement);
   }
 
-  public connectToEditor(editor: Editor): void {
-    this.editor = editor;
-    this.editor.on('change', this.debouncedUpdate);
-    this.updateContent();
+  public updateFromContent(content: string): void {
+    this.debouncedUpdate(content);
   }
 
-  public disconnectFromEditor(): void {
-    if (this.editor) {
-      this.editor.off('change', this.debouncedUpdate);
-      this.editor = undefined;
-    }
-  }
-
-  private debouncedUpdate = (): void => {
+  private debouncedUpdate = (content: string): void => {
     if (this.updateTimeout) {
       clearTimeout(this.updateTimeout);
     }
     this.updateTimeout = window.setTimeout(() => {
-      this.updateContent();
+      this.updateContent(content);
     }, 250);
   };
 
-  private updateContent(): void {
-    if (!this.editor) return;
-    const markdown = this.editor.getContent();
-    this.previewElement.textContent = markdown;
+  private updateContent(content: string): void {
+    this.previewElement.textContent = content;
   }
 
   public setTheme(theme: 'light' | 'dark'): void {
@@ -85,10 +71,8 @@ export class MarkdownPreview extends EventEmitter {
     if (this.updateTimeout) {
       clearTimeout(this.updateTimeout);
     }
-    this.disconnectFromEditor();
     if (this.container.contains(this.previewElement)) {
       this.container.removeChild(this.previewElement);
     }
-    this.removeAllListeners();
   }
 }

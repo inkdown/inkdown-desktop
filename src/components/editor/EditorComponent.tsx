@@ -75,21 +75,24 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
         highlightCurrentLine: configHighlightCurrentLine ?? highlightCurrentLine ?? true,
         fontSize: configFontSize ?? fontSize ?? 14,
         fontFamily: configFontFamily ?? fontFamily ?? 'Inter, system-ui, sans-serif',
+        onChange: (state) => {
+          onStateChange?.(state);
+          onContentChange?.(state.content);
+          if (previewRef.current) {
+            previewRef.current.updateFromContent(state.content);
+          }
+        },
       };
 
       editorRef.current = new Editor(config);
-
-      editorRef.current.on('change', (state: EditorStateInfo) => {
-        onStateChange?.(state);
-        onContentChange?.(state.content);
-      });
 
       if (showPreview && previewContainerRef.current) {
         previewRef.current = new MarkdownPreview({
           container: previewContainerRef.current,
           theme: finalTheme,
         });
-        previewRef.current.connectToEditor(editorRef.current);
+        // Initial content sync
+        previewRef.current.updateFromContent(initialContent);
       }
 
       isInitialized.current = true;

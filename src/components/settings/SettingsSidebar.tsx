@@ -1,4 +1,4 @@
-import { Palette, FileText, Settings } from 'lucide-react';
+import { Palette, FileText, Settings, FolderOpen } from 'lucide-react';
 import { SettingsSection } from './SettingsModal';
 import { useAppearance } from '../../contexts/AppearanceContext';
 
@@ -8,6 +8,11 @@ interface SettingsSidebarProps {
 }
 
 const sections = [
+  {
+    id: 'workspace' as const,
+    label: 'Workspace',
+    icon: FolderOpen,
+  },
   {
     id: 'appearance' as const,
     label: 'Aparência',

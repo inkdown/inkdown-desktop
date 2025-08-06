@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo } from 'react';
 import { useAppearance } from '../../contexts/AppearanceContext';
 
 interface SidebarResizerProps {
@@ -8,25 +8,20 @@ interface SidebarResizerProps {
 export const SidebarResizer = memo(function SidebarResizer({ onMouseDown }: SidebarResizerProps) {
   const { currentTheme } = useAppearance();
 
-  const resizerStyle = useMemo(() => ({
-    backgroundColor: currentTheme.border
-  }), [currentTheme.border]);
-
-  const handleMouseEnter = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    e.currentTarget.style.backgroundColor = currentTheme.sidebar.hover;
-  }, [currentTheme.sidebar.hover]);
-
-  const handleMouseLeave = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    e.currentTarget.style.backgroundColor = currentTheme.border;
-  }, [currentTheme.border]);
-
   return (
     <div
-      className="w-1 cursor-ew-resize transition-colors"
-      style={resizerStyle}
+      className="w-1 cursor-ew-resize hover:opacity-80 transition-opacity"
+      style={{
+        backgroundColor: currentTheme.border,
+        minHeight: '100vh'
+      }}
       onMouseDown={onMouseDown}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = currentTheme.sidebar.hover;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = currentTheme.border;
+      }}
     />
   );
 });

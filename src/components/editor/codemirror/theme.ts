@@ -5,14 +5,18 @@ import { tags } from '@lezer/highlight';
 
 export function createInkdownTheme(theme: 'light' | 'dark'): Extension {
   const baseTheme = EditorView.theme({
+    '&': {
+      border: 'none',
+      outline: 'none'
+    },
     '&.inkdown-editor': {
       color: 'var(--inkdown-editor-fg)',
       backgroundColor: 'var(--inkdown-editor-bg)',
       fontFamily: 'var(--inkdown-editor-font-family)',
       fontSize: 'var(--inkdown-editor-font-size)',
       lineHeight: 'var(--inkdown-editor-line-height)',
-      border: 'none !important',
-      outline: 'none !important',
+      border: 'none',
+      outline: 'none',
     },
     '.cm-content': {
       padding: 'var(--inkdown-editor-padding)',

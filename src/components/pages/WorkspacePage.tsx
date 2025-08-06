@@ -15,6 +15,10 @@ export const WorkspacePage = memo(function WorkspacePage() {
     setSelectedFile(filePath);
   }, []);
 
+  const handleFilePathChange = useCallback((newPath: string) => {
+    setSelectedFile(newPath);
+  }, []);
+
 
   if (!fileTree || !currentDirectory) {
     return (
@@ -49,7 +53,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
       
       <SidebarResizer onMouseDown={handleMouseDown} />
       
-      <MainWindow selectedFile={selectedFile} />
+      <MainWindow selectedFile={selectedFile} onFilePathChange={handleFilePathChange} />
     </div>
   );
 });

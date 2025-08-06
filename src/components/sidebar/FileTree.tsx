@@ -27,7 +27,7 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
   
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedFile === node.path;
-  const isRootDirectory = level === 0;
+  const isRootDirectory = level === 0 && node.is_directory;
   const isCurrentlyEditing = isEditing(node.path);
 
   const displayName = useMemo(() => 
@@ -156,7 +156,6 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
     }
   }, [isSelected]);
 
-  // Inicializar editValue apenas quando começar a editar
   useEffect(() => {
     if (isCurrentlyEditing && !editValue) {
       setEditValue(displayName);
@@ -175,7 +174,7 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
   return (
     <div className="select-none">
       <div
-        className="flex items-center py-1 px-2 cursor-pointer rounded theme-transition"
+        className="file-tree-item flex items-center py-1 px-2 cursor-pointer rounded theme-transition"
         style={containerStyle}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -256,14 +255,50 @@ interface FileTreeProps {
 
 export function FileTree({ fileTree, onFileSelect, selectedFile, className = '' }: FileTreeProps) {
   const { currentTheme } = useAppearance();
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const { createDirectory, createFile } = useFileOperations();
+  const { setEditingPath } = useEditing();
   
   const handleRefresh = useCallback(() => {
-    // Refresh logic can be implemented here if needed
   }, []);
+
+  const handleEmptyAreaContextMenu = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const isFileTreeItem = target.closest('.file-tree-item');
+    
+    if (!isFileTreeItem) {
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({ x: e.clientX, y: e.clientY });
+    }
+  }, []);
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  const handleCreateFolder = useCallback(async () => {
+    const newPath = await createDirectory(fileTree.path);
+    if (newPath) {
+      requestAnimationFrame(() => setEditingPath(newPath));
+    }
+    closeContextMenu();
+  }, [createDirectory, fileTree.path, setEditingPath, closeContextMenu]);
+
+  const handleCreateFile = useCallback(async () => {
+    const newPath = await createFile(fileTree.path);
+    if (newPath) {
+      requestAnimationFrame(() => setEditingPath(newPath));
+    }
+    closeContextMenu();
+  }, [createFile, fileTree.path, setEditingPath, closeContextMenu]);
 
   const memoizedTree = useMemo(() => {
     return (
-      <div className={`h-full overflow-auto theme-scrollbar ${className}`}>
+      <div 
+        className={`h-full overflow-auto theme-scrollbar ${className}`}
+        onContextMenu={handleEmptyAreaContextMenu}
+      >
         <div className="p-2">
           <div 
             className="text-xs font-semibold uppercase tracking-wide mb-2 px-2"
@@ -290,9 +325,21 @@ export function FileTree({ fileTree, onFileSelect, selectedFile, className = '' 
             />
           )}
         </div>
+        
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={closeContextMenu}
+            onCreateFolder={handleCreateFolder}
+            onCreateFile={handleCreateFile}
+            isDirectory={true}
+            isRootDirectory={true}
+          />
+        )}
       </div>
     );
-  }, [fileTree, onFileSelect, selectedFile, className, handleRefresh, currentTheme.mutedForeground]);
+  }, [fileTree, onFileSelect, selectedFile, className, handleRefresh, currentTheme.mutedForeground, contextMenu, handleEmptyAreaContextMenu, closeContextMenu, handleCreateFolder, handleCreateFile]);
 
   return memoizedTree;
 }
