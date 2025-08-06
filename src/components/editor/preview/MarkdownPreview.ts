@@ -1,4 +1,3 @@
-import type { Editor } from '../core/Editor';
 
 export interface PreviewConfig {
   container: HTMLElement;
@@ -8,7 +7,6 @@ export interface PreviewConfig {
 export class MarkdownPreview {
   private container: HTMLElement;
   private previewElement!: HTMLElement;
-  private editor?: Editor;
   private config: PreviewConfig;
   private updateTimeout?: number;
 
