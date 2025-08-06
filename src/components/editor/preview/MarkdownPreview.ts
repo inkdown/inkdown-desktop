@@ -8,7 +8,7 @@ export interface PreviewConfig {
 
 export class MarkdownPreview extends EventEmitter {
   private container: HTMLElement;
-  private previewElement: HTMLElement;
+  private previewElement!: HTMLElement;
   private editor?: Editor;
   private config: PreviewConfig;
   private updateTimeout?: number;

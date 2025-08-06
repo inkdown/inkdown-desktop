@@ -66,7 +66,6 @@ export function AppearanceSettings() {
             border: `1px solid ${currentTheme.border}`,
             backgroundColor: currentTheme.input,
             color: currentTheme.foreground,
-            focusRingColor: currentTheme.ring
           }}
         >
           {THEME_OPTIONS.map((option) => (

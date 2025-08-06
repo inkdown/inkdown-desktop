@@ -21,8 +21,8 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
   const [editValue, setEditValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   
-  const { createDirectory, createFile, deleteFileOrDirectory, renameFileOrDirectory, getLastError } = useFileOperations();
-  const { editingPath, setEditingPath, isEditing } = useEditing();
+  const { createDirectory, createFile, deleteFileOrDirectory, renameFileOrDirectory } = useFileOperations();
+  const { setEditingPath, isEditing } = useEditing();
   const { currentTheme } = useAppearance();
   
   const hasChildren = node.children && node.children.length > 0;

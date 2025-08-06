@@ -40,7 +40,6 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
   className = '',
   onContentChange,
   onStateChange,
-  onSave,
   onError,
 }, ref) => {
   const { effectiveTheme } = useAppearance();

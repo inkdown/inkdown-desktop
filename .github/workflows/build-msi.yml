@@ -1,20 +1,21 @@
-name: Build MSI on Issue Opened
+name: Build MSI on Issue Open
 
 on:
-  issues:
-    types: [opened]
+  push:
+    branches: ["main"]
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Setup Node
-        uses: actions/setup-node@v3
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
         with:
-          node-version: 18
+          bun-version: latest
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -22,17 +23,24 @@ jobs:
           toolchain: stable
           target: x86_64-pc-windows-msvc
 
-      - name: Install dependencies
+      - name: Install dependencies with Bun
         run: |
-          npm install
-          cargo install tauri-cli
+          bun install
 
-      - name: Build App
+      - name: Build frontend
         run: |
-          npm run build
-          npx tauri build --target x86_64-pc-windows-msvc
+          bun run build
 
-      - name: Upload MSI
+      - name: Install Tauri CLI
+        run: |
+          bun add -d @tauri-apps/cli
+          bunx tauri info
+
+      - name: Build Tauri app (.msi)
+        run: |
+          bunx tauri build --target x86_64-pc-windows-msvc
+
+      - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-msi

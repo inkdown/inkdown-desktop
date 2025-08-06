@@ -4,7 +4,6 @@ import { Routes, Route } from "react-router-dom";
 
 const HomePage = lazy(() => import("./pages/HomePage"));
 const EditorPage = lazy(() => import("./pages/EditorPage"));
-const BenchPage = lazy(() => import("./pages/BenchPage"));
 
 function LoadingSpinner() {
   return (
@@ -20,7 +19,6 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/editor" element={<EditorPage />} />
-        <Route path="/bench" element={<BenchPage />} />
         <Route path="*" element={<HomePage />} />
       </Routes>
     </Suspense>

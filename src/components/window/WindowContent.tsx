@@ -78,7 +78,7 @@ export const WindowContent = memo(function WindowContent({ selectedFile }: Windo
     setError(error.message);
   }, []);
 
-  const handleFilePathChange = useCallback((newPath: string) => {
+  const handleFilePathChange = useCallback((_: string) => {
   }, []);
 
   useEffect(() => {
