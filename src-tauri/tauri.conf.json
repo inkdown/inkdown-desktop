@@ -22,6 +22,11 @@
 		}
 	},
 	"bundle": {
+		"windows": {
+        "wix": {
+          "language": "en-US"
+        }
+    },
 		"active": true,
 		"targets": "all",
 		"icon": [

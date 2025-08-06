@@ -1,0 +1,39 @@
+name: Build MSI on Issue Opened
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+
+      - name: Install dependencies
+        run: |
+          npm install
+          cargo install tauri-cli
+
+      - name: Build App
+        run: |
+          npm run build
+          npx tauri build --target x86_64-pc-windows-msvc
+
+      - name: Upload MSI
+        uses: actions/upload-artifact@v2
+        with:
+          name: windows-msi
+          path: src-tauri/target/release/bundle/msi/
