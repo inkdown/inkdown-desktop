@@ -1,6 +1,7 @@
-import { memo } from 'react';
-import { Folder } from 'lucide-react';
-import { useTheme } from '../../contexts/ThemeContext';
+import { memo, useState } from 'react';
+import { Folder, Settings } from 'lucide-react';
+import { useAppearance } from '../../contexts/AppearanceContext';
+import { SettingsModal } from '../settings';
 
 interface SidebarHeaderProps {
   projectName: string;
@@ -9,39 +10,64 @@ interface SidebarHeaderProps {
 export const SidebarHeader = memo(function SidebarHeader({
   projectName,
 }: SidebarHeaderProps) {
-  const { currentTheme } = useTheme();
+  const { currentTheme } = useAppearance();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   return (
-    <div 
-      className="p-3"
-      style={{ 
-        borderBottom: `1px solid ${currentTheme.colors.sidebar.border}`,
-        backgroundColor: currentTheme.colors.sidebar.background
-      }}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <Folder 
-              size={14} 
-              className="flex-shrink-0" 
-              style={{ color: currentTheme.colors.primary }}
-            />
-            <h3 
-              className="text-sm font-medium truncate"
-              style={{ color: currentTheme.colors.sidebar.foreground }}
+    <>
+      <div 
+        className="p-3"
+        style={{ 
+          borderBottom: `1px solid ${currentTheme.sidebar.border}`,
+          backgroundColor: currentTheme.sidebar.background
+        }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <Folder 
+                size={14} 
+                className="flex-shrink-0" 
+                style={{ color: currentTheme.primary }}
+              />
+              <h3 
+                className="text-sm font-medium truncate"
+                style={{ color: currentTheme.sidebar.foreground }}
+              >
+                {projectName}
+              </h3>
+            </div>
+            <p 
+              className="text-xs truncate ml-6 theme-text-muted"
+              style={{ color: currentTheme.mutedForeground }}
             >
-              {projectName}
-            </h3>
+              Workspace
+            </p>
           </div>
-          <p 
-            className="text-xs truncate ml-6 theme-text-muted"
-            style={{ color: currentTheme.colors.mutedForeground }}
+          
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="p-1.5 rounded transition-colors"
+            title="Configurações"
+            style={{ 
+              color: currentTheme.mutedForeground,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = currentTheme.sidebar.hover;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
           >
-            Workspace
-          </p>
+            <Settings size={14} />
+          </button>
         </div>
       </div>
-    </div>
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
+    </>
   );
 });

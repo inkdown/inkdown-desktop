@@ -1,7 +1,7 @@
 import { useRef, forwardRef, useImperativeHandle, useMemo, useEffect } from 'react';
 import { Editor, EditorConfig, EditorStateInfo } from './core/Editor';
 import { MarkdownPreview } from './preview/MarkdownPreview';
-import { useSimpleTheme } from '../../contexts/SimpleThemeContext';
+import { useAppearance } from '../../contexts/AppearanceContext';
 import '../../styles/unified-theme.css';
 
 export interface EditorComponentProps {
@@ -43,12 +43,21 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
   onSave,
   onError,
 }, ref) => {
-  const { effectiveTheme } = useSimpleTheme();
+  const { effectiveTheme } = useAppearance();
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Editor | null>(null);
   const previewRef = useRef<MarkdownPreview | null>(null);
   const isInitialized = useRef(false);
+  
+  const { 
+    vimMode: configVimMode, 
+    showLineNumbers: configShowLineNumbers, 
+    highlightCurrentLine: configHighlightCurrentLine, 
+    readOnly: configReadOnly, 
+    fontSize: configFontSize, 
+    fontFamily: configFontFamily 
+  } = useAppearance();
   
   const finalTheme: 'light' | 'dark' = themeName || effectiveTheme;
 
@@ -59,14 +68,14 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
       const config: EditorConfig = {
         container: editorContainerRef.current,
         content: initialContent,
-        readOnly,
+        readOnly: configReadOnly ?? readOnly ?? false,
         theme: finalTheme,
         markdown: true,
-        vim: plugins.includes('vim'),
-        showLineNumbers,
-        highlightCurrentLine,
-        fontSize,
-        fontFamily,
+        vim: configVimMode ?? plugins.includes('vim'),
+        showLineNumbers: configShowLineNumbers ?? showLineNumbers ?? true,
+        highlightCurrentLine: configHighlightCurrentLine ?? highlightCurrentLine ?? true,
+        fontSize: configFontSize ?? fontSize ?? 14,
+        fontFamily: configFontFamily ?? fontFamily ?? 'Inter, system-ui, sans-serif',
       };
 
       editorRef.current = new Editor(config);
@@ -108,22 +117,27 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
   }, []);
 
   useEffect(() => {
-    if (editorRef.current && isInitialized.current) {
-      editorRef.current.updateTheme(finalTheme);
+    if (!editorRef.current || !isInitialized.current) return;
+
+    const hasContentChanged = initialContent !== editorRef.current.getContent();
+    if (hasContentChanged) {
+      editorRef.current.setContent(initialContent);
     }
+
+    editorRef.current.updateConfig({
+      theme: finalTheme,
+      vim: configVimMode,
+      showLineNumbers: configShowLineNumbers,
+      highlightCurrentLine: configHighlightCurrentLine,
+      readOnly: configReadOnly,
+      fontSize: configFontSize,
+      fontFamily: configFontFamily,
+    });
+
     if (previewRef.current) {
       previewRef.current.setTheme(finalTheme);
     }
-  }, [finalTheme]);
-
-  useEffect(() => {
-    if (editorRef.current && isInitialized.current) {
-      const currentContent = editorRef.current.getContent();
-      if (initialContent !== currentContent) {
-        editorRef.current.setContent(initialContent);
-      }
-    }
-  }, [initialContent]);
+  }, [finalTheme, initialContent, configVimMode, configShowLineNumbers, configHighlightCurrentLine, configReadOnly, configFontSize, configFontFamily]);
 
 
   useImperativeHandle(ref, () => ({

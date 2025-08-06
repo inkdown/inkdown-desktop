@@ -1,10 +1,11 @@
-import { useState, useCallback, useMemo, useRef, memo } from 'react';
+import { useState, useCallback, useMemo, useRef, memo, useEffect } from 'react';
 import { ChevronRight, Folder, FolderOpen, FileText } from 'lucide-react';
-import { FileNode } from '../contexts/DirectoryContext';
-import { ContextMenu } from './ContextMenu';
-import { useFileOperations } from '../hooks/useFileOperations';
-import { useEditing } from '../contexts/EditingContext';
-import { useTheme } from '../contexts/ThemeContext';
+import { confirm } from '@tauri-apps/plugin-dialog';
+import { FileNode } from '../../contexts/DirectoryContext';
+import { ContextMenu } from '../ui/overlays/ContextMenu';
+import { useFileOperations } from '../../hooks/useFileOperations';
+import { useEditing } from '../../contexts/EditingContext';
+import { useAppearance } from '../../contexts/AppearanceContext';
 
 interface FileTreeItemProps {
   node: FileNode;
@@ -22,12 +23,38 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
   
   const { createDirectory, createFile, deleteFileOrDirectory, renameFileOrDirectory, getLastError } = useFileOperations();
   const { editingPath, setEditingPath, isEditing } = useEditing();
-  const { currentTheme } = useTheme();
+  const { currentTheme } = useAppearance();
   
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedFile === node.path;
   const isRootDirectory = level === 0;
   const isCurrentlyEditing = isEditing(node.path);
+
+  const displayName = useMemo(() => 
+    node.is_directory ? node.name : node.name.replace(/\.md$/, ''),
+    [node.name, node.is_directory]
+  );
+
+  const containerStyle = useMemo(() => ({
+    paddingLeft: `${level * 16 + 8}px`,
+    backgroundColor: isSelected ? currentTheme.primary : 'transparent',
+    color: isSelected ? currentTheme.primaryForeground : currentTheme.sidebar.foreground
+  }), [level, isSelected, currentTheme.primary, currentTheme.primaryForeground, currentTheme.sidebar.foreground]);
+
+  const iconStyle = useMemo(() => ({
+    color: currentTheme.primary
+  }), [currentTheme.primary]);
+
+  const textStyle = useMemo(() => ({
+    color: isSelected ? currentTheme.primaryForeground : 
+           node.is_directory ? currentTheme.sidebar.foreground : 
+           currentTheme.mutedForeground
+  }), [isSelected, node.is_directory, currentTheme.primaryForeground, currentTheme.sidebar.foreground, currentTheme.mutedForeground]);
+
+  const chevronClasses = useMemo(() => 
+    `mr-1 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`,
+    [isExpanded]
+  );
   
   const handleToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -81,8 +108,17 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
   }, [node.name, node.is_directory, node.path, setEditingPath]);
 
   const handleDelete = useCallback(async () => {
-    if (window.confirm(`Tem certeza que deseja excluir "${node.name}"? Esta ação não pode ser desfeita.`)) {
-      await deleteFileOrDirectory(node.path);
+    try {
+      const shouldDelete = await confirm(`Tem certeza que deseja excluir "${node.name}"? Esta ação não pode ser desfeita.`, {
+        title: 'Confirmar exclusão',
+        kind: 'warning'
+      });
+      
+      if (shouldDelete) {
+        await deleteFileOrDirectory(node.path);
+      }
+    } catch (error) {
+      console.error('Erro ao confirmar exclusão:', error);
     }
   }, [node.name, node.path, deleteFileOrDirectory]);
 
@@ -108,50 +144,49 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
     }
   }, [handleEditSubmit, handleEditCancel]);
 
-  if (isCurrentlyEditing && !editValue) {
-    const nameWithoutExt = node.is_directory ? node.name : node.name.replace(/\.md$/, '');
-    setEditValue(nameWithoutExt);
-  }
+  const handleMouseEnter = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isSelected) {
+      e.currentTarget.style.backgroundColor = currentTheme.sidebar.hover;
+    }
+  }, [isSelected, currentTheme.sidebar.hover]);
 
-  // Memoize the icon to avoid re-renders
+  const handleMouseLeave = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isSelected) {
+      e.currentTarget.style.backgroundColor = 'transparent';
+    }
+  }, [isSelected]);
+
+  // Inicializar editValue apenas quando começar a editar
+  useEffect(() => {
+    if (isCurrentlyEditing && !editValue) {
+      setEditValue(displayName);
+    }
+  }, [isCurrentlyEditing, displayName]);
+
   const icon = useMemo(() => {
     if (node.is_directory) {
       return isExpanded ? 
-        <FolderOpen size={16} style={{ color: currentTheme.colors.primary }} /> : 
-        <Folder size={16} style={{ color: currentTheme.colors.primary }} />;
+        <FolderOpen size={16} style={iconStyle} /> : 
+        <Folder size={16} style={iconStyle} />;
     }
-    return <FileText size={16} style={{ color: currentTheme.colors.mutedForeground }} />;
-  }, [node.is_directory, isExpanded, currentTheme.colors.primary, currentTheme.colors.mutedForeground]);
+    return <FileText size={16} style={{ color: currentTheme.mutedForeground }} />;
+  }, [node.is_directory, isExpanded, iconStyle, currentTheme.mutedForeground]);
 
   return (
     <div className="select-none">
       <div
         className="flex items-center py-1 px-2 cursor-pointer rounded theme-transition"
-        style={{ 
-          paddingLeft: `${level * 16 + 8}px`,
-          backgroundColor: isSelected ? currentTheme.colors.primary : 'transparent',
-          color: isSelected ? currentTheme.colors.primaryForeground : currentTheme.colors.sidebar.foreground
-        }}
-        onMouseEnter={(e) => {
-          if (!isSelected) {
-            e.currentTarget.style.backgroundColor = currentTheme.colors.sidebar.hover;
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isSelected) {
-            e.currentTarget.style.backgroundColor = 'transparent';
-          }
-        }}
+        style={containerStyle}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         onClick={node.is_directory ? handleToggle : handleSelect}
         onContextMenu={handleContextMenu}
       >
         {hasChildren && (
           <ChevronRight 
             size={14} 
-            className={`mr-1 transition-transform duration-150 ${
-              isExpanded ? 'rotate-90' : ''
-            }`}
-            style={{ color: currentTheme.colors.mutedForeground }}
+            className={chevronClasses}
+            style={{ color: currentTheme.mutedForeground }}
           />
         )}
         
@@ -171,14 +206,10 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
         ) : (
           <span 
             className={`text-sm truncate flex-1 ${node.is_directory ? 'font-medium' : ''} ${isSelected ? 'font-semibold' : ''}`}
-            title={node.name}
-            style={{ 
-              color: isSelected ? currentTheme.colors.primaryForeground : 
-                     node.is_directory ? currentTheme.colors.sidebar.foreground : 
-                     currentTheme.colors.mutedForeground
-            }}
+            title={displayName}
+            style={textStyle}
           >
-            {node.name}
+            {displayName}
           </span>
         )}
       </div>
@@ -224,9 +255,10 @@ interface FileTreeProps {
 }
 
 export function FileTree({ fileTree, onFileSelect, selectedFile, className = '' }: FileTreeProps) {
-  const { currentTheme } = useTheme();
+  const { currentTheme } = useAppearance();
   
   const handleRefresh = useCallback(() => {
+    // Refresh logic can be implemented here if needed
   }, []);
 
   const memoizedTree = useMemo(() => {
@@ -235,7 +267,7 @@ export function FileTree({ fileTree, onFileSelect, selectedFile, className = '' 
         <div className="p-2">
           <div 
             className="text-xs font-semibold uppercase tracking-wide mb-2 px-2"
-            style={{ color: currentTheme.colors.mutedForeground }}
+            style={{ color: currentTheme.mutedForeground }}
           >
             Explorer
           </div>
@@ -260,7 +292,7 @@ export function FileTree({ fileTree, onFileSelect, selectedFile, className = '' 
         </div>
       </div>
     );
-  }, [fileTree, onFileSelect, selectedFile, className, handleRefresh, currentTheme.colors.mutedForeground]);
+  }, [fileTree, onFileSelect, selectedFile, className, handleRefresh, currentTheme.mutedForeground]);
 
   return memoizedTree;
 }

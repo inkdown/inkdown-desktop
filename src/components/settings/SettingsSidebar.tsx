@@ -1,5 +1,6 @@
 import { Palette, FileText, Settings } from 'lucide-react';
 import { SettingsSection } from './SettingsModal';
+import { useAppearance } from '../../contexts/AppearanceContext';
 
 interface SettingsSidebarProps {
   activeSection: SettingsSection;
@@ -25,8 +26,16 @@ const sections = [
 ];
 
 export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSidebarProps) {
+  const { currentTheme } = useAppearance();
+  
   return (
-    <div className="w-48 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+    <div 
+      className="w-48"
+      style={{ 
+        borderRight: `1px solid ${currentTheme.border}`,
+        backgroundColor: currentTheme.muted
+      }}
+    >
       <nav className="p-2">
         {sections.map((section) => {
           const Icon = section.icon;
@@ -36,13 +45,21 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
             <button
               key={section.id}
               onClick={() => onSectionChange(section.id)}
-              className={`
-                w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
-                ${isActive
-                  ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: isActive ? currentTheme.accent : 'transparent',
+                color: isActive ? currentTheme.primary : currentTheme.foreground
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.backgroundColor = currentTheme.accent;
                 }
-              `}
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
             >
               <Icon size={16} />
               {section.label}

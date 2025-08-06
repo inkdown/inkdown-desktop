@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { FolderPlus, FileText, Edit, Trash2 } from 'lucide-react';
+import { useAppearance } from '../../../contexts/AppearanceContext';
 
 interface ContextMenuProps {
   x: number;
@@ -25,6 +26,7 @@ export function ContextMenu({
   isRootDirectory = false
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const { currentTheme } = useAppearance();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -95,7 +97,7 @@ export function ContextMenu({
         icon: <Trash2 size={16} />,
         label: 'Excluir',
         onClick: onDelete,
-        className: 'text-red-600 hover:bg-red-50'
+        isDangerous: true
       }
     ] : [])
   ];
@@ -103,8 +105,13 @@ export function ContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-36"
-      style={{ left: x, top: y }}
+      className="fixed z-50 rounded-lg shadow-lg py-1 min-w-36"
+      style={{ 
+        left: x, 
+        top: y,
+        backgroundColor: currentTheme.background,
+        border: `1px solid ${currentTheme.border}`
+      }}
     >
       {menuItems.map((item, index) => (
         <button
@@ -113,10 +120,18 @@ export function ContextMenu({
             item.onClick();
             onClose();
           }}
-          className={`
-            w-full flex items-center px-3 py-2 text-sm text-left hover:bg-gray-100 transition-colors
-            ${item.className || 'text-gray-700'}
-          `}
+          className="w-full flex items-center px-3 py-2 text-sm text-left transition-colors"
+          style={{
+            color: (item as any).isDangerous ? currentTheme.destructive : currentTheme.foreground
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = (item as any).isDangerous 
+              ? `${currentTheme.destructive}20` 
+              : currentTheme.muted;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
         >
           <span className="mr-3">{item.icon}</span>
           {item.label}

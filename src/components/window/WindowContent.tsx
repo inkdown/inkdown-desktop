@@ -1,24 +1,19 @@
 import { memo, useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Settings } from 'lucide-react';
 import { EditorComponent, EditorComponentHandle } from '../editor/EditorComponent';
-import { EditableTitle } from '../editor/EditableTitle';
-import { SettingsModal } from '../settings';
-import { useTheme } from '../../contexts/ThemeContext';
-import { useConfigManager } from '../../hooks/useConfigManager';
+import { Title } from '../editor/Title';
+import { useAppearance } from '../../contexts/AppearanceContext';
 
 interface WindowContentProps {
   selectedFile: string;
 }
 
 export const WindowContent = memo(function WindowContent({ selectedFile }: WindowContentProps) {
-  const { currentTheme } = useTheme();
-  const { workspaceConfig, appearanceConfig } = useConfigManager();
+  const { currentTheme, themeMode } = useAppearance();
   const [fileContent, setFileContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const editorRef = useRef<EditorComponentHandle>(null);
 
   const loadFileContent = useCallback(async (filePath: string) => {
@@ -51,21 +46,18 @@ export const WindowContent = memo(function WindowContent({ selectedFile }: Windo
     }
   }, []);
 
-  // Load file when selectedFile changes
   useEffect(() => {
     if (selectedFile) {
       loadFileContent(selectedFile);
     }
   }, [selectedFile, loadFileContent]);
 
-  // Handle content changes
   const handleContentChange = useCallback((content: string) => {
     setFileContent(content);
     setIsModified(true);
     setError(null);
   }, []);
 
-  // Handle save
   const handleSave = useCallback(async (content: string) => {
     if (!selectedFile) return;
     
@@ -81,19 +73,14 @@ export const WindowContent = memo(function WindowContent({ selectedFile }: Windo
     }
   }, [selectedFile, saveFileContent]);
 
-  // Handle errors
   const handleError = useCallback((error: Error) => {
     console.error('Editor error:', error);
     setError(error.message);
   }, []);
 
-  // Handle file path change when file is renamed
   const handleFilePathChange = useCallback((newPath: string) => {
-    // We could update some local state if needed, but the file tree refresh handles most of it
-    console.log('File renamed to:', newPath);
   }, []);
 
-  // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 's') {
@@ -109,7 +96,6 @@ export const WindowContent = memo(function WindowContent({ selectedFile }: Windo
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleSave]);
 
-  // Se não há arquivo selecionado, mostrar tela de boas-vindas
   if (!selectedFile) {
     return (
       <div className="flex-1 flex items-center justify-center theme-card">
@@ -129,7 +115,7 @@ export const WindowContent = memo(function WindowContent({ selectedFile }: Windo
     return (
       <div className="flex-1 flex items-center justify-center theme-card">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" style={{ borderBottomColor: currentTheme.colors.primary }}></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" style={{ borderBottomColor: currentTheme.primary }}></div>
           <p className="theme-text-muted">Carregando arquivo...</p>
           <p className="text-xs theme-text-muted mt-1">{selectedFile.split('/').pop()}</p>
         </div>
@@ -141,8 +127,8 @@ export const WindowContent = memo(function WindowContent({ selectedFile }: Windo
     return (
       <div className="flex-1 flex items-center justify-center theme-card">
         <div className="text-center max-w-md">
-          <div className="text-4xl mb-4" style={{ color: currentTheme.colors.destructive }}>⚠️</div>
-          <h3 className="text-lg font-semibold mb-2" style={{ color: currentTheme.colors.foreground }}>Erro ao carregar arquivo</h3>
+          <div className="text-4xl mb-4" style={{ color: currentTheme.destructive }}>⚠️</div>
+          <h3 className="text-lg font-semibold mb-2" style={{ color: currentTheme.foreground }}>Erro ao carregar arquivo</h3>
           <p className="theme-text-muted mb-4">{error}</p>
           <p className="text-xs theme-text-muted mb-4">{selectedFile}</p>
           <button
@@ -169,50 +155,29 @@ export const WindowContent = memo(function WindowContent({ selectedFile }: Windo
         </div>
       )}
       
-      {/* Título editável */}
       <div className="px-4 py-3 theme-border flex items-center justify-between" style={{ 
-        borderBottom: `1px solid ${currentTheme.colors.border}`,
-        backgroundColor: currentTheme.colors.muted
+        borderBottom: `1px solid ${currentTheme.border}`,
+        backgroundColor: currentTheme.muted
       }}>
-        <EditableTitle 
+        <Title 
           filePath={selectedFile}
           onFilePathChange={handleFilePathChange}
           className="text-xl font-semibold theme-text-primary"
         />
-        <button
-          onClick={() => setIsSettingsOpen(true)}
-          className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-          title="Configurações"
-        >
-          <Settings size={16} className="text-gray-500 dark:text-gray-400" />
-        </button>
       </div>
 
-      {/* Editor */}
       <div className="theme-editor">
         <EditorComponent
         ref={editorRef}
         initialContent={fileContent}
-        themeName={appearanceConfig.theme === 'auto' 
+        themeName={themeMode === 'auto' 
           ? (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-          : (appearanceConfig.theme as 'light' | 'dark')}
-        plugins={workspaceConfig.vimMode ? ['vim'] : []}
-        showPreview={false}
-        showLineNumbers={workspaceConfig.showLineNumbers ?? true}
-        highlightCurrentLine={workspaceConfig.highlightCurrentLine ?? true}
-        readOnly={workspaceConfig.readOnly ?? false}
-        fontSize={appearanceConfig['font-size']}
-        fontFamily={appearanceConfig['font-family']}
+          : (themeMode as 'light' | 'dark')}
         onContentChange={handleContentChange}
         onSave={handleSave}
         onError={handleError}
       />
       </div>
-
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
     </div>
   );
 });

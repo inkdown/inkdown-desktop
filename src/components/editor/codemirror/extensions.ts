@@ -28,6 +28,22 @@ export class ExtensionsFactory {
           minHeight: 'auto',
           lineHeight: '1.6',
         },
+        '.cm-scrollbar-element': {
+          width: '8px !important',
+        },
+        '.cm-scroller::-webkit-scrollbar': {
+          width: '8px',
+        },
+        '.cm-scroller::-webkit-scrollbar-track': {
+          background: 'transparent',
+        },
+        '.cm-scroller::-webkit-scrollbar-thumb': {
+          backgroundColor: 'rgba(128, 128, 128, 0.3)',
+          borderRadius: '4px',
+          '&:hover': {
+            backgroundColor: 'rgba(128, 128, 128, 0.5)',
+          }
+        },
         '.cm-focused': {
           outline: 'none',
         },
@@ -37,7 +53,7 @@ export class ExtensionsFactory {
         },
         '.cm-scroller': {
           fontFamily: 'inherit',
-          overflow: 'visible',
+          overflow: 'auto',
         },
       }),
       EditorState.tabSize.of(2),

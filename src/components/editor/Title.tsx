@@ -2,13 +2,13 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useDirectory } from '../../contexts/DirectoryContext';
 
-interface EditableTitleProps {
+interface TitleProps {
   filePath: string;
   onFilePathChange?: (newPath: string) => void;
   className?: string;
 }
 
-export const EditableTitle: React.FC<EditableTitleProps> = ({ 
+export const Title: React.FC<TitleProps> = ({ 
   filePath, 
   onFilePathChange,
   className = '' 
@@ -19,27 +19,23 @@ export const EditableTitle: React.FC<EditableTitleProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const originalTitle = useRef('');
 
-  // Extract filename without extension
   const extractTitle = useCallback((path: string) => {
     const filename = path.split('/').pop() || path.split('\\').pop() || '';
     const lastDotIndex = filename.lastIndexOf('.');
     return lastDotIndex > 0 ? filename.substring(0, lastDotIndex) : filename;
   }, []);
 
-  // Update title when filePath changes
   useEffect(() => {
     const extractedTitle = extractTitle(filePath);
     setTitle(extractedTitle);
     originalTitle.current = extractedTitle;
   }, [filePath, extractTitle]);
 
-  // Handle double click to edit
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
     originalTitle.current = title;
   }, [title]);
 
-  // Focus input when editing starts
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
@@ -47,16 +43,13 @@ export const EditableTitle: React.FC<EditableTitleProps> = ({
     }
   }, [isEditing]);
 
-  // Handle input change
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);
   }, []);
 
-  // Handle save
   const handleSave = useCallback(async () => {
     const trimmedTitle = title.trim();
     
-    // If empty or same as original, cancel
     if (!trimmedTitle || trimmedTitle === originalTitle.current) {
       setTitle(originalTitle.current);
       setIsEditing(false);
@@ -64,38 +57,30 @@ export const EditableTitle: React.FC<EditableTitleProps> = ({
     }
 
     try {
-      // Call Rust command to rename file
       const newPath = await invoke<string>('rename_file', {
         oldPath: filePath,
         newName: trimmedTitle
       });
 
-      // Update the title and notify parent component if needed
       setTitle(trimmedTitle);
       onFilePathChange?.(newPath);
       setIsEditing(false);
 
-      // Refresh file tree to reflect changes
       await refreshFileTree();
 
     } catch (error) {
       console.error('Failed to rename file:', error);
-      // Revert to original title on error
       setTitle(originalTitle.current);
       setIsEditing(false);
-      
-      // Show error to user
       alert(`Failed to rename file: ${error}`);
     }
   }, [title, filePath, onFilePathChange, refreshFileTree]);
 
-  // Handle cancel
   const handleCancel = useCallback(() => {
     setTitle(originalTitle.current);
     setIsEditing(false);
   }, []);
 
-  // Handle key events
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -106,7 +91,6 @@ export const EditableTitle: React.FC<EditableTitleProps> = ({
     }
   }, [handleSave, handleCancel]);
 
-  // Handle blur (when input loses focus)
   const handleBlur = useCallback(() => {
     handleSave();
   }, [handleSave]);

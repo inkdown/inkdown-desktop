@@ -66,7 +66,6 @@ class ConfigManager {
     this.notify();
 
     try {
-      // Load both configs in parallel
       const [workspaceStr, appearanceStr] = await Promise.all([
         invoke<string>('load_workspace_config'),
         invoke<string>('load_appearance_config')
@@ -139,10 +138,8 @@ export function useConfigManager() {
   useEffect(() => {
     const manager = ConfigManager.getInstance();
     
-    // Subscribe to changes
     const unsubscribe = manager.subscribe(setState);
     
-    // Initialize only once
     if (!initRef.current) {
       initRef.current = true;
       manager.initialize();

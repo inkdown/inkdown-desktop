@@ -28,7 +28,6 @@ export function InputModal({
   useEffect(() => {
     if (isOpen) {
       setValue(defaultValue);
-      // Focus no input após um pequeno delay para garantir que o modal está visível
       setTimeout(() => {
         inputRef.current?.focus();
         inputRef.current?.select();
@@ -54,15 +53,11 @@ export function InputModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black bg-opacity-50"
         onClick={onCancel}
       />
-      
-      {/* Modal */}
       <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
             {title}
@@ -76,7 +71,6 @@ export function InputModal({
           </button>
         </div>
 
-        {/* Content */}
         <form onSubmit={handleSubmit} className="p-4">
           <div className="mb-4">
             <input

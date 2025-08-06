@@ -1,6 +1,4 @@
-import { useConfigManager } from '../../../hooks/useConfigManager';
-import { useTheme } from '../../../contexts/ThemeContext';
-import { useEffect } from 'react';
+import { useAppearance } from '../../../contexts/AppearanceContext';
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light', description: 'Tema claro padrão' },
@@ -20,62 +18,56 @@ const FONT_FAMILIES = [
 const FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 22, 24, 26, 28];
 
 export function AppearanceSettings() {
-  const { appearanceConfig, updateAppearanceConfig, isLoading } = useConfigManager();
-  const { currentTheme, setThemeMode } = useTheme();
+  const { themeMode, fontSize, fontFamily, currentTheme, updateAppearance, isLoading } = useAppearance();
 
-  // Sincronizar o tema quando appearanceConfig.theme muda
-  useEffect(() => {
-    if (appearanceConfig?.theme) {
-      setThemeMode(appearanceConfig.theme);
-    }
-  }, [appearanceConfig?.theme, setThemeMode]);
-
-  if (isLoading || !appearanceConfig) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+        <div className="text-center py-8" style={{ color: currentTheme.mutedForeground }}>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{ borderColor: currentTheme.primary }}></div>
           <p>Carregando configurações...</p>
         </div>
       </div>
     );
   }
 
-  // Usar appearanceConfig.theme como fonte da verdade
-  const currentThemeMode = appearanceConfig.theme || 'light';
-
   const handleThemeChange = async (theme: 'light' | 'dark' | 'auto') => {
-    await updateAppearanceConfig({ theme });
+    await updateAppearance({ theme });
   };
 
   const handleFontSizeChange = (fontSize: number) => {
-    updateAppearanceConfig({ 'font-size': fontSize });
+    updateAppearance({ fontSize });
   };
 
   const handleFontFamilyChange = (fontFamily: string) => {
-    updateAppearanceConfig({ 'font-family': fontFamily });
+    updateAppearance({ fontFamily });
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        <h3 className="text-lg font-semibold mb-4" style={{ color: currentTheme.foreground }}>
           Aparência
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        <p className="text-sm mb-6" style={{ color: currentTheme.mutedForeground }}>
           Personalize a aparência do editor e da interface.
         </p>
       </div>
 
-      {/* Tema */}
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label className="block text-sm font-medium" style={{ color: currentTheme.foreground }}>
           Tema
         </label>
         <select
-          value={currentThemeMode}
+          value={themeMode}
           onChange={(e) => handleThemeChange(e.target.value as 'light' | 'dark' | 'auto')}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 rounded-md focus:ring-2 focus:ring-opacity-50 outline-none"
+          style={{
+            border: `1px solid ${currentTheme.border}`,
+            backgroundColor: currentTheme.input,
+            color: currentTheme.foreground,
+            focusRingColor: currentTheme.ring
+          }}
         >
           {THEME_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -83,21 +75,25 @@ export function AppearanceSettings() {
             </option>
           ))}
         </select>
-        <div className="text-xs text-gray-500 dark:text-gray-400">
-          Tema atual: <span className="font-medium">{THEME_OPTIONS.find(t => t.value === currentThemeMode)?.label}</span>
+        <div className="text-xs" style={{ color: currentTheme.mutedForeground }}>
+          Tema atual: <span className="font-medium">{THEME_OPTIONS.find(t => t.value === themeMode)?.label}</span>
         </div>
       </div>
 
-      {/* Tamanho da Fonte */}
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label className="block text-sm font-medium" style={{ color: currentTheme.foreground }}>
           Tamanho da Fonte
         </label>
         <div className="flex items-center gap-4">
           <select
-            value={appearanceConfig['font-size']}
+            value={fontSize}
             onChange={(e) => handleFontSizeChange(Number(e.target.value))}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-3 py-2 rounded-md focus:ring-2 focus:ring-opacity-50 outline-none"
+            style={{
+              border: `1px solid ${currentTheme.border}`,
+              backgroundColor: currentTheme.input,
+              color: currentTheme.foreground
+            }}
           >
             {FONT_SIZES.map((size) => (
               <option key={size} value={size}>
@@ -106,23 +102,29 @@ export function AppearanceSettings() {
             ))}
           </select>
           <div 
-            className="text-gray-600 dark:text-gray-400"
-            style={{ fontSize: `${appearanceConfig['font-size']}px` }}
+            style={{ 
+              fontSize: `${fontSize}px`,
+              color: currentTheme.mutedForeground
+            }}
           >
             Exemplo de texto
           </div>
         </div>
       </div>
 
-      {/* Família da Fonte */}
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label className="block text-sm font-medium" style={{ color: currentTheme.foreground }}>
           Família da Fonte
         </label>
         <select
-          value={appearanceConfig['font-family']}
+          value={fontFamily}
           onChange={(e) => handleFontFamilyChange(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 rounded-md focus:ring-2 focus:ring-opacity-50 outline-none"
+          style={{
+            border: `1px solid ${currentTheme.border}`,
+            backgroundColor: currentTheme.input,
+            color: currentTheme.foreground
+          }}
         >
           {FONT_FAMILIES.map((family) => (
             <option key={family} value={family} style={{ fontFamily: family }}>
@@ -131,10 +133,13 @@ export function AppearanceSettings() {
           ))}
         </select>
         <div 
-          className="text-gray-600 dark:text-gray-400 p-3 bg-gray-50 dark:bg-gray-800 rounded border"
+          className="p-3 rounded"
           style={{ 
-            fontFamily: appearanceConfig['font-family'],
-            fontSize: `${appearanceConfig['font-size']}px`
+            fontFamily: fontFamily,
+            fontSize: `${fontSize}px`,
+            color: currentTheme.mutedForeground,
+            backgroundColor: currentTheme.muted,
+            border: `1px solid ${currentTheme.border}`
           }}
         >
           The quick brown fox jumps over the lazy dog.<br />

@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { ArrowLeft, Activity, Monitor, Cpu, MemoryStick, RotateCcw } from 'lucide-react';
-import { useFPS } from '../hooks/useFPS';
-import { usePerformanceMetrics } from '../hooks/usePerformanceMetrics';
+import { useFPS } from '../../hooks/useFPS';
+import { usePerformanceMetrics } from '../../hooks/usePerformanceMetrics';
 
 interface BenchmarkPageProps {
   onBack: () => void;
 }
 
-export function BenchmarkPage({ onBack }: BenchmarkPageProps) {
+export const BenchmarkPage = memo(function BenchmarkPage({ onBack }: BenchmarkPageProps) {
   const { metrics: fpsMetrics, resetMetrics, startMeasuring, stopMeasuring } = useFPS();
   const { metrics: perfMetrics, formatBytes, startMonitoring, stopMonitoring } = usePerformanceMetrics();
   const [stressTest, setStressTest] = useState(false);
@@ -34,7 +34,6 @@ export function BenchmarkPage({ onBack }: BenchmarkPageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      {/* Header */}
       <div className="max-w-6xl mx-auto mb-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -75,7 +74,6 @@ export function BenchmarkPage({ onBack }: BenchmarkPageProps) {
       </div>
 
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        {/* FPS Card */}
         <div className="bg-white rounded-xl shadow-sm border p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
@@ -104,8 +102,6 @@ export function BenchmarkPage({ onBack }: BenchmarkPageProps) {
             </div>
           </div>
         </div>
-
-        {/* FPS Stats Card */}
         <div className="bg-white rounded-xl shadow-sm border p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
@@ -142,8 +138,6 @@ export function BenchmarkPage({ onBack }: BenchmarkPageProps) {
             </div>
           </div>
         </div>
-
-        {/* Memory Card */}
         {perfMetrics.memory && (
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <div className="flex items-center justify-between mb-4">
@@ -183,8 +177,6 @@ export function BenchmarkPage({ onBack }: BenchmarkPageProps) {
             </div>
           </div>
         )}
-
-        {/* System Info Card */}
         <div className="bg-white rounded-xl shadow-sm border p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
@@ -213,8 +205,6 @@ export function BenchmarkPage({ onBack }: BenchmarkPageProps) {
           </div>
         </div>
       </div>
-
-      {/* Stress Test Animation */}
       {stressTest && (
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
           {[...Array(50)].map((_, i) => (
@@ -233,4 +223,4 @@ export function BenchmarkPage({ onBack }: BenchmarkPageProps) {
       )}
     </div>
   );
-}
+});

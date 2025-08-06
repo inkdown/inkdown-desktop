@@ -99,7 +99,7 @@ export class Editor extends EventEmitter {
     }
     this.debounceTimer = window.setTimeout(() => {
       this.handleDocumentChange(update);
-    }, 150);
+    }, 50);
   };
 
   private handleDocumentChange(update: any): void {
@@ -174,6 +174,10 @@ export class Editor extends EventEmitter {
     return this.view;
   }
 
+  public getConfig(): EditorConfig {
+    return { ...this.config };
+  }
+
   public destroy(): void {
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -198,6 +202,34 @@ export class Editor extends EventEmitter {
       showLineNumbers: this.config.showLineNumbers !== false,
       highlightCurrentLine: this.config.highlightCurrentLine !== false,
       theme: theme,
+      fontSize: this.config.fontSize,
+      fontFamily: this.config.fontFamily,
+    });
+    
+    this.view.dispatch({
+      effects: StateEffect.reconfigure.of(extensions)
+    });
+  }
+
+  public updateConfig(updates: Partial<EditorConfig>): void {
+    const hasChanges = Object.keys(updates).some(key => 
+      this.config[key as keyof EditorConfig] !== updates[key as keyof EditorConfig]
+    );
+    
+    if (!hasChanges) return;
+    
+    this.config = { ...this.config, ...updates };
+    
+    if (updates.theme) {
+      this.applyTheme();
+    }
+    
+    const extensions = ExtensionsFactory.buildExtensions({
+      markdown: this.config.markdown !== false,
+      vim: this.config.vim || false,
+      showLineNumbers: this.config.showLineNumbers !== false,
+      highlightCurrentLine: this.config.highlightCurrentLine !== false,
+      theme: this.config.theme || 'light',
       fontSize: this.config.fontSize,
       fontFamily: this.config.fontFamily,
     });

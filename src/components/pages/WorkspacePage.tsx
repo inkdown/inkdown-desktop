@@ -1,12 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDirectory } from '../contexts/DirectoryContext';
-import { useSidebarResize } from '../hooks/useSidebarResize';
-import { Sidebar, SidebarResizer } from './sidebar';
-import { MainWindow } from './window';
-import { ThemeToggle } from './ui/ThemeToggle';
+import { useDirectory } from '../../contexts/DirectoryContext'
+import { useSidebarResize } from '../../hooks/useSidebarResize';
+import { Sidebar, SidebarResizer } from '../sidebar';
+import { MainWindow } from '../window';
 
-export function WorkspacePage() {
+export const WorkspacePage = memo(function WorkspacePage() {
   const { fileTree, currentDirectory } = useDirectory();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const { sidebarWidth, handleMouseDown } = useSidebarResize(280);
@@ -53,4 +52,4 @@ export function WorkspacePage() {
       <MainWindow selectedFile={selectedFile} />
     </div>
   );
-}
+});

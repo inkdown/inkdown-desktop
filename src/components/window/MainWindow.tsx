@@ -1,14 +1,14 @@
 import { memo } from 'react';
-import { WindowHeader } from './WindowHeader';
 import { WindowContent } from './WindowContent';
 import { WelcomeScreen } from './WelcomeScreen';
+import { useAppearance } from '../../contexts/AppearanceContext';
 
 interface MainWindowProps {
   selectedFile: string | null;
 }
 
 export const MainWindow = memo(function MainWindow({ selectedFile }: MainWindowProps) {
-  useThemeSync();
+  useAppearance(); // Inicializa o provider
 
   return (
     <div className="flex-1 flex flex-col min-w-0">

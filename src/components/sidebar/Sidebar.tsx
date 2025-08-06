@@ -1,8 +1,8 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { SidebarHeader } from './SidebarHeader';
 import { SidebarContent } from './SidebarContent';
 import { FileNode } from '../../contexts/DirectoryContext';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppearance } from '../../contexts/AppearanceContext';
 
 interface SidebarProps {
   width: number;
@@ -17,16 +17,18 @@ export const Sidebar = memo(function Sidebar({
   selectedFile,
   onFileSelect,
 }: SidebarProps) {
-  const { currentTheme } = useTheme();
+  const { currentTheme } = useAppearance();
+  
+  const containerStyle = useMemo(() => ({
+    width,
+    backgroundColor: currentTheme.sidebar.background,
+    borderRight: `1px solid ${currentTheme.sidebar.border}`
+  }), [width, currentTheme.sidebar.background, currentTheme.sidebar.border]);
   
   return (
     <div 
       className="theme-sidebar flex flex-col"
-      style={{ 
-        width,
-        backgroundColor: currentTheme.colors.sidebar.background,
-        borderRight: `1px solid ${currentTheme.colors.sidebar.border}`
-      }}
+      style={containerStyle}
     >
       <SidebarHeader
         projectName={fileTree.name}

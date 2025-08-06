@@ -1,9 +1,9 @@
-import { useConfigManager } from '../../../hooks/useConfigManager';
+import { useAppearance } from '../../../contexts/AppearanceContext';
 
 export function EditorSettings() {
-  const { workspaceConfig, updateWorkspaceConfig, isLoading } = useConfigManager();
+  const { vimMode, showLineNumbers, highlightCurrentLine, readOnly, updateWorkspace, isLoading } = useAppearance();
 
-  if (isLoading || !workspaceConfig) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -14,8 +14,8 @@ export function EditorSettings() {
     );
   }
 
-  const handleToggle = (key: keyof typeof workspaceConfig, value: boolean) => {
-    updateWorkspaceConfig({ [key]: value });
+  const handleToggle = (key: 'vimMode' | 'showLineNumbers' | 'highlightCurrentLine' | 'readOnly', value: boolean) => {
+    updateWorkspace({ [key]: value });
   };
 
   return (
@@ -42,7 +42,7 @@ export function EditorSettings() {
         <label className="relative inline-flex items-center cursor-pointer">
           <input
             type="checkbox"
-            checked={workspaceConfig.vimMode}
+            checked={vimMode}
             onChange={(e) => handleToggle('vimMode', e.target.checked)}
             className="sr-only peer"
           />
@@ -63,7 +63,7 @@ export function EditorSettings() {
         <label className="relative inline-flex items-center cursor-pointer">
           <input
             type="checkbox"
-            checked={workspaceConfig.showLineNumbers}
+            checked={showLineNumbers}
             onChange={(e) => handleToggle('showLineNumbers', e.target.checked)}
             className="sr-only peer"
           />
@@ -84,7 +84,7 @@ export function EditorSettings() {
         <label className="relative inline-flex items-center cursor-pointer">
           <input
             type="checkbox"
-            checked={workspaceConfig.highlightCurrentLine}
+            checked={highlightCurrentLine}
             onChange={(e) => handleToggle('highlightCurrentLine', e.target.checked)}
             className="sr-only peer"
           />
@@ -105,7 +105,7 @@ export function EditorSettings() {
         <label className="relative inline-flex items-center cursor-pointer">
           <input
             type="checkbox"
-            checked={workspaceConfig.readOnly}
+            checked={readOnly}
             onChange={(e) => handleToggle('readOnly', e.target.checked)}
             className="sr-only peer"
           />
