@@ -3,12 +3,57 @@ use std::path::{Path, PathBuf};
 use std::env;
 use serde::{Deserialize, Serialize};
 
+mod markdown;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileNode {
     pub name: String,
     pub path: String,
     pub is_directory: bool,
     pub children: Option<Vec<FileNode>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NoteSearchResult {
+    pub name: String,
+    pub path: String,
+    pub content_preview: String,
+    pub modified_time: u64,
+    pub size: u64,
+    pub match_score: f32,
+}
+
+use markdown::{MarkdownParser, HtmlRenderer, ParseResult};
+
+// Thread-local parsers for maximum performance
+thread_local! {
+    static PARSER: std::cell::RefCell<MarkdownParser> = std::cell::RefCell::new(MarkdownParser::new());
+    static RENDERER: std::cell::RefCell<HtmlRenderer> = std::cell::RefCell::new(HtmlRenderer::new());
+}
+
+#[tauri::command]
+fn parse_markdown_to_html(markdown: String) -> Result<ParseResult, String> {
+    if markdown.is_empty() {
+        return Ok(ParseResult::new(String::new(), 0));
+    }
+
+    PARSER.with(|parser_cell| {
+        RENDERER.with(|renderer_cell| {
+            let mut parser = parser_cell.borrow_mut();
+            let mut renderer = renderer_cell.borrow_mut();
+            
+            // Parse markdown to tokens
+            let tokens = parser.parse(&markdown);
+            
+            // Render tokens to HTML
+            let html = renderer.render(&tokens);
+            
+            // Count words
+            let word_count = parser.count_words(&markdown);
+            
+            Ok(ParseResult::new(html, word_count))
+        })
+    })
 }
 
 #[tauri::command]
@@ -262,7 +307,18 @@ fn create_default_workspace_config() -> serde_json::Value {
         "showLineNumbers": true,
         "highlightCurrentLine": true,
         "markdown": true,
-        "readOnly": false
+        "readOnly": false,
+        "sidebarVisible": true,
+        "shortcuts": [
+            {
+                "name": "toggleSidebar",
+                "shortcut": "Ctrl+B"
+            },
+            {
+                "name": "openNotePalette",
+                "shortcut": "Ctrl+O"
+            }
+        ]
     })
 }
 
@@ -491,6 +547,173 @@ fn get_file_metadata(path: String) -> Result<serde_json::Value, String> {
     Ok(serde_json::Value::Object(result))
 }
 
+#[tauri::command]
+fn search_notes(workspace_path: String, query: String, limit: Option<usize>) -> Result<Vec<NoteSearchResult>, String> {
+    let limit = limit.unwrap_or(50);
+    let query = query.to_lowercase();
+    
+    if query.is_empty() {
+        return Ok(Vec::new());
+    }
+    
+    let mut results = Vec::new();
+    search_notes_recursive(&workspace_path, &query, &mut results)?;
+    
+    // Ordena por score de match (maior primeiro) e depois por data de modificação
+    results.sort_by(|a, b| {
+        let score_cmp = b.match_score.partial_cmp(&a.match_score).unwrap_or(std::cmp::Ordering::Equal);
+        if score_cmp == std::cmp::Ordering::Equal {
+            b.modified_time.cmp(&a.modified_time)
+        } else {
+            score_cmp
+        }
+    });
+    
+    results.truncate(limit);
+    Ok(results)
+}
+
+fn search_notes_recursive(dir_path: &str, query: &str, results: &mut Vec<NoteSearchResult>) -> Result<(), String> {
+    let path = Path::new(dir_path);
+    
+    if !path.exists() || !path.is_dir() {
+        return Ok(());
+    }
+    
+    let entries = fs::read_dir(path)
+        .map_err(|e| format!("Error reading directory {}: {}", dir_path, e))?;
+    
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let entry_path = entry.path();
+            
+            if entry_path.is_dir() {
+                // Busca recursivamente em subdiretórios
+                if let Some(path_str) = entry_path.to_str() {
+                    let _ = search_notes_recursive(path_str, query, results);
+                }
+            } else if entry_path.is_file() {
+                // Verifica se é arquivo markdown
+                if let Some(extension) = entry_path.extension() {
+                    let ext_str = extension.to_string_lossy().to_lowercase();
+                    if ["md", "markdown", "mdown", "mkd"].contains(&ext_str.as_str()) {
+                        if let Some(path_str) = entry_path.to_str() {
+                            if let Ok(note_result) = create_search_result(path_str, query) {
+                                if note_result.match_score > 0.0 {
+                                    results.push(note_result);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    Ok(())
+}
+
+fn create_search_result(file_path: &str, query: &str) -> Result<NoteSearchResult, String> {
+    let path = Path::new(file_path);
+    let metadata = fs::metadata(path)
+        .map_err(|e| format!("Failed to get metadata: {}", e))?;
+    
+    let content = fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+    
+    let filename = path.file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    
+    let mut match_score = 0.0f32;
+    
+    // Score baseado no nome do arquivo
+    let filename_lower = filename.to_lowercase();
+    if filename_lower.contains(query) {
+        match_score += if filename_lower == query {
+            10.0 // Match exato no nome
+        } else if filename_lower.starts_with(query) {
+            5.0 // Começa com a query
+        } else {
+            2.0 // Contém a query
+        };
+    }
+    
+    // Score baseado no conteúdo
+    let content_lower = content.to_lowercase();
+    let query_matches = content_lower.matches(query).count();
+    match_score += query_matches as f32 * 0.1;
+    
+    // Score baseado em títulos (linhas que começam com #)
+    for line in content.lines() {
+        if line.trim_start().starts_with('#') {
+            let line_lower = line.to_lowercase();
+            if line_lower.contains(query) {
+                match_score += 1.0;
+            }
+        }
+    }
+    
+    // Preview do conteúdo (primeiras linhas ou contexto ao redor do match)
+    let content_preview = create_content_preview(&content, query, 150);
+    
+    let modified_time = metadata.modified()
+        .ok()
+        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0);
+    
+    Ok(NoteSearchResult {
+        name: filename,
+        path: file_path.to_string(),
+        content_preview,
+        modified_time,
+        size: metadata.len(),
+        match_score,
+    })
+}
+
+fn create_content_preview(content: &str, query: &str, max_length: usize) -> String {
+    let lines: Vec<&str> = content.lines().collect();
+    
+    // Procura por linha que contém a query
+    for (i, line) in lines.iter().enumerate() {
+        if line.to_lowercase().contains(&query.to_lowercase()) {
+            // Pega algumas linhas ao redor do match
+            let start = if i >= 2 { i - 2 } else { 0 };
+            let end = std::cmp::min(lines.len(), i + 3);
+            
+            let preview_lines = &lines[start..end];
+            let mut preview = preview_lines.join(" ");
+            
+            // Trunca se muito longo
+            if preview.len() > max_length {
+                preview.truncate(max_length - 3);
+                preview.push_str("...");
+            }
+            
+            return preview;
+        }
+    }
+    
+    // Se não encontrou match, retorna o início do arquivo
+    let mut preview = lines.iter()
+        .take(3)
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .collect::<Vec<_>>()
+        .join(" ");
+    
+    if preview.len() > max_length {
+        preview.truncate(max_length - 3);
+        preview.push_str("...");
+    }
+    
+    preview
+}
+
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -513,7 +736,9 @@ pub fn run() {
             rename_file_or_directory,
             read_file,
             write_file,
-            get_file_metadata
+            get_file_metadata,
+            search_notes,
+            parse_markdown_to_html
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

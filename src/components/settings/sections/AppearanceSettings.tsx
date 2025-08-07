@@ -44,105 +44,108 @@ export function AppearanceSettings() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h3 className="text-lg font-semibold mb-4" style={{ color: currentTheme.foreground }}>
+        <h3 className="text-base font-medium mb-1" style={{ color: currentTheme.foreground }}>
           Aparência
         </h3>
-        <p className="text-sm mb-6" style={{ color: currentTheme.mutedForeground }}>
-          Personalize a aparência do editor e da interface.
+        <p className="text-xs mb-4" style={{ color: currentTheme.mutedForeground }}>
+          Personalize a aparência do editor e da interface
         </p>
       </div>
 
-      <div className="space-y-3">
-        <label className="block text-sm font-medium" style={{ color: currentTheme.foreground }}>
-          Tema
-        </label>
-        <select
-          value={themeMode}
-          onChange={(e) => handleThemeChange(e.target.value as 'light' | 'dark' | 'auto')}
-          className="w-full px-3 py-2 rounded-md focus:ring-2 focus:ring-opacity-50 outline-none"
-          style={{
-            border: `1px solid ${currentTheme.border}`,
-            backgroundColor: currentTheme.input,
-            color: currentTheme.foreground,
-          }}
-        >
-          {THEME_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label} - {option.description}
-            </option>
-          ))}
-        </select>
-        <div className="text-xs" style={{ color: currentTheme.mutedForeground }}>
-          Tema atual: <span className="font-medium">{THEME_OPTIONS.find(t => t.value === themeMode)?.label}</span>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <label className="block text-sm font-medium" style={{ color: currentTheme.foreground }}>
-          Tamanho da Fonte
-        </label>
-        <div className="flex items-center gap-4">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label className="block text-xs font-medium" style={{ color: currentTheme.foreground }}>
+            Tema
+          </label>
           <select
-            value={fontSize}
-            onChange={(e) => handleFontSizeChange(Number(e.target.value))}
-            className="px-3 py-2 rounded-md focus:ring-2 focus:ring-opacity-50 outline-none"
+            value={themeMode}
+            onChange={(e) => handleThemeChange(e.target.value as 'light' | 'dark' | 'auto')}
+            className="w-full px-2 py-1.5 rounded text-xs focus:ring-1 focus:ring-opacity-50 outline-none"
             style={{
               border: `1px solid ${currentTheme.border}`,
-              backgroundColor: currentTheme.input,
+              backgroundColor: currentTheme.background,
+              color: currentTheme.foreground,
+            }}
+          >
+            {THEME_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label} - {option.description}
+              </option>
+            ))}
+          </select>
+          <div className="text-xs opacity-70" style={{ color: currentTheme.mutedForeground }}>
+            Atual: {THEME_OPTIONS.find(t => t.value === themeMode)?.label}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-xs font-medium" style={{ color: currentTheme.foreground }}>
+            Tamanho da Fonte
+          </label>
+          <div className="flex items-center gap-3">
+            <select
+              value={fontSize}
+              onChange={(e) => handleFontSizeChange(Number(e.target.value))}
+              className="px-2 py-1.5 rounded text-xs focus:ring-1 focus:ring-opacity-50 outline-none"
+              style={{
+                border: `1px solid ${currentTheme.border}`,
+                backgroundColor: currentTheme.background,
+                color: currentTheme.foreground
+              }}
+            >
+              {FONT_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  {size}px
+                </option>
+              ))}
+            </select>
+            <div 
+              className="text-xs"
+              style={{ 
+                fontSize: `${Math.min(fontSize, 14)}px`,
+                color: currentTheme.mutedForeground
+              }}
+            >
+              Exemplo de texto
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-xs font-medium" style={{ color: currentTheme.foreground }}>
+            Família da Fonte
+          </label>
+          <select
+            value={fontFamily}
+            onChange={(e) => handleFontFamilyChange(e.target.value)}
+            className="w-full px-2 py-1.5 rounded text-xs focus:ring-1 focus:ring-opacity-50 outline-none"
+            style={{
+              border: `1px solid ${currentTheme.border}`,
+              backgroundColor: currentTheme.background,
               color: currentTheme.foreground
             }}
           >
-            {FONT_SIZES.map((size) => (
-              <option key={size} value={size}>
-                {size}px
+            {FONT_FAMILIES.map((family) => (
+              <option key={family} value={family} style={{ fontFamily: family }}>
+                {family.split(',')[0]}
               </option>
             ))}
           </select>
           <div 
+            className="p-2 rounded text-xs"
             style={{ 
-              fontSize: `${fontSize}px`,
-              color: currentTheme.mutedForeground
+              fontFamily: fontFamily,
+              fontSize: '11px',
+              color: currentTheme.mutedForeground,
+              backgroundColor: currentTheme.muted,
+              border: `1px solid ${currentTheme.border}`
             }}
           >
-            Exemplo de texto
+            The quick brown fox jumps over the lazy dog<br />
+            0123456789 !@#$%^&*()
           </div>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <label className="block text-sm font-medium" style={{ color: currentTheme.foreground }}>
-          Família da Fonte
-        </label>
-        <select
-          value={fontFamily}
-          onChange={(e) => handleFontFamilyChange(e.target.value)}
-          className="w-full px-3 py-2 rounded-md focus:ring-2 focus:ring-opacity-50 outline-none"
-          style={{
-            border: `1px solid ${currentTheme.border}`,
-            backgroundColor: currentTheme.input,
-            color: currentTheme.foreground
-          }}
-        >
-          {FONT_FAMILIES.map((family) => (
-            <option key={family} value={family} style={{ fontFamily: family }}>
-              {family.split(',')[0]}
-            </option>
-          ))}
-        </select>
-        <div 
-          className="p-3 rounded"
-          style={{ 
-            fontFamily: fontFamily,
-            fontSize: `${fontSize}px`,
-            color: currentTheme.mutedForeground,
-            backgroundColor: currentTheme.muted,
-            border: `1px solid ${currentTheme.border}`
-          }}
-        >
-          The quick brown fox jumps over the lazy dog.<br />
-          0123456789 !@#$%^&*()
         </div>
       </div>
     </div>

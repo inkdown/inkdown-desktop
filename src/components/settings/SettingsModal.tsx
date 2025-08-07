@@ -41,46 +41,40 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       
       <div 
-        className="relative rounded-lg shadow-xl w-[800px] h-[600px] max-w-[90vw] max-h-[90vh] flex overflow-hidden"
+        className="relative rounded-lg shadow-xl w-[700px] h-[500px] max-w-[90vw] max-h-[85vh] flex overflow-hidden"
         style={{ backgroundColor: currentTheme.background }}
       >
         <div 
-          className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 z-10"
+          className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 z-10"
           style={{ 
             borderBottom: `1px solid ${currentTheme.border}`,
             backgroundColor: currentTheme.background
           }}
         >
           <h2 
-            className="text-lg font-semibold"
+            className="text-sm font-medium"
             style={{ color: currentTheme.foreground }}
           >
             Configurações
           </h2>
           <button
             onClick={onClose}
-            className="p-1 rounded transition-colors"
+            className="p-1 rounded transition-colors hover:opacity-70"
             style={{ 
               color: currentTheme.mutedForeground,
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = currentTheme.muted;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
           >
-            <X size={20} />
+            <X size={16} />
           </button>
         </div>
 
-        <div className="flex w-full pt-16">
+        <div className="flex w-full pt-12">
           <SettingsSidebar
             activeSection={activeSection}
             onSectionChange={setActiveSection}
           />
           
-          <div className="flex-1 p-6 overflow-y-auto">
+          <div className="flex-1 p-4 overflow-y-auto">
             {renderSection()}
           </div>
         </div>

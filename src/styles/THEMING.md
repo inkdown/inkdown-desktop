@@ -119,12 +119,6 @@ const customTheme = {
   '--inkdown-syntax-keyword': '#f38ba8'
 };
 
-// Apply theme
-Object.entries(customTheme).forEach(([property, value]) => {
-  document.documentElement.style.setProperty(property, value);
-});
-```
-
 ### Method 3: CSS Classes
 ```css
 /* Specific theme classes */
@@ -212,16 +206,4 @@ Use Inkdown-specific classes for precise styling:
   --inkdown-syntax-keyword: #569cd6;
   --inkdown-syntax-comment: #6a9955;
 }
-```
-
-## 🚀 Usage
-
-1. Import your theme CSS after the Inkdown styles
-2. Apply theme classes to the editor container
-3. Use CSS variables for dynamic theming
-4. Test in both light and dark modes
-
-```html
-<link rel="stylesheet" href="inkdown-theme-vars.css">
-<link rel="stylesheet" href="your-custom-theme.css">
 ```

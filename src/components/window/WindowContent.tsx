@@ -1,20 +1,32 @@
-import { memo, useState, useEffect, useCallback, useRef } from 'react';
+import { memo, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { EditorComponent, EditorComponentHandle } from '../editor/EditorComponent';
+import { EditorToolbar } from '../editor/EditorToolbar';
 import { Title } from '../editor/Title';
-import { useAppearance } from '../../contexts/AppearanceContext';
 
 interface WindowContentProps {
   selectedFile: string;
   onFilePathChange?: (newPath: string) => void;
+  onToggleSidebar: () => void;
+  onSelectNote?: (notePath: string) => void;
+  workspaceConfig: any;
+  currentTheme: any;
+  themeMode: string;
+  onSaveRef: React.MutableRefObject<(() => void) | null>;
 }
 
-export const WindowContent = memo(function WindowContent({ selectedFile, onFilePathChange }: WindowContentProps) {
-  const { currentTheme, themeMode } = useAppearance();
+export const WindowContent = memo(function WindowContent({ 
+  selectedFile, 
+  onFilePathChange,
+  currentTheme, 
+  themeMode,
+  onSaveRef 
+}: WindowContentProps) {
   const [fileContent, setFileContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const editorRef = useRef<EditorComponentHandle>(null);
 
   const loadFileContent = useCallback(async (filePath: string) => {
@@ -83,20 +95,23 @@ export const WindowContent = memo(function WindowContent({ selectedFile, onFileP
     onFilePathChange?.(newPath);
   }, [onFilePathChange]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-        event.preventDefault();
-        if (editorRef.current) {
-          const currentContent = editorRef.current.getContent();
-          handleSave(currentContent);
-        }
-      }
-    };
+  const togglePreviewMode = useCallback(() => {
+    setIsPreviewMode(prev => !prev);
+  }, []);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+  const performSave = useCallback(() => {
+    if (editorRef.current) {
+      const currentContent = editorRef.current.getContent();
+      handleSave(currentContent);
+    }
   }, [handleSave]);
+
+  useEffect(() => {
+    onSaveRef.current = performSave;
+    return () => {
+      onSaveRef.current = null;
+    };
+  }, [performSave, onSaveRef]);
 
   if (!selectedFile) {
     return (
@@ -113,13 +128,32 @@ export const WindowContent = memo(function WindowContent({ selectedFile, onFileP
     );
   }
 
+  const fileName = useMemo(() => selectedFile?.split('/').pop(), [selectedFile]);
+  
+  const spinnerStyle = useMemo(() => ({ 
+    borderBottomColor: currentTheme.primary 
+  }), [currentTheme.primary]);
+
+  const headerStyle = useMemo(() => ({
+    borderBottom: `1px solid ${currentTheme.border}`,
+    backgroundColor: currentTheme.muted
+  }), [currentTheme.border, currentTheme.muted]);
+
+  const resolvedTheme = useMemo(() => 
+    themeMode === 'auto' 
+      ? (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : (themeMode as 'light' | 'dark'),
+    [themeMode]
+  );
+
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center theme-card">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" style={{ borderBottomColor: currentTheme.primary }}></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" style={spinnerStyle}></div>
           <p className="theme-text-muted">Carregando arquivo...</p>
-          <p className="text-xs theme-text-muted mt-1">{selectedFile.split('/').pop()}</p>
+          <p className="text-xs theme-text-muted mt-1">{fileName}</p>
         </div>
       </div>
     );
@@ -157,10 +191,7 @@ export const WindowContent = memo(function WindowContent({ selectedFile, onFileP
         </div>
       )}
       
-      <div className="px-4 py-3 theme-border flex items-center justify-between" style={{ 
-        borderBottom: `1px solid ${currentTheme.border}`,
-        backgroundColor: currentTheme.muted
-      }}>
+      <div className="px-4 py-3 theme-border flex items-center justify-between" style={headerStyle}>
         <Title 
           filePath={selectedFile}
           onFilePathChange={handleFilePathChange}
@@ -168,17 +199,22 @@ export const WindowContent = memo(function WindowContent({ selectedFile, onFileP
         />
       </div>
 
+      <EditorToolbar
+        isPreviewMode={isPreviewMode}
+        onTogglePreview={togglePreviewMode}
+        currentTheme={currentTheme}
+      />
+
       <div className="theme-editor">
         <EditorComponent
-        ref={editorRef}
-        initialContent={fileContent}
-        themeName={themeMode === 'auto' 
-          ? (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-          : (themeMode as 'light' | 'dark')}
-        onContentChange={handleContentChange}
-        onSave={handleSave}
-        onError={handleError}
-      />
+          ref={editorRef}
+          initialContent={fileContent}
+          themeName={resolvedTheme}
+          showPreview={isPreviewMode}
+          onContentChange={handleContentChange}
+          onSave={handleSave}
+          onError={handleError}
+        />
       </div>
     </div>
   );

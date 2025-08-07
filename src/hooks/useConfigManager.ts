@@ -16,6 +16,12 @@ const DEFAULT_WORKSPACE: WorkspaceConfig = {
   highlightCurrentLine: true,
   markdown: true,
   readOnly: false,
+  sidebarVisible: true,
+  shortcuts: [
+    { name: 'toggleSidebar', shortcut: 'Ctrl+B' },
+    { name: 'save', shortcut: 'Ctrl+S' },
+    { name: 'openNotePalette', shortcut: 'Ctrl+O' }
+  ],
 };
 
 const DEFAULT_APPEARANCE: AppearanceConfig = {
@@ -74,6 +80,20 @@ class ConfigManager {
       const workspace = JSON.parse(workspaceStr) as WorkspaceConfig;
       const appearance = JSON.parse(appearanceStr) as AppearanceConfig;
 
+      if (!workspace.shortcuts || workspace.shortcuts.length === 0) {
+        workspace.shortcuts = DEFAULT_WORKSPACE.shortcuts;
+        this.updateWorkspaceConfig({ shortcuts: workspace.shortcuts });
+      } else {
+        const existingShortcuts = workspace.shortcuts.map(s => s.name);
+        const defaultShortcuts =  DEFAULT_WORKSPACE.shortcuts.filter(
+          s => !existingShortcuts.includes(s.name)
+        );
+        if (defaultShortcuts.length > 0) {
+          workspace.shortcuts = [...workspace.shortcuts, ...defaultShortcuts];
+          this.updateWorkspaceConfig({ shortcuts: workspace.shortcuts });
+        }
+      }
+
       this.state = {
         workspace,
         appearance,
@@ -100,11 +120,17 @@ class ConfigManager {
 
     try {
       await invoke('update_workspace_config', { config: updates });
-      this.state.workspace = { ...this.state.workspace, ...updates };
+      this.state = {
+        ...this.state,
+        workspace: { ...this.state.workspace, ...updates }
+      };
       this.notify();
     } catch (err) {
       console.error('Error updating workspace config:', err);
-      this.state.error = err instanceof Error ? err.message : 'Failed to update workspace config';
+      this.state = {
+        ...this.state,
+        error: err instanceof Error ? err.message : 'Failed to update workspace config'
+      };
       this.notify();
     }
   }

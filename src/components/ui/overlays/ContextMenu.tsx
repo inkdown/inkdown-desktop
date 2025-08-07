@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, memo } from 'react';
 import { FolderPlus, FileText, Edit, Trash2 } from 'lucide-react';
 import { useAppearance } from '../../../contexts/AppearanceContext';
 
@@ -14,7 +14,7 @@ interface ContextMenuProps {
   isRootDirectory?: boolean;
 }
 
-export function ContextMenu({
+export const ContextMenu = memo(function ContextMenu({
   x,
   y,
   onClose,
@@ -155,4 +155,4 @@ export function ContextMenu({
       ))}
     </div>
   );
-}
+});

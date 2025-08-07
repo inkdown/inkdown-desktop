@@ -9,7 +9,7 @@ interface TitleProps {
   className?: string;
 }
 
-export const Title: React.FC<TitleProps> = ({ 
+export const Title = React.memo<TitleProps>(({ 
   filePath, 
   onFilePathChange,
   className = '' 
@@ -57,12 +57,38 @@ export const Title: React.FC<TitleProps> = ({
     setTitle(e.target.value);
   }, []);
 
+  const validateFileName = useCallback((name: string) => {
+    const trimmed = name.trim();
+    
+    if (!trimmed) return false;
+    
+    const invalidChars = /[<>:"/\\|?*\x00-\x1f]/;
+    if (invalidChars.test(trimmed)) return false;
+    
+    const reservedNames = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)/i;
+    if (reservedNames.test(trimmed)) return false;
+    
+    if (trimmed.endsWith(' ') || trimmed.endsWith('.')) return false;
+    
+    if (trimmed.length > 255) return false;
+    
+    return true;
+  }, []);
+
   const handleSave = useCallback(async () => {
     const trimmedTitle = title.trim();
     
     if (!trimmedTitle || trimmedTitle === originalTitle.current) {
       setTitle(originalTitle.current);
       setIsEditing(false);
+      return;
+    }
+    
+    if (!validateFileName(trimmedTitle)) {
+      console.warn('Invalid filename:', trimmedTitle);
+      setTitle(originalTitle.current);
+      setIsEditing(false);
+      alert('Nome de arquivo inválido. Evite caracteres especiais e nomes reservados do sistema.');
       return;
     }
 
@@ -82,9 +108,9 @@ export const Title: React.FC<TitleProps> = ({
       console.error('Failed to rename file:', error);
       setTitle(originalTitle.current);
       setIsEditing(false);
-      alert(`Failed to rename file: ${error}`);
+      alert(`Falha ao renomear arquivo: ${error}`);
     }
-  }, [title, onFilePathChange, refreshFileTree]);
+  }, [title, onFilePathChange, refreshFileTree, validateFileName]);
 
   const handleCancel = useCallback(() => {
     setTitle(originalTitle.current);
@@ -102,7 +128,9 @@ export const Title: React.FC<TitleProps> = ({
   }, [handleSave, handleCancel]);
 
   const handleBlur = useCallback(() => {
-    handleSave();
+    setTimeout(() => {
+      handleSave();
+    }, 50);
   }, [handleSave]);
 
   return (
@@ -150,4 +178,4 @@ export const Title: React.FC<TitleProps> = ({
       } : undefined}
     />
   );
-};
+});

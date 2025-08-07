@@ -1,15 +1,32 @@
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback, memo, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDirectory } from '../../contexts/DirectoryContext'
 import { useSidebarResize } from '../../hooks/useSidebarResize';
+import { useConfigManager } from '../../hooks/useConfigManager';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { useAppearance } from '../../contexts/AppearanceContext';
 import { Sidebar, SidebarResizer } from '../sidebar';
 import { MainWindow } from '../window';
+import { NotePalette } from '../palette';
 
 export const WorkspacePage = memo(function WorkspacePage() {
   const { fileTree, currentDirectory } = useDirectory();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const saveRef = useRef<(() => void) | null>(null);
   const { sidebarWidth, handleMouseDown } = useSidebarResize(280);
+  const { workspaceConfig, updateWorkspaceConfig } = useConfigManager();
+  const { currentTheme, themeMode } = useAppearance();
   const navigate = useNavigate();
+
+  const toggleSidebar = useCallback(() => {
+    const currentState = workspaceConfig.sidebarVisible ?? true;
+    const newState = !currentState;
+    
+    updateWorkspaceConfig({ sidebarVisible: newState }).then(() => {
+    }).catch((_) => {
+    });
+  }, [workspaceConfig.sidebarVisible, updateWorkspaceConfig]);
 
   const handleFileSelect = useCallback((filePath: string) => {
     setSelectedFile(filePath);
@@ -19,6 +36,31 @@ export const WorkspacePage = memo(function WorkspacePage() {
     setSelectedFile(newPath);
   }, []);
 
+  const handleSelectNote = useCallback((notePath: string) => {
+    setSelectedFile(notePath);
+    setIsPaletteOpen(false); // Close palette when selecting note
+  }, []);
+
+  const handleOpenPalette = useCallback(() => {
+    setIsPaletteOpen(true);
+  }, []);
+
+  const handleClosePalette = useCallback(() => {
+    setIsPaletteOpen(false);
+  }, []);
+
+  const handleSave = useCallback(() => {
+    if (saveRef.current) {
+      saveRef.current();
+    }
+  }, []);
+
+  useKeyboardShortcuts({
+    onToggleSidebar: toggleSidebar,
+    onSave: handleSave,
+    onOpenNotePalette: handleOpenPalette,
+    shortcuts: workspaceConfig.shortcuts
+  });
 
   if (!fileTree || !currentDirectory) {
     return (
@@ -43,17 +85,38 @@ export const WorkspacePage = memo(function WorkspacePage() {
 
   return (
     <div className="h-screen flex theme-card relative">
+      {(workspaceConfig.sidebarVisible ?? true) && (
+        <>
+          <Sidebar
+            width={sidebarWidth}
+            fileTree={fileTree}
+            selectedFile={selectedFile}
+            onFileSelect={handleFileSelect}
+          />
+          <SidebarResizer onMouseDown={handleMouseDown} />
+        </>
+      )}
       
-      <Sidebar
-        width={sidebarWidth}
-        fileTree={fileTree}
-        selectedFile={selectedFile}
-        onFileSelect={handleFileSelect}
+      <MainWindow 
+        selectedFile={selectedFile} 
+        onFilePathChange={handleFilePathChange}
+        onToggleSidebar={toggleSidebar}
+        onSelectNote={handleSelectNote}
+        workspaceConfig={workspaceConfig}
+        currentTheme={currentTheme}
+        themeMode={themeMode}
+        onSaveRef={saveRef}
       />
       
-      <SidebarResizer onMouseDown={handleMouseDown} />
-      
-      <MainWindow selectedFile={selectedFile} onFilePathChange={handleFilePathChange} />
+      {useMemo(() => (
+        <NotePalette
+          isOpen={isPaletteOpen}
+          onClose={handleClosePalette}
+          onSelectNote={handleSelectNote}
+          workspacePath={workspaceConfig.workspace_path}
+          currentTheme={currentTheme}
+        />
+      ), [isPaletteOpen, handleClosePalette, handleSelectNote, workspaceConfig.workspace_path, currentTheme])}
     </div>
   );
 });

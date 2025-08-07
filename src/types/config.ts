@@ -63,11 +63,18 @@ export interface CustomTheme {
   colors: ThemeColors;
 }
 
+export interface KeyboardShortcut {
+  name: string;
+  shortcut: string;
+}
+
 export interface WorkspaceConfig {
   workspace_path: string | null;
   vimMode?: boolean;
-  showLineNumbers?: boolean;
+  showLineNumbers: boolean;
   highlightCurrentLine?: boolean;
-  markdown?: boolean;
-  readOnly?: boolean;
+  markdown: boolean;
+  readOnly: boolean;
+  sidebarVisible?: boolean;
+  shortcuts: KeyboardShortcut[];
 }

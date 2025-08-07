@@ -1,22 +1,41 @@
-import React from 'react';
+import { memo, useMemo } from 'react';
+import { BookOpen, Edit3 } from 'lucide-react';
 
 interface EditorToolbarProps {
-  onSave?: () => void;
+  isPreviewMode: boolean;
+  onTogglePreview: () => void;
+  currentTheme: any;
 }
 
-export const EditorToolbar: React.FC<EditorToolbarProps> = ({ onSave }) => {
+export const EditorToolbar = memo(function EditorToolbar({  
+  isPreviewMode, 
+  onTogglePreview, 
+  currentTheme 
+}: EditorToolbarProps) {
+  const toolbarStyle = useMemo(() => ({
+    borderBottom: `1px solid ${currentTheme.border}`,
+    backgroundColor: currentTheme.background
+  }), [currentTheme.border, currentTheme.background]);
+
+  const previewButtonStyle = useMemo(() => ({
+    backgroundColor: isPreviewMode ? currentTheme.primary : currentTheme.muted,
+    color: isPreviewMode ? currentTheme.primaryForeground : currentTheme.foreground,
+    border: `1px solid ${currentTheme.border}`
+  }), [isPreviewMode, currentTheme]);
+
   return (
-    <div className="flex items-center gap-2 p-2 border-b bg-gray-50">
+    <div className="px-4 py-2 flex items-center gap-2" style={toolbarStyle}>
+      <button
+        onClick={onTogglePreview}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors hover:opacity-80"
+        style={previewButtonStyle}
+        title={isPreviewMode ? "Voltar ao Editor" : "Visualizar Preview"}
+      >
+        {isPreviewMode ? <Edit3 size={16} /> : <BookOpen size={16} />}
+        {isPreviewMode ? "Editar" : "Preview"}
+      </button>
+      
       <div className="flex-1" />
-      {onSave && (
-        <button
-          onClick={onSave}
-          className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-          title="Save (Ctrl+S)"
-        >
-          Save
-        </button>
-      )}
     </div>
   );
-};
+});

@@ -1,4 +1,4 @@
-import { useRef, forwardRef, useImperativeHandle, useMemo, useEffect } from 'react';
+import { useRef, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { Editor, EditorConfig, EditorStateInfo } from './core/Editor';
 import { MarkdownPreview } from './preview/MarkdownPreview';
 import { useAppearance } from '../../contexts/AppearanceContext';
@@ -141,6 +141,39 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
     }
   }, [finalTheme, initialContent, configVimMode, configShowLineNumbers, configHighlightCurrentLine, configReadOnly, configFontSize, configFontFamily]);
 
+  // Effect to handle showPreview changes
+  useEffect(() => {
+    if (!isInitialized.current || !previewContainerRef.current) return;
+
+    if (showPreview && !previewRef.current) {
+      // Create preview when showPreview becomes true
+      previewRef.current = new MarkdownPreview({
+        container: previewContainerRef.current,
+        theme: finalTheme,
+      });
+      // Sync current content
+      const currentContent = editorRef.current?.getContent() || initialContent;
+      if (currentContent.trim()) {
+        previewRef.current.updateFromContent(currentContent);
+      }
+    } else if (!showPreview && previewRef.current) {
+      // Destroy preview when showPreview becomes false
+      previewRef.current.destroy();
+      previewRef.current = null;
+    }
+
+    // Optimize editor performance when in preview mode
+    if (editorRef.current) {
+      if (showPreview) {
+        // Disable editor updates for better performance
+        editorRef.current.blur?.(); // Remove focus
+      } else {
+        // Re-enable editor when switching back
+        setTimeout(() => editorRef.current?.focus?.(), 0);
+      }
+    }
+  }, [showPreview, finalTheme, initialContent]);
+
 
   useImperativeHandle(ref, () => ({
     getContent: () => editorRef.current?.getContent() || '',
@@ -148,13 +181,12 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
     focus: () => editorRef.current?.focus(),
   }), []);
 
-  const layoutStyle = useMemo(() => ({
-    display: 'grid',
-    gridTemplateColumns: showPreview ? '1fr 1fr' : '1fr',
-    minHeight: '200px',
-    gap: showPreview ? '1px' : '0',
-    backgroundColor: 'var(--theme-border)',
-  }), [showPreview]);
+  const layoutStyle = {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    height: '100%',
+    position: 'relative' as const,
+  };
 
 
   return (
@@ -163,16 +195,23 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
         <div
           ref={editorContainerRef}
           className={`editor-container inkdown-editor cm-theme-${finalTheme}`}
-          style={{ backgroundColor: 'var(--inkdown-editor-bg)' }}
+          style={{ 
+            backgroundColor: 'var(--inkdown-editor-bg)',
+            flex: 1,
+            display: showPreview ? 'none' : 'block'
+          }}
         />
         {showPreview && (
           <div
             ref={previewContainerRef}
             className="preview-container"
             style={{ 
-              backgroundColor: 'var(--theme-background)', 
-              color: 'var(--theme-foreground)',
-              overflow: 'visible' 
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 10
             }}
           />
         )}

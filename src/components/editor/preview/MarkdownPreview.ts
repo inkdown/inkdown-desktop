@@ -1,3 +1,10 @@
+import { invoke } from '@tauri-apps/api/core';
+
+interface ParseResult {
+  html: string;
+  word_count: number;
+  error?: string;
+}
 
 export interface PreviewConfig {
   container: HTMLElement;
@@ -9,6 +16,8 @@ export class MarkdownPreview {
   private previewElement!: HTMLElement;
   private config: PreviewConfig;
   private updateTimeout?: number;
+  private lastContent: string = '';
+  private lastHtml: string = '';
 
   constructor(config: PreviewConfig) {
     this.config = config;
@@ -21,25 +30,8 @@ export class MarkdownPreview {
   }
 
   private createPreviewElement(): void {
-    this.previewElement = document.createElement('pre');
-    this.previewElement.className = `markdown-preview theme-${this.config.theme || 'light'}`;
-    this.previewElement.style.cssText = `
-      width: 100%;
-      height: auto;
-      min-height: 200px;
-      overflow-y: visible;
-      padding: 20px;
-      margin: 0;
-      background: var(--preview-bg, #ffffff);
-      color: var(--preview-text, #24292f);
-      font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
-      font-size: 14px;
-      line-height: 1.5;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      border: none;
-      outline: none;
-    `;
+    this.previewElement = document.createElement('div');
+    this.previewElement.className = `markdown-preview-content theme-${this.config.theme || 'light'}`;
     this.container.appendChild(this.previewElement);
   }
 
@@ -53,16 +45,55 @@ export class MarkdownPreview {
     }
     this.updateTimeout = window.setTimeout(() => {
       this.updateContent(content);
-    }, 250);
+    }, 100);
   };
 
-  private updateContent(content: string): void {
-    this.previewElement.textContent = content;
+  private async updateContent(content: string): Promise<void> {
+    try {
+      // Skip update if content hasn't changed
+      if (content === this.lastContent) {
+        return;
+      }
+
+      if (!content.trim()) {
+        this.previewElement.innerHTML = '';
+        this.lastContent = content;
+        this.lastHtml = '';
+        return;
+      }
+
+      const result: ParseResult = await invoke('parse_markdown_to_html', { 
+        markdown: content 
+      });
+
+      if (result.error) {
+        console.error('Markdown parsing error:', result.error);
+        const errorHtml = `<div class="error">Erro ao processar markdown: ${result.error}</div>`;
+        this.previewElement.innerHTML = errorHtml;
+        this.lastContent = content;
+        this.lastHtml = errorHtml;
+        return;
+      }
+
+      // Only update DOM if HTML has changed
+      if (result.html !== this.lastHtml) {
+        this.previewElement.innerHTML = result.html;
+        this.lastHtml = result.html;
+      }
+      
+      this.lastContent = content;
+    } catch (error) {
+      console.error('Error updating preview:', error);
+      const errorHtml = `<div class="error">Erro ao renderizar preview: ${error}</div>`;
+      this.previewElement.innerHTML = errorHtml;
+      this.lastContent = content;
+      this.lastHtml = errorHtml;
+    }
   }
 
   public setTheme(theme: 'light' | 'dark'): void {
     this.config.theme = theme;
-    this.previewElement.className = `markdown-preview theme-${theme}`;
+    this.previewElement.className = `markdown-preview-content theme-${theme}`;
   }
 
   public destroy(): void {

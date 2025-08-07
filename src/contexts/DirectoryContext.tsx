@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useRef } from 'react';
+import { createContext, useContext, useState, ReactNode, useRef, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { WorkspaceConfig } from '../types/config';
 
@@ -73,7 +73,7 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
     }
   };
 
-  const setDirectory = async (path: string) => {
+  const setDirectory = useCallback(async (path: string) => {
     setIsLoading(true);
     setError(null);
     
@@ -91,9 +91,9 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const refreshFileTree = async () => {
+  const refreshFileTree = useCallback(async () => {
     if (!currentDirectory) return;
     
     try {
@@ -102,9 +102,9 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
     } catch (err) {
       console.error('Error refreshing file tree:', err);
     }
-  };
+  }, [currentDirectory]);
 
-  const clearDirectory = async () => {
+  const clearDirectory = useCallback(async () => {
     setCurrentDirectory(null);
     setFileTree(null);
     setError(null);
@@ -112,19 +112,21 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
     invoke('clear_workspace_config').catch(() => {});
     localStorage.removeItem('inkdown-directory');
     localStorage.removeItem('inkdown-file-tree');
-  };
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    currentDirectory,
+    fileTree,
+    isLoading,
+    error,
+    setDirectory,
+    clearDirectory,
+    initializeWorkspace,
+    refreshFileTree
+  }), [currentDirectory, fileTree, isLoading, error, setDirectory, clearDirectory, refreshFileTree]);
 
   return (
-    <DirectoryContext.Provider value={{
-      currentDirectory,
-      fileTree,
-      isLoading,
-      error,
-      setDirectory,
-      clearDirectory,
-      initializeWorkspace,
-      refreshFileTree
-    }}>
+    <DirectoryContext.Provider value={contextValue}>
       {children}
     </DirectoryContext.Provider>
   );

@@ -35,13 +35,13 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
   
   return (
     <div 
-      className="w-48"
+      className="w-40"
       style={{ 
         borderRight: `1px solid ${currentTheme.border}`,
-        backgroundColor: currentTheme.muted
+        backgroundColor: currentTheme.background
       }}
     >
-      <nav className="p-2">
+      <nav className="p-1">
         {sections.map((section) => {
           const Icon = section.icon;
           const isActive = activeSection === section.id;
@@ -50,23 +50,25 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
             <button
               key={section.id}
               onClick={() => onSectionChange(section.id)}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm font-medium transition-colors"
               style={{
-                backgroundColor: isActive ? currentTheme.accent : 'transparent',
-                color: isActive ? currentTheme.primary : currentTheme.foreground
+                backgroundColor: isActive ? currentTheme.muted : 'transparent',
+                color: isActive ? currentTheme.primary : currentTheme.mutedForeground
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {
-                  e.currentTarget.style.backgroundColor = currentTheme.accent;
+                  e.currentTarget.style.backgroundColor = currentTheme.muted;
+                  e.currentTarget.style.color = currentTheme.foreground;
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isActive) {
                   e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = currentTheme.mutedForeground;
                 }
               }}
             >
-              <Icon size={16} />
+              <Icon size={14} />
               {section.label}
             </button>
           );

@@ -285,14 +285,16 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     [state.effectiveTheme]
   );
 
+  const contextValue = useMemo(() => ({
+    ...state,
+    currentTheme,
+    isLoading,
+    updateAppearance,
+    updateWorkspace,
+  }), [state, currentTheme, isLoading, updateAppearance, updateWorkspace]);
+
   return (
-    <AppearanceContext.Provider value={{
-      ...state,
-      currentTheme,
-      isLoading,
-      updateAppearance,
-      updateWorkspace,
-    }}>
+    <AppearanceContext.Provider value={contextValue}>
       {children}
     </AppearanceContext.Provider>
   );

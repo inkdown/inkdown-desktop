@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef, memo, useEffect } from 'react';
+import { useState, useCallback, useRef, memo, useEffect } from 'react';
 import { ChevronRight, Folder, FolderOpen, FileText } from 'lucide-react';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { FileNode } from '../../contexts/DirectoryContext';
@@ -13,9 +13,10 @@ interface FileTreeItemProps {
   onFileSelect: (path: string) => void;
   selectedFile: string | null;
   onRefresh: () => void;
+  isWorkspaceRoot?: boolean;
 }
 
-const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, selectedFile, onRefresh }: FileTreeItemProps) {
+const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, selectedFile, onRefresh, isWorkspaceRoot = false }: FileTreeItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -25,43 +26,36 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
   const { setEditingPath, isEditing } = useEditing();
   const { currentTheme } = useAppearance();
   
-  const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedFile === node.path;
-  const isRootDirectory = level === 0 && node.is_directory;
+  const isRootDirectory = isWorkspaceRoot;
   const isCurrentlyEditing = isEditing(node.path);
 
-  const displayName = useMemo(() => 
-    node.is_directory ? node.name : node.name.replace(/\.md$/, ''),
-    [node.name, node.is_directory]
-  );
+  const displayName = node.is_directory ? node.name : node.name.replace(/\.md$/, '');
 
-  const containerStyle = useMemo(() => ({
+  const containerStyle = {
     paddingLeft: `${level * 16 + 8}px`,
     backgroundColor: isSelected ? currentTheme.primary : 'transparent',
     color: isSelected ? currentTheme.primaryForeground : currentTheme.sidebar.foreground
-  }), [level, isSelected, currentTheme.primary, currentTheme.primaryForeground, currentTheme.sidebar.foreground]);
+  };
 
-  const iconStyle = useMemo(() => ({
+  const iconStyle = {
     color: currentTheme.primary
-  }), [currentTheme.primary]);
+  };
 
-  const textStyle = useMemo(() => ({
+  const textStyle = {
     color: isSelected ? currentTheme.primaryForeground : 
            node.is_directory ? currentTheme.sidebar.foreground : 
            currentTheme.mutedForeground
-  }), [isSelected, node.is_directory, currentTheme.primaryForeground, currentTheme.sidebar.foreground, currentTheme.mutedForeground]);
+  };
 
-  const chevronClasses = useMemo(() => 
-    `mr-1 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`,
-    [isExpanded]
-  );
+  const chevronClasses = `mr-1 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`;
   
   const handleToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (hasChildren) {
+    if (node.is_directory) {
       setIsExpanded(!isExpanded);
     }
-  }, [hasChildren, isExpanded]);
+  }, [node.is_directory, isExpanded]);
 
   const handleSelect = useCallback(() => {
     if (!node.is_directory) {
@@ -162,14 +156,13 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
     }
   }, [isCurrentlyEditing, displayName]);
 
-  const icon = useMemo(() => {
-    if (node.is_directory) {
-      return isExpanded ? 
-        <FolderOpen size={16} style={iconStyle} /> : 
-        <Folder size={16} style={iconStyle} />;
-    }
-    return <FileText size={16} style={{ color: currentTheme.mutedForeground }} />;
-  }, [node.is_directory, isExpanded, iconStyle, currentTheme.mutedForeground]);
+  const icon = node.is_directory ? (
+    isExpanded ? 
+      <FolderOpen size={16} style={iconStyle} /> : 
+      <Folder size={16} style={iconStyle} />
+  ) : (
+    <FileText size={16} style={{ color: currentTheme.mutedForeground }} />
+  );
 
   return (
     <div className="select-none">
@@ -181,7 +174,7 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
         onClick={node.is_directory ? handleToggle : handleSelect}
         onContextMenu={handleContextMenu}
       >
-        {hasChildren && (
+        {node.is_directory && (
           <ChevronRight 
             size={14} 
             className={chevronClasses}
@@ -213,7 +206,7 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
         )}
       </div>
 
-      {hasChildren && isExpanded && (
+      {node.children && node.children.length > 0 && isExpanded && (
         <div className="ml-2">
           {node.children!.map((child) => (
             <FileTreeItem
@@ -223,6 +216,7 @@ const FileTreeItem = memo(function FileTreeItem({ node, level, onFileSelect, sel
               onFileSelect={onFileSelect}
               selectedFile={selectedFile}
               onRefresh={onRefresh}
+              isWorkspaceRoot={false}
             />
           ))}
         </div>
@@ -265,8 +259,9 @@ export function FileTree({ fileTree, onFileSelect, selectedFile, className = '' 
   const handleEmptyAreaContextMenu = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     const isFileTreeItem = target.closest('.file-tree-item');
+    const isExplorerLabel = target.closest('.explorer-label');
     
-    if (!isFileTreeItem) {
+    if (!isFileTreeItem && !isExplorerLabel) {
       e.preventDefault();
       e.stopPropagation();
       setContextMenu({ x: e.clientX, y: e.clientY });
@@ -293,53 +288,51 @@ export function FileTree({ fileTree, onFileSelect, selectedFile, className = '' 
     closeContextMenu();
   }, [createFile, fileTree.path, setEditingPath, closeContextMenu]);
 
-  const memoizedTree = useMemo(() => {
-    return (
-      <div 
-        className={`h-full overflow-auto theme-scrollbar ${className}`}
-        onContextMenu={handleEmptyAreaContextMenu}
-      >
-        <div className="p-2">
-          <div 
-            className="text-xs font-semibold uppercase tracking-wide mb-2 px-2"
-            style={{ color: currentTheme.mutedForeground }}
-          >
-            Explorer
-          </div>
-          {fileTree.children?.map((child) => (
-            <FileTreeItem
-              key={child.path}
-              node={child}
-              level={0}
-              onFileSelect={onFileSelect}
-              selectedFile={selectedFile}
-              onRefresh={handleRefresh}
-            />
-          )) || (
-            <FileTreeItem
-              node={fileTree}
-              level={0}
-              onFileSelect={onFileSelect}
-              selectedFile={selectedFile}
-              onRefresh={handleRefresh}
-            />
-          )}
+  return (
+    <div 
+      className={`h-full overflow-auto theme-scrollbar ${className}`}
+      onContextMenu={handleEmptyAreaContextMenu}
+    >
+      <div className="p-2">
+        <div 
+          className="explorer-label text-xs font-semibold uppercase tracking-wide mb-2 px-2"
+          style={{ color: currentTheme.mutedForeground }}
+        >
+          Explorer
         </div>
-        
-        {contextMenu && (
-          <ContextMenu
-            x={contextMenu.x}
-            y={contextMenu.y}
-            onClose={closeContextMenu}
-            onCreateFolder={handleCreateFolder}
-            onCreateFile={handleCreateFile}
-            isDirectory={true}
-            isRootDirectory={true}
+        {fileTree.children?.map((child) => (
+          <FileTreeItem
+            key={child.path}
+            node={child}
+            level={0}
+            onFileSelect={onFileSelect}
+            selectedFile={selectedFile}
+            onRefresh={handleRefresh}
+            isWorkspaceRoot={false}
+          />
+        )) || (
+          <FileTreeItem
+            node={fileTree}
+            level={0}
+            onFileSelect={onFileSelect}
+            selectedFile={selectedFile}
+            onRefresh={handleRefresh}
+            isWorkspaceRoot={true}
           />
         )}
       </div>
-    );
-  }, [fileTree, onFileSelect, selectedFile, className, handleRefresh, currentTheme.mutedForeground, contextMenu, handleEmptyAreaContextMenu, closeContextMenu, handleCreateFolder, handleCreateFile]);
-
-  return memoizedTree;
+      
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={closeContextMenu}
+          onCreateFolder={handleCreateFolder}
+          onCreateFile={handleCreateFile}
+          isDirectory={true}
+          isRootDirectory={true}
+        />
+      )}
+    </div>
+  );
 }
