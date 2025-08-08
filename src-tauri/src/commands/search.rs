@@ -1,13 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::fs::MetadataExt;
-#[cfg(not(target_os = "windows"))]
-use std::os::unix::fs::MetadataExt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileNode {
@@ -82,16 +80,15 @@ fn build_tree(path: &Path) -> Result<FileNode, String> {
             match entry {
                 Ok(entry) => {
                     let entry_path = entry.path();
-                    
+
                     // Filter: only directories and markdown files
-                    if entry_path.is_dir() || 
-                       (entry_path.is_file() && 
-                        entry_path.extension()
-                            .map_or(false, |ext| {
+                    if entry_path.is_dir()
+                        || (entry_path.is_file()
+                            && entry_path.extension().map_or(false, |ext| {
                                 let ext_str = ext.to_string_lossy().to_lowercase();
                                 ["md", "markdown", "mdown", "mkd"].contains(&ext_str.as_str())
-                            })) {
-                        
+                            }))
+                    {
                         match build_tree(&entry_path) {
                             Ok(child_node) => children.push(child_node),
                             Err(_) => {} // Skip problematic entries
@@ -151,16 +148,22 @@ pub fn search_notes(
 
     // Validate workspace path with better error handling
     let workspace = Path::new(&workspace_path);
-    
+
     // Normalize path for Windows compatibility
     let workspace = match workspace.canonicalize() {
         Ok(canonical) => canonical,
         Err(_) => {
             if !workspace.exists() {
-                return Err(format!("Workspace directory does not exist: {}", workspace_path));
+                return Err(format!(
+                    "Workspace directory does not exist: {}",
+                    workspace_path
+                ));
             }
             if !workspace.is_dir() {
-                return Err(format!("Workspace path is not a directory: {}", workspace_path));
+                return Err(format!(
+                    "Workspace path is not a directory: {}",
+                    workspace_path
+                ));
             }
             workspace.to_path_buf()
         }
@@ -245,21 +248,36 @@ fn search_notes_parallel(
                     // Windows-aware hidden directory detection
                     let is_hidden = if cfg!(target_os = "windows") {
                         // On Windows, check for hidden attribute
-                        entry_path.metadata()
-                            .map(|m| {
+                        entry_path
+                            .metadata()
+                            .map(|_m| {
                                 #[cfg(target_os = "windows")]
-                                { m.file_attributes() & 0x2 != 0 }
+                                {
+                                    _m.file_attributes() & 0x2 != 0
+                                }
                                 #[cfg(not(target_os = "windows"))]
-                                { false }
+                                {
+                                    false
+                                }
                             })
-                            .unwrap_or(false) || dir_name.starts_with('.')
+                            .unwrap_or(false)
+                            || dir_name.starts_with('.')
                     } else {
                         dir_name.starts_with('.')
                     };
 
                     if !is_hidden
-                        && !["node_modules", "target", "build", "dist", ".git", ".vscode", "System Volume Information", "$RECYCLE.BIN"]
-                            .contains(&dir_name)
+                        && ![
+                            "node_modules",
+                            "target",
+                            "build",
+                            "dist",
+                            ".git",
+                            ".vscode",
+                            "System Volume Information",
+                            "$RECYCLE.BIN",
+                        ]
+                        .contains(&dir_name)
                     {
                         subdirs.push(path_str.to_string());
                     }
