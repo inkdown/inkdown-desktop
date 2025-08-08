@@ -43,7 +43,9 @@ pub fn run() {
             commands::search::rename_file,
             // Theme commands
             commands::themes::get_custom_themes,
-            commands::themes::get_theme_css
+            commands::themes::get_theme_css,
+            commands::themes::search_community_themes,
+            commands::themes::download_community_theme
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -42,7 +42,7 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
       <div className="absolute inset-0" onClick={onClose} />
       
       <div 
-        className="relative rounded-lg shadow-xl w-[700px] h-[500px] max-w-[90vw] max-h-[85vh] flex overflow-hidden"
+        className="relative rounded-lg shadow-xl w-[800px] h-[600px] max-w-[90vw] max-h-[85vh] flex overflow-hidden"
         style={{ 
           backgroundColor: 'var(--modal-background)',
           border: '1px solid var(--modal-border)'

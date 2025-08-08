@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useAppearance } from '../../../contexts/AppearanceContext';
+import { useCommunityThemes } from '../../../hooks/useCommunityThemes';
+import { ThemesList } from '../ThemesList';
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light' },
@@ -32,6 +34,17 @@ export function AppearanceSettings() {
     customThemesLoading,
     applyTheme
   } = useAppearance();
+
+  const {
+    themes: communityThemes,
+    loading: communityThemesLoading,
+    error: communityThemesError,
+    downloadingThemes,
+    downloadedThemes,
+    searchThemes,
+    downloadTheme,
+    clearThemes
+  } = useCommunityThemes();
 
   if (isLoading) {
     return (
@@ -68,6 +81,54 @@ export function AppearanceSettings() {
     updateAppearance({ fontFamily });
   };
 
+  const handleToggleThemeSearch = () => {
+    setShowThemeSearch(true);
+    searchThemes('https://github.com/inkdown/inkdown-plugins');
+  };
+
+  const handleCloseThemeSearch = () => {
+    setShowThemeSearch(false);
+    clearThemes();
+  };
+
+  if (showThemeSearch) {
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={handleCloseThemeSearch}
+            className="p-2 rounded-full hover:opacity-70 transition-opacity"
+            style={{ 
+              color: 'var(--text-secondary)',
+              backgroundColor: 'transparent'
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+          </button>
+          <div>
+            <h3 className="text-base font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              Temas da Comunidade
+            </h3>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              Explore e instale temas criados pela comunidade Inkdown
+            </p>
+          </div>
+        </div>
+        
+        <ThemesList
+          themes={communityThemes}
+          loading={communityThemesLoading}
+          error={communityThemesError}
+          downloadingThemes={downloadingThemes}
+          downloadedThemes={downloadedThemes}
+          onDownloadTheme={downloadTheme}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <div>
@@ -103,7 +164,7 @@ export function AppearanceSettings() {
               ))}
             </select>
             <button
-              onClick={() => setShowThemeSearch(!showThemeSearch)}
+              onClick={handleToggleThemeSearch}
               className="px-3 py-1.5 rounded text-xs font-medium transition-colors hover:opacity-80"
               style={{
                 backgroundColor: 'var(--button-primary-background)',
@@ -117,65 +178,6 @@ export function AppearanceSettings() {
           <div className="text-xs opacity-70" style={{ color: 'var(--text-secondary)' }}>
             Tema atual aplicado
           </div>
-          
-          {showThemeSearch && (
-            <div 
-              className="mt-3 p-4 rounded-lg border"
-              style={{
-                backgroundColor: 'var(--surface-secondary)',
-                border: '1px solid var(--border-primary)',
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                  Buscar Temas da Comunidade
-                </h4>
-                <button
-                  onClick={() => setShowThemeSearch(false)}
-                  className="text-xs opacity-60 hover:opacity-80"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  ✕
-                </button>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Buscar temas..."
-                    className="flex-1 px-3 py-2 rounded text-xs focus:ring-1 focus:ring-opacity-50 outline-none"
-                    style={{
-                      border: '1px solid var(--input-border)',
-                      backgroundColor: 'var(--input-background)',
-                      color: 'var(--input-foreground)',
-                    }}
-                  />
-                  <button
-                    className="px-3 py-2 rounded text-xs font-medium transition-colors hover:opacity-80"
-                    style={{
-                      backgroundColor: 'var(--button-secondary-background)',
-                      color: 'var(--button-secondary-foreground)',
-                      border: '1px solid var(--button-secondary-border)',
-                    }}
-                  >
-                    Buscar
-                  </button>
-                </div>
-                
-                <div 
-                  className="text-center py-8 text-xs"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  <div className="mb-2">🎨</div>
-                  <p>Funcionalidade de busca de temas em desenvolvimento</p>
-                  <p className="mt-1 opacity-70">
-                    Em breve você poderá buscar e instalar temas da comunidade
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="space-y-2">
@@ -245,7 +247,6 @@ export function AppearanceSettings() {
             0123456789 !@#$%^&*()
           </div>
         </div>
-
       </div>
     </div>
   );
