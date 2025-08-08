@@ -1,8 +1,11 @@
-import { memo, useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { EditorComponent, EditorComponentHandle } from '../editor/EditorComponent';
-import { EditorToolbar } from '../editor/EditorToolbar';
-import { Title } from '../editor/Title';
+import { memo, useState, useEffect, useCallback, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  EditorComponent,
+  EditorComponentHandle,
+} from "../editor/EditorComponent";
+import { EditorToolbar } from "../editor/EditorToolbar";
+import { Title } from "../editor/Title";
 
 interface WindowContentProps {
   selectedFile: string;
@@ -10,19 +13,19 @@ interface WindowContentProps {
   onToggleSidebar: () => void;
   onSelectNote?: (notePath: string) => void;
   workspaceConfig: any;
-  currentTheme: any;
   themeMode: string;
   onSaveRef: React.MutableRefObject<(() => void) | null>;
+  onTogglePreviewRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-export const WindowContent = memo(function WindowContent({ 
-  selectedFile, 
+export const WindowContent = memo(function WindowContent({
+  selectedFile,
   onFilePathChange,
-  currentTheme, 
   themeMode,
-  onSaveRef 
+  onSaveRef,
+  onTogglePreviewRef,
 }: WindowContentProps) {
-  const [fileContent, setFileContent] = useState<string>('');
+  const [fileContent, setFileContent] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
@@ -31,33 +34,36 @@ export const WindowContent = memo(function WindowContent({
 
   const loadFileContent = useCallback(async (filePath: string) => {
     if (!filePath) return;
-    
+
     setIsLoading(true);
     setError(null);
     setIsModified(false);
-    
+
     try {
-      const content = await invoke<string>('read_file', { path: filePath });
+      const content = await invoke<string>("read_file", { path: filePath });
       setFileContent(content);
     } catch (err) {
-      console.error('Error loading file:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao carregar arquivo');
-      setFileContent('');
+      console.error("Error loading file:", err);
+      setError(err instanceof Error ? err.message : "Erro ao carregar arquivo");
+      setFileContent("");
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const saveFileContent = useCallback(async (filePath: string, content: string) => {
-    try {
-      await invoke('write_file', { path: filePath, content });
-      return true;
-    } catch (err) {
-      console.error('Error saving file:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao salvar arquivo');
-      return false;
-    }
-  }, []);
+  const saveFileContent = useCallback(
+    async (filePath: string, content: string) => {
+      try {
+        await invoke("write_file", { filePath, content });
+        return true;
+      } catch (err) {
+        console.error("Error saving file:", err);
+        setError(err instanceof Error ? err.message : "Erro ao salvar arquivo");
+        return false;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (selectedFile) {
@@ -71,32 +77,38 @@ export const WindowContent = memo(function WindowContent({
     setError(null);
   }, []);
 
-  const handleSave = useCallback(async (content: string) => {
-    if (!selectedFile) return;
-    
-    try {
-      const success = await saveFileContent(selectedFile, content);
-      if (success) {
-        setFileContent(content);
-        setIsModified(false);
-        setError(null);
+  const handleSave = useCallback(
+    async (content: string) => {
+      if (!selectedFile) return;
+
+      try {
+        const success = await saveFileContent(selectedFile, content);
+        if (success) {
+          setFileContent(content);
+          setIsModified(false);
+          setError(null);
+        }
+      } catch (error) {
+        console.error("Error in handleSave:", error);
       }
-    } catch (error) {
-      console.error('Error in handleSave:', error);
-    }
-  }, [selectedFile, saveFileContent]);
+    },
+    [selectedFile, saveFileContent],
+  );
 
   const handleError = useCallback((error: Error) => {
-    console.error('Editor error:', error);
+    console.error("Editor error:", error);
     setError(error.message);
   }, []);
 
-  const handleFilePathChange = useCallback((newPath: string) => {
-    onFilePathChange?.(newPath);
-  }, [onFilePathChange]);
+  const handleFilePathChange = useCallback(
+    (newPath: string) => {
+      onFilePathChange?.(newPath);
+    },
+    [onFilePathChange],
+  );
 
   const togglePreviewMode = useCallback(() => {
-    setIsPreviewMode(prev => !prev);
+    setIsPreviewMode((prev) => !prev);
   }, []);
 
   const performSave = useCallback(() => {
@@ -113,6 +125,15 @@ export const WindowContent = memo(function WindowContent({
     };
   }, [performSave, onSaveRef]);
 
+  useEffect(() => {
+    if (onTogglePreviewRef) {
+      onTogglePreviewRef.current = togglePreviewMode;
+      return () => {
+        onTogglePreviewRef.current = null;
+      };
+    }
+  }, [togglePreviewMode, onTogglePreviewRef]);
+
   if (!selectedFile) {
     return (
       <div className="flex-1 flex items-center justify-center theme-card">
@@ -128,30 +149,24 @@ export const WindowContent = memo(function WindowContent({
     );
   }
 
-  const fileName = useMemo(() => selectedFile?.split('/').pop(), [selectedFile]);
-  
-  const spinnerStyle = useMemo(() => ({ 
-    borderBottomColor: currentTheme.primary 
-  }), [currentTheme.primary]);
+  const fileName = selectedFile?.split("/").pop();
 
-  const headerStyle = useMemo(() => ({
-    borderBottom: `1px solid ${currentTheme.border}`,
-    backgroundColor: currentTheme.muted
-  }), [currentTheme.border, currentTheme.muted]);
-
-  const resolvedTheme = useMemo(() => 
-    themeMode === 'auto' 
-      ? (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-      : (themeMode as 'light' | 'dark'),
-    [themeMode]
-  );
-
+  const resolvedTheme =
+    themeMode === "auto"
+      ? typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
+      : (themeMode as "light" | "dark");
 
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center theme-card">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" style={spinnerStyle}></div>
+          <div
+            className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4"
+            style={{ borderBottomColor: "var(--theme-primary)" }}
+          ></div>
           <p className="theme-text-muted">Carregando arquivo...</p>
           <p className="text-xs theme-text-muted mt-1">{fileName}</p>
         </div>
@@ -163,8 +178,18 @@ export const WindowContent = memo(function WindowContent({
     return (
       <div className="flex-1 flex items-center justify-center theme-card">
         <div className="text-center max-w-md">
-          <div className="text-4xl mb-4" style={{ color: currentTheme.destructive }}>⚠️</div>
-          <h3 className="text-lg font-semibold mb-2" style={{ color: currentTheme.foreground }}>Erro ao carregar arquivo</h3>
+          <div
+            className="text-4xl mb-4"
+            style={{ color: "var(--theme-destructive)" }}
+          >
+            ⚠️
+          </div>
+          <h3
+            className="text-lg font-semibold mb-2"
+            style={{ color: "var(--theme-foreground)" }}
+          >
+            Erro ao carregar arquivo
+          </h3>
           <p className="theme-text-muted mb-4">{error}</p>
           <p className="text-xs theme-text-muted mb-4">{selectedFile}</p>
           <button
@@ -182,17 +207,26 @@ export const WindowContent = memo(function WindowContent({
     <div className="flex-1 theme-card relative flex flex-col overflow-auto">
       {isModified && (
         <div className="absolute top-2 right-2 z-10">
-          <div className="px-2 py-1 rounded text-xs font-medium" style={{ 
-            backgroundColor: '#fef3c7', 
-            color: '#92400e' 
-          }}>
+          <div
+            className="px-2 py-1 rounded text-xs font-medium"
+            style={{
+              backgroundColor: "var(--theme-accent)",
+              color: "var(--theme-accent-foreground)",
+              border: "1px solid var(--theme-border)",
+            }}
+          >
             Não salvo
           </div>
         </div>
       )}
-      
-      <div className="px-4 py-3 theme-border flex items-center justify-between" style={headerStyle}>
-        <Title 
+
+      <div
+        className="px-4 py-3 flex items-center justify-between"
+        style={{
+          backgroundColor: "var(--inkdown-editor-bg)",
+        }}
+      >
+        <Title
           filePath={selectedFile}
           onFilePathChange={handleFilePathChange}
           className="text-xl font-semibold theme-text-primary"
@@ -202,7 +236,6 @@ export const WindowContent = memo(function WindowContent({
       <EditorToolbar
         isPreviewMode={isPreviewMode}
         onTogglePreview={togglePreviewMode}
-        currentTheme={currentTheme}
       />
 
       <div className="theme-editor">

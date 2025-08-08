@@ -181,7 +181,13 @@ impl MarkdownParser {
             return String::new();
         }
 
+        // Fast path: if no special characters, return as-is
+        if !text.contains(&['*', '`', '[', '!'][..]) {
+            return text.to_string();
+        }
+
         let mut result = self.get_buffer();
+        result.reserve(text.len() + (text.len() >> 2)); // Reserve 25% extra for tags
         let mut chars = text.chars().peekable();
         
         while let Some(ch) = chars.next() {
@@ -214,11 +220,25 @@ impl MarkdownParser {
                         result.push(ch);
                     }
                 }
+                '!' if chars.peek() == Some(&'[') => {
+                    // Image parsing
+                    chars.next(); // consume '['
+                    let mut temp_chars = chars.clone();
+                    if let Some((alt_text, url)) = self.extract_link(&mut temp_chars) {
+                        chars = temp_chars;
+                        result.push_str("<img src=\"");
+                        result.push_str(&self.escape_html(&url));
+                        result.push_str("\" alt=\"");
+                        result.push_str(&self.escape_html(&alt_text));
+                        result.push_str("\">");
+                    } else {
+                        result.push('!');
+                    }
+                }
                 '[' => {
-                    // Save current position in case link parsing fails
+                    // Link parsing
                     let mut temp_chars = chars.clone();
                     if let Some((link_text, url)) = self.extract_link(&mut temp_chars) {
-                        // Link parsing succeeded, use temp_chars
                         chars = temp_chars;
                         result.push_str("<a href=\"");
                         result.push_str(&self.escape_html(&url));
@@ -226,7 +246,6 @@ impl MarkdownParser {
                         result.push_str(&self.escape_html(&link_text));
                         result.push_str("</a>");
                     } else {
-                        // Link parsing failed, just add the '['
                         result.push(ch);
                     }
                 }
@@ -240,7 +259,7 @@ impl MarkdownParser {
     }
 
     fn extract_until(&self, chars: &mut std::iter::Peekable<std::str::Chars>, delimiter: &str) -> Option<String> {
-        let mut content = String::new();
+        let mut content = String::with_capacity(64);
         
         if delimiter == "*" {
             while let Some(&ch) = chars.peek() {
@@ -288,7 +307,7 @@ impl MarkdownParser {
     }
 
     fn extract_link(&self, chars: &mut std::iter::Peekable<std::str::Chars>) -> Option<(String, String)> {
-        let mut link_text = String::new();
+        let mut link_text = String::with_capacity(32);
         
         while let Some(&ch) = chars.peek() {
             chars.next();
@@ -306,7 +325,7 @@ impl MarkdownParser {
         }
         chars.next();
 
-        let mut url = String::new();
+        let mut url = String::with_capacity(128);
         
         while let Some(&ch) = chars.peek() {
             chars.next();
@@ -323,14 +342,101 @@ impl MarkdownParser {
     }
 
     fn escape_html(&self, text: &str) -> String {
-        text.replace('&', "&amp;")
-            .replace('<', "&lt;")
-            .replace('>', "&gt;")
-            .replace('"', "&quot;")
-            .replace('\'', "&#x27;")
+        // Fast path: if no HTML chars, return as-is
+        if !text.contains(&['&', '<', '>', '"', '\''][..]) {
+            return text.to_string();
+        }
+        
+        let mut result = String::with_capacity(text.len() + (text.len() >> 3));
+        for ch in text.chars() {
+            match ch {
+                '&' => result.push_str("&amp;"),
+                '<' => result.push_str("&lt;"),
+                '>' => result.push_str("&gt;"),
+                '"' => result.push_str("&quot;"),
+                '\'' => result.push_str("&#x27;"),
+                _ => result.push(ch),
+            }
+        }
+        result
     }
 
-    pub fn count_words(&self, text: &str) -> i32 {
-        text.split_whitespace().count() as i32
+}
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ParseResult {
+    pub html: String,
+    pub word_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+// Public function for the Tauri command
+pub fn parse_markdown_to_html(markdown: &str) -> Result<ParseResult, String> {
+    let mut parser = MarkdownParser::new();
+    let tokens = parser.parse(markdown);
+    
+    let mut html = String::with_capacity(markdown.len() + (markdown.len() >> 2));
+    let mut word_count = 0;
+    
+    for token in tokens {
+        match token {
+            Token::Heading { level, text } => {
+                word_count += count_words(&text);
+                html.push_str(&format!("<h{0}>{1}</h{0}>", level, text));
+            },
+            Token::Paragraph(text) => {
+                word_count += count_words(&text);
+                html.push_str(&format!("<p>{}</p>", text));
+            },
+            Token::CodeBlock { language, code } => {
+                word_count += count_words(&code);
+                if let Some(lang) = language {
+                    html.push_str(&format!("<pre><code class=\"language-{}\">{}</code></pre>", lang, code));
+                } else {
+                    html.push_str(&format!("<pre><code>{}</code></pre>", code));
+                }
+            },
+            Token::ListItem(text) => {
+                word_count += count_words(&text);
+                html.push_str(&format!("<li>{}</li>", text));
+            },
+            Token::Blockquote(text) => {
+                word_count += count_words(&text);
+                html.push_str(&format!("<blockquote>{}</blockquote>", text));
+            },
+            Token::HorizontalRule => {
+                html.push_str("<hr>");
+            },
+        }
     }
+    
+    Ok(ParseResult {
+        html,
+        word_count,
+        error: None,
+    })
+}
+
+// Optimized word counting function
+fn count_words(text: &str) -> usize {
+    if text.is_empty() {
+        return 0;
+    }
+    
+    let mut count = 0;
+    let mut in_word = false;
+    
+    for ch in text.chars() {
+        if ch.is_whitespace() {
+            in_word = false;
+        } else if !in_word {
+            in_word = true;
+            count += 1;
+        }
+    }
+    
+    count
 }

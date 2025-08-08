@@ -5,7 +5,6 @@ import { WorkspaceSettings } from './sections/WorkspaceSettings';
 import { AppearanceSettings } from './sections/AppearanceSettings';
 import { EditorSettings } from './sections/EditorSettings';
 import { PreferencesSettings } from './sections/PreferencesSettings';
-import { useAppearance } from '../../contexts/AppearanceContext';
 
 export type SettingsSection = 'workspace' | 'appearance' | 'editor' | 'preferences';
 
@@ -17,7 +16,6 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }: SettingsModalProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
-  const { currentTheme } = useAppearance();
 
   if (!isOpen) return null;
 
@@ -37,23 +35,29 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ backgroundColor: 'var(--modal-overlay)' }}
+    >
+      <div className="absolute inset-0" onClick={onClose} />
       
       <div 
         className="relative rounded-lg shadow-xl w-[700px] h-[500px] max-w-[90vw] max-h-[85vh] flex overflow-hidden"
-        style={{ backgroundColor: currentTheme.background }}
+        style={{ 
+          backgroundColor: 'var(--modal-background)',
+          border: '1px solid var(--modal-border)'
+        }}
       >
         <div 
           className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 z-10"
           style={{ 
-            borderBottom: `1px solid ${currentTheme.border}`,
-            backgroundColor: currentTheme.background
+            borderBottom: '1px solid var(--modal-border)',
+            backgroundColor: 'var(--modal-background)'
           }}
         >
           <h2 
             className="text-sm font-medium"
-            style={{ color: currentTheme.foreground }}
+            style={{ color: 'var(--text-primary)' }}
           >
             Configurações
           </h2>
@@ -61,7 +65,9 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
             onClick={onClose}
             className="p-1 rounded transition-colors hover:opacity-70"
             style={{ 
-              color: currentTheme.mutedForeground,
+              color: 'var(--text-secondary)',
+              background: 'none',
+              border: 'none'
             }}
           >
             <X size={16} />

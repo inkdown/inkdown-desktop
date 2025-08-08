@@ -9,6 +9,7 @@ export interface AppearanceConfig {
   'font-size': number;
   'font-family': string;
   theme: ThemeMode;
+  'custom-theme'?: string;
 }
 
 export type ThemeMode = 'light' | 'dark' | 'auto';
@@ -56,11 +57,20 @@ export interface ThemeColors {
   };
 }
 
-export interface CustomTheme {
+export interface ThemeVariant {
   id: string;
   name: string;
-  mode: ThemeMode;
-  colors: ThemeColors;
+  mode: string;
+  cssFile: string;
+}
+
+export interface CustomTheme {
+  name: string;
+  author: string;
+  description: string;
+  variants: ThemeVariant[];
+  version: string;
+  homepage?: string;
 }
 
 export interface KeyboardShortcut {

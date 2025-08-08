@@ -22,11 +22,23 @@ export class ExtensionsFactory {
         '&': {
           fontSize: fontConfig?.fontSize ? `${fontConfig.fontSize}px` : 'var(--inkdown-editor-font-size)',
           fontFamily: fontConfig?.fontFamily || 'var(--inkdown-editor-font-family)',
+          width: '100%',
+          maxWidth: '100%',
         },
         '.cm-content': {
           padding: '16px',
           minHeight: 'auto',
           lineHeight: '1.6',
+          width: '100%',
+          maxWidth: '100%',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          overflow: 'hidden',
+        },
+        '.cm-line': {
+          maxWidth: '100%',
+          wordWrap: 'break-word',
+          overflowWrap: 'break-word',
         },
         '.cm-scrollbar-element': {
           width: '8px !important',
@@ -50,10 +62,16 @@ export class ExtensionsFactory {
         '.cm-editor': {
           height: 'auto',
           minHeight: '200px',
+          width: '100%',
+          maxWidth: '100%',
+          overflow: 'hidden',
         },
         '.cm-scroller': {
           fontFamily: 'inherit',
           overflow: 'auto',
+          overflowX: 'hidden',
+          width: '100%',
+          maxWidth: '100%',
         },
       }),
       EditorState.tabSize.of(2),
@@ -85,6 +103,7 @@ export class ExtensionsFactory {
     fontSize?: number;
     fontFamily?: string;
     customExtensions?: Extension[];
+    wordWrap?: boolean;
   }): Extension[] {
     const extensions: Extension[] = [
       ...this.getBasicExtensions({ fontSize: config.fontSize, fontFamily: config.fontFamily }),

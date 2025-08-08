@@ -1,9 +1,7 @@
-import { useAppearance } from '../../../contexts/AppearanceContext';
 import { useConfigManager } from '../../../hooks/useConfigManager';
 import { Keyboard, Save, Sidebar, Search } from 'lucide-react';
 
 export function PreferencesSettings() {
-  const { currentTheme } = useAppearance();
   const { workspaceConfig } = useConfigManager();
   const isMac = /Mac/.test(navigator.platform);
 
@@ -28,10 +26,10 @@ export function PreferencesSettings() {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-medium mb-1" style={{ color: currentTheme.foreground }}>
+        <h3 className="text-base font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
           Preferências
         </h3>
-        <p className="text-xs mb-4" style={{ color: currentTheme.mutedForeground }}>
+        <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>
           Configurações gerais da aplicação
         </p>
       </div>
@@ -40,8 +38,8 @@ export function PreferencesSettings() {
         {/* Seção de Shortcuts */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <Keyboard size={14} style={{ color: currentTheme.primary }} />
-            <h4 className="text-sm font-medium" style={{ color: currentTheme.foreground }}>
+            <Keyboard size={14} style={{ color: 'var(--text-accent)' }} />
+            <h4 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
               Atalhos do Teclado
             </h4>
           </div>
@@ -49,8 +47,8 @@ export function PreferencesSettings() {
           <div 
             className="rounded-md border space-y-0 overflow-hidden"
             style={{ 
-              borderColor: currentTheme.border,
-              backgroundColor: currentTheme.background 
+              borderColor: 'var(--input-border)',
+              backgroundColor: 'var(--theme-background)' 
             }}
           >
             {workspaceConfig.shortcuts?.map((shortcut, index) => {
@@ -65,16 +63,16 @@ export function PreferencesSettings() {
                   key={shortcut.name} 
                   className="flex items-center justify-between px-3 py-2.5"
                   style={{ 
-                    borderBottom: !isLast ? `1px solid ${currentTheme.border}` : 'none'
+                    borderBottom: !isLast ? `1px solid ${'var(--input-border)'}` : 'none'
                   }}
                 >
                   <div className="flex items-center gap-2.5">
-                    <Icon size={14} style={{ color: currentTheme.mutedForeground }} />
+                    <Icon size={14} style={{ color: 'var(--text-secondary)' }} />
                     <div>
-                      <div className="text-xs font-medium" style={{ color: currentTheme.foreground }}>
+                      <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
                         {info.title}
                       </div>
-                      <div className="text-xs leading-tight" style={{ color: currentTheme.mutedForeground }}>
+                      <div className="text-xs leading-tight" style={{ color: 'var(--text-secondary)' }}>
                         {info.description}
                       </div>
                     </div>
@@ -82,9 +80,9 @@ export function PreferencesSettings() {
                   <div 
                     className="px-2 py-1 rounded text-xs font-mono"
                     style={{ 
-                      backgroundColor: currentTheme.muted,
-                      color: currentTheme.foreground,
-                      border: `1px solid ${currentTheme.border}`
+                      backgroundColor: 'var(--input-background)',
+                      color: 'var(--text-primary)',
+                      border: `1px solid ${'var(--input-border)'}`
                     }}
                   >
                     {isMac 
@@ -97,7 +95,7 @@ export function PreferencesSettings() {
             })}
           </div>
           
-          <div className="text-xs mt-2 opacity-70" style={{ color: currentTheme.mutedForeground }}>
+          <div className="text-xs mt-2 opacity-70" style={{ color: 'var(--text-secondary)' }}>
             {isMac ? 'Use ⌘ para os atalhos' : 'Use Ctrl para os atalhos'}
           </div>
         </div>

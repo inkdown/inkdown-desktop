@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    inkdown_desktop_lib::run()
+    inkdown_lib::run()
 }

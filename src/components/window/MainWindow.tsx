@@ -8,9 +8,9 @@ interface MainWindowProps {
   onToggleSidebar: () => void;
   onSelectNote?: (notePath: string) => void;
   workspaceConfig: any;
-  currentTheme: any;
   themeMode: string;
   onSaveRef: React.MutableRefObject<(() => void) | null>;
+  onTogglePreviewRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 export const MainWindow = memo(function MainWindow({ 
@@ -19,25 +19,23 @@ export const MainWindow = memo(function MainWindow({
   onToggleSidebar, 
   onSelectNote, 
   workspaceConfig, 
-  currentTheme, 
   themeMode,
-  onSaveRef 
+  onSaveRef,
+  onTogglePreviewRef
 }: MainWindowProps) {
   return (
     <div className="flex-1 flex flex-col min-w-0">
       {selectedFile ? (
-        <div className="h-full flex flex-col">
-          <WindowContent 
-            selectedFile={selectedFile} 
-            onFilePathChange={onFilePathChange}
-            onToggleSidebar={onToggleSidebar}
-            onSelectNote={onSelectNote}
-            workspaceConfig={workspaceConfig}
-            currentTheme={currentTheme}
-            themeMode={themeMode}
-            onSaveRef={onSaveRef}
-          />
-        </div>
+        <WindowContent 
+          selectedFile={selectedFile} 
+          onFilePathChange={onFilePathChange}
+          onToggleSidebar={onToggleSidebar}
+          onSelectNote={onSelectNote}
+          workspaceConfig={workspaceConfig}
+          themeMode={themeMode}
+          onSaveRef={onSaveRef}
+          onTogglePreviewRef={onTogglePreviewRef}
+        />
       ) : (
         <WelcomeScreen />
       )}

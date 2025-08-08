@@ -1,92 +1,7 @@
-import { createContext, useContext, useReducer, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import { createContext, useContext, useReducer, useEffect, ReactNode, useCallback, useMemo, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useConfigManager } from '../hooks/useConfigManager';
-import { ThemeMode, ThemeColors } from '../types/config';
-
-const defaultLightTheme: ThemeColors = {
-  primary: '#6366f1',
-  primaryForeground: '#ffffff',
-  secondary: '#f1f5f9',
-  secondaryForeground: '#0f172a',
-  background: '#ffffff',
-  foreground: '#0f172a',
-  muted: '#f8fafc',
-  mutedForeground: '#64748b',
-  accent: '#f1f5f9',
-  accentForeground: '#0f172a',
-  border: '#e2e8f0',
-  input: '#ffffff',
-  ring: '#6366f1',
-  destructive: '#ef4444',
-  destructiveForeground: '#ffffff',
-  sidebar: {
-    background: '#f8fafc',
-    foreground: '#334155',
-    border: '#e2e8f0',
-    hover: '#f1f5f9',
-    active: '#e2e8f0',
-  },
-  editor: {
-    background: '#ffffff',
-    foreground: '#24292f',
-    selection: '#6366f133',
-    cursor: '#24292f',
-    border: '#e2e8f0',
-    lineNumber: '#8c959f',
-    activeLine: '#f6f8fa',
-    scrollbar: '#e2e8f0',
-  },
-  headings: {
-    h1: '#dc2626',
-    h2: '#ea580c',
-    h3: '#d97706',
-    h4: '#65a30d',
-    h5: '#059669',
-    h6: '#0891b2',
-  },
-};
-
-const defaultDarkTheme: ThemeColors = {
-  primary: '#6366f1',
-  primaryForeground: '#ffffff',
-  secondary: '#1e293b',
-  secondaryForeground: '#f8fafc',
-  background: '#0f172a',
-  foreground: '#f8fafc',
-  muted: '#1e293b',
-  mutedForeground: '#94a3b8',
-  accent: '#1e293b',
-  accentForeground: '#f8fafc',
-  border: '#334155',
-  input: '#1e293b',
-  ring: '#6366f1',
-  destructive: '#ef4444',
-  destructiveForeground: '#ffffff',
-  sidebar: {
-    background: '#1e293b',
-    foreground: '#cbd5e1',
-    border: '#334155',
-    hover: '#334155',
-    active: '#475569',
-  },
-  editor: {
-    background: '#0d1117',
-    foreground: '#e6edf3',
-    selection: '#6366f133',
-    cursor: '#e6edf3',
-    border: '#30363d',
-    lineNumber: '#7d8590',
-    activeLine: '#161b22',
-    scrollbar: '#30363d',
-  },
-  headings: {
-    h1: '#f87171',
-    h2: '#fb923c',
-    h3: '#fbbf24',
-    h4: '#a3e635',
-    h5: '#34d399',
-    h6: '#22d3ee',
-  },
-};
+import { ThemeMode, CustomTheme } from '../types/config';
 
 interface AppearanceState {
   themeMode: ThemeMode;
@@ -97,6 +12,9 @@ interface AppearanceState {
   highlightCurrentLine: boolean;
   readOnly: boolean;
   effectiveTheme: 'light' | 'dark';
+  customThemes: CustomTheme[];
+  currentCustomThemeId: string | null;
+  customThemesLoading: boolean;
 }
 
 type AppearanceAction =
@@ -108,6 +26,9 @@ type AppearanceAction =
   | { type: 'SET_HIGHLIGHT_LINE'; payload: boolean }
   | { type: 'SET_READ_ONLY'; payload: boolean }
   | { type: 'SET_EFFECTIVE_THEME'; payload: 'light' | 'dark' }
+  | { type: 'SET_CUSTOM_THEMES'; payload: CustomTheme[] }
+  | { type: 'SET_CUSTOM_THEME_LOADING'; payload: boolean }
+  | { type: 'SET_CURRENT_CUSTOM_THEME'; payload: string | null }
   | { type: 'SYNC_FROM_CONFIG'; payload: Partial<AppearanceState> };
 
 const initialState: AppearanceState = {
@@ -119,6 +40,9 @@ const initialState: AppearanceState = {
   highlightCurrentLine: true,
   readOnly: false,
   effectiveTheme: 'light',
+  customThemes: [],
+  currentCustomThemeId: null,
+  customThemesLoading: false,
 };
 
 function appearanceReducer(state: AppearanceState, action: AppearanceAction): AppearanceState {
@@ -139,6 +63,12 @@ function appearanceReducer(state: AppearanceState, action: AppearanceAction): Ap
       return { ...state, readOnly: action.payload };
     case 'SET_EFFECTIVE_THEME':
       return { ...state, effectiveTheme: action.payload };
+    case 'SET_CUSTOM_THEMES':
+      return { ...state, customThemes: action.payload };
+    case 'SET_CUSTOM_THEME_LOADING':
+      return { ...state, customThemesLoading: action.payload };
+    case 'SET_CURRENT_CUSTOM_THEME':
+      return { ...state, currentCustomThemeId: action.payload };
     case 'SYNC_FROM_CONFIG':
       return { ...state, ...action.payload };
     default:
@@ -147,10 +77,13 @@ function appearanceReducer(state: AppearanceState, action: AppearanceAction): Ap
 }
 
 interface AppearanceContextType extends AppearanceState {
-  currentTheme: ThemeColors;
   isLoading: boolean;
   updateAppearance: (updates: { theme?: ThemeMode; fontSize?: number; fontFamily?: string }) => Promise<void>;
   updateWorkspace: (updates: { vimMode?: boolean; showLineNumbers?: boolean; highlightCurrentLine?: boolean; readOnly?: boolean }) => Promise<void>;
+  refreshCustomThemes: () => Promise<void>;
+  applyCustomTheme: (themeId: string) => Promise<void>;
+  removeCustomTheme: () => void;
+  applyTheme: (themeId: string) => Promise<void>;
 }
 
 const AppearanceContext = createContext<AppearanceContextType | undefined>(undefined);
@@ -162,24 +95,55 @@ interface AppearanceProviderProps {
 export function AppearanceProvider({ children }: AppearanceProviderProps) {
   const { appearanceConfig, workspaceConfig, updateAppearanceConfig, updateWorkspaceConfig, isLoading } = useConfigManager();
   const [state, dispatch] = useReducer(appearanceReducer, initialState);
+  const themeAppliedRef = useRef<string | null>(null);
 
+  // Apply theme to DOM
+  const applyThemeToDOM = useCallback((themeId: string, isCustom: boolean = false) => {
+    if (typeof document === 'undefined') return;
+    
+    const root = document.documentElement;
+    
+    // Clean existing
+    root.className = root.className.replace(/theme-\w+/g, '');
+    const existingStyle = document.getElementById('custom-theme-style');
+    if (existingStyle) existingStyle.remove();
+    
+    if (isCustom) {
+      root.setAttribute('data-theme', themeId);
+    } else {
+      const effectiveTheme = themeId === 'auto' 
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : themeId;
+      root.setAttribute('data-theme', effectiveTheme);
+      root.classList.add(`theme-${effectiveTheme}`);
+    }
+  }, []);
+
+  // Sync from config
   useEffect(() => {
     if (appearanceConfig || workspaceConfig) {
+      const combinedConfig = {
+        themeMode: appearanceConfig?.theme || 'light',
+        fontSize: appearanceConfig?.['font-size'] || 14,
+        fontFamily: appearanceConfig?.['font-family'] || 'Inter, system-ui, sans-serif',
+        vimMode: workspaceConfig?.vimMode || false,
+        showLineNumbers: workspaceConfig?.showLineNumbers !== false,
+        highlightCurrentLine: workspaceConfig?.highlightCurrentLine !== false,
+        readOnly: workspaceConfig?.readOnly || false,
+      };
+
       dispatch({
         type: 'SYNC_FROM_CONFIG',
-        payload: {
-          themeMode: appearanceConfig?.theme || 'light',
-          fontSize: appearanceConfig?.['font-size'] || 14,
-          fontFamily: appearanceConfig?.['font-family'] || 'Inter, system-ui, sans-serif',
-          vimMode: workspaceConfig?.vimMode || false,
-          showLineNumbers: workspaceConfig?.showLineNumbers !== false,
-          highlightCurrentLine: workspaceConfig?.highlightCurrentLine !== false,
-          readOnly: workspaceConfig?.readOnly || false,
-        }
+        payload: combinedConfig
       });
+
+      if (appearanceConfig?.['custom-theme']) {
+        dispatch({ type: 'SET_CURRENT_CUSTOM_THEME', payload: appearanceConfig['custom-theme'] });
+      }
     }
   }, [appearanceConfig, workspaceConfig]);
 
+  // Calculate effective theme
   useEffect(() => {
     const calculateTheme = () => {
       if (state.themeMode === 'auto') {
@@ -209,19 +173,25 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     }
   }, [state.themeMode, state.effectiveTheme]);
 
+  // Apply theme styles
   useEffect(() => {
     if (typeof document === 'undefined') return;
+    
     const root = document.documentElement;
-    root.setAttribute('data-theme', state.effectiveTheme);
-    root.className = root.className.replace(/theme-\w+/g, '');
-    root.classList.add(`theme-${state.effectiveTheme}`);
     root.style.setProperty('--inkdown-editor-font-size', `${state.fontSize}px`);
     root.style.setProperty('--inkdown-editor-font-family', state.fontFamily);
+    
     if (state.fontFamily.includes('Mono') || state.fontFamily.includes('monospace')) {
       root.style.setProperty('--inkdown-editor-mono-font-family', state.fontFamily);
     }
-  }, [state.effectiveTheme, state.fontSize, state.fontFamily]);
+    
+    // Only apply default theme if no custom theme
+    if (!state.currentCustomThemeId) {
+      applyThemeToDOM(state.effectiveTheme);
+    }
+  }, [state.effectiveTheme, state.fontSize, state.fontFamily, state.currentCustomThemeId, applyThemeToDOM]);
 
+  // Config change event
   useEffect(() => {
     if (typeof window === 'undefined' || isLoading) return;
     window.dispatchEvent(new CustomEvent('inkdown-config-change', {
@@ -230,32 +200,35 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
   }, [appearanceConfig, workspaceConfig, isLoading]);
 
   const updateAppearance = useCallback(async (updates: { theme?: ThemeMode; fontSize?: number; fontFamily?: string }) => {
-    if (updates.theme !== undefined) dispatch({ type: 'SET_THEME_MODE', payload: updates.theme });
+    // Update state
+    if (updates.theme !== undefined) {
+      dispatch({ type: 'SET_THEME_MODE', payload: updates.theme });
+      dispatch({ type: 'SET_CURRENT_CUSTOM_THEME', payload: null });
+      applyThemeToDOM(updates.theme);
+    }
     if (updates.fontSize !== undefined) dispatch({ type: 'SET_FONT_SIZE', payload: updates.fontSize });
     if (updates.fontFamily !== undefined) dispatch({ type: 'SET_FONT_FAMILY', payload: updates.fontFamily });
     
-    const appearanceUpdates: any = {};
-    if (updates.theme !== undefined) appearanceUpdates.theme = updates.theme;
-    if (updates.fontSize !== undefined) appearanceUpdates['font-size'] = updates.fontSize;
-    if (updates.fontFamily !== undefined) appearanceUpdates['font-family'] = updates.fontFamily;
+    // Save config
+    const configUpdates: any = {};
+    if (updates.theme !== undefined) configUpdates.theme = updates.theme;
+    if (updates.fontSize !== undefined) configUpdates['font-size'] = updates.fontSize;
+    if (updates.fontFamily !== undefined) configUpdates['font-family'] = updates.fontFamily;
     
-    if (Object.keys(appearanceUpdates).length > 0) {
+    if (Object.keys(configUpdates).length > 0) {
       try {
-        await updateAppearanceConfig(appearanceUpdates);
+        await updateAppearanceConfig(configUpdates);
       } catch (error) {
-        if (appearanceConfig) {
-          dispatch({
-            type: 'SYNC_FROM_CONFIG',
-            payload: {
-              themeMode: appearanceConfig.theme || 'light',
-              fontSize: appearanceConfig['font-size'] || 14,
-              fontFamily: appearanceConfig['font-family'] || 'Inter, system-ui, sans-serif',
-            }
-          });
-        }
+        console.error('Failed to save appearance config:', error);
       }
     }
-  }, [updateAppearanceConfig, appearanceConfig]);
+    
+    // Clear custom theme
+    if (updates.theme !== undefined) {
+      localStorage.removeItem('custom-theme-id');
+      updateAppearanceConfig({ 'custom-theme': undefined }).catch(console.error);
+    }
+  }, [updateAppearanceConfig, applyThemeToDOM]);
 
   const updateWorkspace = useCallback(async (updates: { vimMode?: boolean; showLineNumbers?: boolean; highlightCurrentLine?: boolean; readOnly?: boolean }) => {
     if (updates.vimMode !== undefined) dispatch({ type: 'SET_VIM_MODE', payload: updates.vimMode });
@@ -266,32 +239,119 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     try {
       await updateWorkspaceConfig(updates);
     } catch (error) {
-      if (workspaceConfig) {
-        dispatch({
-          type: 'SYNC_FROM_CONFIG',
-          payload: {
-            vimMode: workspaceConfig.vimMode || false,
-            showLineNumbers: workspaceConfig.showLineNumbers !== false,
-            highlightCurrentLine: workspaceConfig.highlightCurrentLine !== false,
-            readOnly: workspaceConfig.readOnly || false,
-          }
-        });
-      }
+      console.error('Failed to save workspace config:', error);
     }
-  }, [updateWorkspaceConfig, workspaceConfig]);
+  }, [updateWorkspaceConfig]);
 
-  const currentTheme = useMemo(() => 
-    state.effectiveTheme === 'dark' ? defaultDarkTheme : defaultLightTheme,
-    [state.effectiveTheme]
-  );
+  const refreshCustomThemes = useCallback(async () => {
+    if (state.customThemesLoading) return;
+    
+    dispatch({ type: 'SET_CUSTOM_THEME_LOADING', payload: true });
+    
+    try {
+      const customThemes = await invoke<CustomTheme[]>('get_custom_themes');
+      dispatch({ type: 'SET_CUSTOM_THEMES', payload: customThemes });
+    } catch (err) {
+      console.error('Failed to load custom themes:', err);
+    } finally {
+      dispatch({ type: 'SET_CUSTOM_THEME_LOADING', payload: false });
+    }
+  }, [state.customThemesLoading]);
+
+  const applyCustomTheme = useCallback(async (themeId: string) => {
+    if (state.currentCustomThemeId === themeId) return;
+
+    try {
+      const cssContent = await invoke<string>('get_theme_css', { themeId });
+      
+      applyThemeToDOM(themeId, true);
+      
+      const style = document.createElement('style');
+      style.id = 'custom-theme-style';
+      style.textContent = cssContent;
+      document.head.appendChild(style);
+      
+      dispatch({ type: 'SET_CURRENT_CUSTOM_THEME', payload: themeId });
+      
+      localStorage.setItem('custom-theme-id', themeId);
+      updateAppearanceConfig({ 'custom-theme': themeId }).catch(console.error);
+      
+    } catch (err) {
+      console.error('Failed to apply theme:', err);
+    }
+  }, [state.currentCustomThemeId, applyThemeToDOM, updateAppearanceConfig]);
+
+  const removeCustomTheme = useCallback(() => {
+    dispatch({ type: 'SET_CURRENT_CUSTOM_THEME', payload: null });
+    applyThemeToDOM(state.effectiveTheme);
+    
+    localStorage.removeItem('custom-theme-id');
+    updateAppearanceConfig({ 'custom-theme': undefined }).catch(console.error);
+  }, [state.effectiveTheme, applyThemeToDOM, updateAppearanceConfig]);
+
+  const applyTheme = useCallback(async (themeId: string) => {
+    if (['light', 'dark', 'auto'].includes(themeId)) {
+      await updateAppearance({ theme: themeId as ThemeMode });
+    } else {
+      await applyCustomTheme(themeId);
+    }
+  }, [updateAppearance, applyCustomTheme]);
+
+
+  // Load custom themes on mount
+  const themesLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!isLoading && !themesLoadedRef.current) {
+      themesLoadedRef.current = true;
+      refreshCustomThemes();
+    }
+  }, [isLoading, refreshCustomThemes]);
+
+  // Apply saved custom theme
+  useEffect(() => {
+    const applySavedTheme = async () => {
+      const savedThemeId = state.currentCustomThemeId || appearanceConfig?.['custom-theme'];
+      
+      if (!savedThemeId || themeAppliedRef.current === savedThemeId) {
+        return;
+      }
+      
+      if (state.customThemes.length > 0) {
+        const themeExists = state.customThemes.some(theme => 
+          theme.variants.some(variant => variant.id === savedThemeId)
+        );
+        
+        if (themeExists) {
+          try {
+            await applyCustomTheme(savedThemeId);
+            themeAppliedRef.current = savedThemeId;
+          } catch (err) {
+            console.error('Failed to apply saved theme:', err);
+          }
+        } else {
+          console.warn(`Saved theme '${savedThemeId}' no longer exists`);
+          localStorage.removeItem('custom-theme-id');
+          updateAppearanceConfig({ 'custom-theme': undefined }).catch(console.error);
+          dispatch({ type: 'SET_CURRENT_CUSTOM_THEME', payload: null });
+        }
+      }
+    };
+
+    if (state.customThemes.length > 0 && !isLoading) {
+      applySavedTheme();
+    }
+  }, [state.customThemes.length, state.currentCustomThemeId, appearanceConfig?.['custom-theme'], isLoading, applyCustomTheme, updateAppearanceConfig]);
 
   const contextValue = useMemo(() => ({
     ...state,
-    currentTheme,
     isLoading,
     updateAppearance,
     updateWorkspace,
-  }), [state, currentTheme, isLoading, updateAppearance, updateWorkspace]);
+    refreshCustomThemes,
+    applyCustomTheme,
+    removeCustomTheme,
+    applyTheme,
+  }), [state, isLoading, updateAppearance, updateWorkspace, refreshCustomThemes, applyCustomTheme, removeCustomTheme, applyTheme]);
 
   return (
     <AppearanceContext.Provider value={contextValue}>

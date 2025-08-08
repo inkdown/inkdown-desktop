@@ -1,5 +1,5 @@
-import { memo, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { memo, useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
 
 interface NoteSearchResult {
   name: string;
@@ -15,41 +15,48 @@ interface NotePaletteProps {
   onClose: () => void;
   onSelectNote: (notePath: string) => void;
   workspacePath: string | null;
-  currentTheme: any;
 }
 
-function NotePaletteComponent({ isOpen, onClose, onSelectNote, workspacePath, currentTheme }: NotePaletteProps) {
+function NotePaletteComponent({
+  isOpen,
+  onClose,
+  onSelectNote,
+  workspacePath,
+}: NotePaletteProps) {
   if (!isOpen) return null;
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<NoteSearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<number>();
 
-  const debouncedSearch = useCallback(async (query: string) => {
-    if (!workspacePath || query.length < 2) {
-      setSearchResults([]);
-      return;
-    }
+  const debouncedSearch = useCallback(
+    async (query: string) => {
+      if (!workspacePath || query.length < 2) {
+        setSearchResults([]);
+        return;
+      }
 
-    setIsLoading(true);
-    try {
-      const results = await invoke<NoteSearchResult[]>('search_notes', {
-        workspacePath: workspacePath,
-        query,
-        limit: 20
-      });
-      setSearchResults(results);
-      setSelectedIndex(0);
-    } catch (error) {
-      console.error('Erro ao buscar notas:', error);
-      setSearchResults([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [workspacePath]);
+      setIsLoading(true);
+      try {
+        const results = await invoke<NoteSearchResult[]>("search_notes", {
+          workspacePath: workspacePath,
+          query,
+          limit: 20,
+        });
+        setSearchResults(results);
+        setSelectedIndex(0);
+      } catch (error) {
+        console.error("Erro ao buscar notas:", error);
+        setSearchResults([]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [workspacePath],
+  );
 
   useEffect(() => {
     if (searchTimeoutRef.current) {
@@ -74,7 +81,7 @@ function NotePaletteComponent({ isOpen, onClose, onSelectNote, workspacePath, cu
   useEffect(() => {
     if (isOpen) {
       // Reset search state when opening
-      setSearchQuery('');
+      setSearchQuery("");
       setSearchResults([]);
       setSelectedIndex(0);
       // Focus input after a tick to ensure it's rendered
@@ -86,37 +93,42 @@ function NotePaletteComponent({ isOpen, onClose, onSelectNote, workspacePath, cu
     }
   }, [isOpen]);
 
-  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
-    switch (event.key) {
-      case 'Escape':
-        event.preventDefault();
-        onClose();
-        break;
-      case 'ArrowDown':
-        event.preventDefault();
-        setSelectedIndex(prev => Math.min(prev + 1, searchResults.length - 1));
-        break;
-      case 'ArrowUp':
-        event.preventDefault();
-        setSelectedIndex(prev => Math.max(prev - 1, 0));
-        break;
-      case 'Enter':
-        event.preventDefault();
-        if (searchResults[selectedIndex]) {
-          onSelectNote(searchResults[selectedIndex].path);
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      switch (event.key) {
+        case "Escape":
+          event.preventDefault();
           onClose();
-        }
-        break;
-    }
-  }, [searchResults, selectedIndex, onClose, onSelectNote]);
+          break;
+        case "ArrowDown":
+          event.preventDefault();
+          setSelectedIndex((prev) =>
+            Math.min(prev + 1, searchResults.length - 1),
+          );
+          break;
+        case "ArrowUp":
+          event.preventDefault();
+          setSelectedIndex((prev) => Math.max(prev - 1, 0));
+          break;
+        case "Enter":
+          event.preventDefault();
+          if (searchResults[selectedIndex]) {
+            onSelectNote(searchResults[selectedIndex].path);
+            onClose();
+          }
+          break;
+      }
+    },
+    [searchResults, selectedIndex, onClose, onSelectNote],
+  );
 
   const formatDate = useCallback((timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(timestamp * 1000).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   }, []);
 
@@ -128,54 +140,72 @@ function NotePaletteComponent({ isOpen, onClose, onSelectNote, workspacePath, cu
 
   const highlightMatch = useCallback((text: string, query: string) => {
     if (!query) return text;
-    
-    const regex = new RegExp(`(${query})`, 'gi');
+
+    const regex = new RegExp(`(${query})`, "gi");
     const parts = text.split(regex);
-    
+
     return (
       <>
-        {parts.map((part, i) => 
+        {parts.map((part, i) =>
           regex.test(part) ? (
-            <mark key={i} style={{ backgroundColor: currentTheme.primary, color: currentTheme.background }}>
+            <mark
+              key={i}
+              style={{
+                backgroundColor: "var(--theme-primary)",
+                color: "var(--theme-background)",
+              }}
+            >
               {part}
             </mark>
           ) : (
             <span key={i}>{part}</span>
-          )
+          ),
         )}
       </>
     );
-  }, [currentTheme]);
+  }, []);
 
-  const paletteStyle = useMemo(() => ({
-    backgroundColor: currentTheme.background,
-    border: `1px solid ${currentTheme.border}`,
-    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
-  }), [currentTheme]);
+  const paletteStyle = useMemo(
+    () => ({
+      backgroundColor: "var(--theme-background)",
+      border: "1px solid var(--theme-border)",
+      boxShadow: "0 10px 30px rgba(0, 0, 0, 0.3)",
+    }),
+    [],
+  );
 
-  const inputStyle = useMemo(() => ({
-    backgroundColor: currentTheme.muted,
-    color: currentTheme.foreground,
-    border: `1px solid ${currentTheme.border}`,
-  }), [currentTheme]);
+  const inputStyle = useMemo(
+    () => ({
+      backgroundColor: "var(--theme-muted)",
+      color: "var(--theme-foreground)",
+      border: "1px solid var(--theme-border)",
+    }),
+    [],
+  );
 
-  const handleBackdropClick = useCallback((event: React.MouseEvent) => {
-    if (event.target === event.currentTarget) {
-      onClose();
-    }
-  }, [onClose]);
+  const handleBackdropClick = useCallback(
+    (event: React.MouseEvent) => {
+      if (event.target === event.currentTarget) {
+        onClose();
+      }
+    },
+    [onClose],
+  );
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black bg-opacity-50"
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center shadow-md pt-20  bg-opacity-50"
       onClick={handleBackdropClick}
     >
-      <div 
+      <div
         className="w-full max-w-xl mx-4 rounded-lg overflow-hidden"
         style={paletteStyle}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-4 border-b" style={{ borderColor: currentTheme.border }}>
+        <div
+          className="p-4 border-b"
+          style={{ borderColor: "var(--theme-border)" }}
+        >
           <input
             ref={inputRef}
             type="text"
@@ -192,7 +222,10 @@ function NotePaletteComponent({ isOpen, onClose, onSelectNote, workspacePath, cu
 
         <div className="max-h-96 overflow-y-auto">
           {isLoading ? (
-            <div className="p-8 text-center" style={{ color: currentTheme.mutedForeground }}>
+            <div
+              className="p-8 text-center"
+              style={{ color: "var(--theme-muted-foreground)" }}
+            >
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
               Buscando...
             </div>
@@ -201,12 +234,15 @@ function NotePaletteComponent({ isOpen, onClose, onSelectNote, workspacePath, cu
               <div
                 key={note.path}
                 className={`p-4 cursor-pointer border-b transition-colors ${
-                  index === selectedIndex ? 'bg-opacity-50' : ''
+                  index === selectedIndex ? "bg-opacity-50" : ""
                 }`}
                 style={{
-                  backgroundColor: index === selectedIndex ? currentTheme.accent : 'transparent',
-                  borderColor: currentTheme.border,
-                  color: currentTheme.foreground
+                  backgroundColor:
+                    index === selectedIndex
+                      ? "var(--theme-accent)"
+                      : "transparent",
+                  borderColor: "var(--theme-border)",
+                  color: "var(--theme-foreground)",
                 }}
                 onClick={() => {
                   onSelectNote(note.path);
@@ -217,26 +253,38 @@ function NotePaletteComponent({ isOpen, onClose, onSelectNote, workspacePath, cu
                   <h3 className="text-sm truncate">
                     {highlightMatch(note.name, searchQuery)}
                   </h3>
-                  <div className="flex items-center gap-2 ml-4 flex-shrink-0 text-xs" style={{ color: currentTheme.mutedForeground }}>
+                  <div
+                    className="flex items-center gap-2 ml-4 flex-shrink-0 text-xs"
+                    style={{ color: "var(--theme-muted-foreground)" }}
+                  >
                     <span>{formatSize(note.size)}</span>
                     <span>•</span>
                     <span>{formatDate(note.modified_time)}</span>
                   </div>
                 </div>
-                
+
                 {note.content_preview && (
-                  <p className="text-sm line-clamp-2" style={{ color: currentTheme.mutedForeground }}>
+                  <p
+                    className="text-sm line-clamp-2"
+                    style={{ color: "var(--theme-muted-foreground)" }}
+                  >
                     {highlightMatch(note.content_preview, searchQuery)}
                   </p>
                 )}
-                
-                <div className="mt-2 text-xs truncate" style={{ color: currentTheme.mutedForeground }}>
-                  {note.path.replace(workspacePath || '', '')}
+
+                <div
+                  className="mt-2 text-xs truncate"
+                  style={{ color: "var(--theme-muted-foreground)" }}
+                >
+                  {note.path.replace(workspacePath || "", "")}
                 </div>
               </div>
             ))
           ) : searchQuery.trim() ? (
-            <div className="p-8 text-center" style={{ color: currentTheme.mutedForeground }}>
+            <div
+              className="p-8 text-center"
+              style={{ color: "var(--theme-muted-foreground)" }}
+            >
               Nenhuma nota encontrada para "{searchQuery}"
             </div>
           ) : (

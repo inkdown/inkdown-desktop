@@ -31,7 +31,7 @@ export class MarkdownPreview {
 
   private createPreviewElement(): void {
     this.previewElement = document.createElement('div');
-    this.previewElement.className = `markdown-preview-content theme-${this.config.theme || 'light'}`;
+    this.previewElement.className = 'markdown-preview-content';
     this.container.appendChild(this.previewElement);
   }
 
@@ -43,9 +43,10 @@ export class MarkdownPreview {
     if (this.updateTimeout) {
       clearTimeout(this.updateTimeout);
     }
+    // Reduced debounce time for better responsiveness
     this.updateTimeout = window.setTimeout(() => {
       this.updateContent(content);
-    }, 100);
+    }, 50);
   };
 
   private async updateContent(content: string): Promise<void> {
@@ -56,9 +57,11 @@ export class MarkdownPreview {
       }
 
       if (!content.trim()) {
-        this.previewElement.innerHTML = '';
+        if (this.lastHtml !== '') {
+          this.previewElement.innerHTML = '';
+          this.lastHtml = '';
+        }
         this.lastContent = content;
-        this.lastHtml = '';
         return;
       }
 
@@ -69,15 +72,21 @@ export class MarkdownPreview {
       if (result.error) {
         console.error('Markdown parsing error:', result.error);
         const errorHtml = `<div class="error">Erro ao processar markdown: ${result.error}</div>`;
-        this.previewElement.innerHTML = errorHtml;
+        // Only update if different
+        if (this.lastHtml !== errorHtml) {
+          this.previewElement.innerHTML = errorHtml;
+          this.lastHtml = errorHtml;
+        }
         this.lastContent = content;
-        this.lastHtml = errorHtml;
         return;
       }
 
-      // Only update DOM if HTML has changed
+      // Only update DOM if HTML has actually changed
       if (result.html !== this.lastHtml) {
-        this.previewElement.innerHTML = result.html;
+        // Use requestAnimationFrame for smoother updates
+        requestAnimationFrame(() => {
+          this.previewElement.innerHTML = result.html;
+        });
         this.lastHtml = result.html;
       }
       
@@ -85,15 +94,18 @@ export class MarkdownPreview {
     } catch (error) {
       console.error('Error updating preview:', error);
       const errorHtml = `<div class="error">Erro ao renderizar preview: ${error}</div>`;
-      this.previewElement.innerHTML = errorHtml;
+      if (this.lastHtml !== errorHtml) {
+        this.previewElement.innerHTML = errorHtml;
+        this.lastHtml = errorHtml;
+      }
       this.lastContent = content;
-      this.lastHtml = errorHtml;
     }
   }
 
   public setTheme(theme: 'light' | 'dark'): void {
     this.config.theme = theme;
-    this.previewElement.className = `markdown-preview-content theme-${theme}`;
+    // O tema agora é controlado através de CSS custom properties
+    // Não precisamos alterar as classes
   }
 
   public destroy(): void {

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useMemo, memo } from 'react';
 import { FolderPlus, FileText, Edit, Trash2 } from 'lucide-react';
-import { useAppearance } from '../../../contexts/AppearanceContext';
 
 interface ContextMenuProps {
   x: number;
@@ -26,7 +25,6 @@ export const ContextMenu = memo(function ContextMenu({
   isRootDirectory = false
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const { currentTheme } = useAppearance();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -123,8 +121,8 @@ export const ContextMenu = memo(function ContextMenu({
       style={{ 
         left: x, 
         top: y,
-        backgroundColor: currentTheme.background,
-        border: `1px solid ${currentTheme.border}`,
+        backgroundColor: 'var(--theme-background)',
+        border: '1px solid var(--theme-border)',
         minWidth: '160px',
         width: 'max-content'
       }}
@@ -138,12 +136,12 @@ export const ContextMenu = memo(function ContextMenu({
           }}
           className="w-full flex items-center px-4 py-2 text-sm text-left transition-colors whitespace-nowrap"
           style={{
-            color: (item as any).isDangerous ? currentTheme.destructive : currentTheme.foreground
+            color: (item as any).isDangerous ? 'var(--theme-destructive)' : 'var(--theme-foreground)'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = (item as any).isDangerous 
-              ? `${currentTheme.destructive}20` 
-              : currentTheme.muted;
+              ? 'var(--theme-destructive-foreground)20' 
+              : 'var(--theme-muted)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = 'transparent';

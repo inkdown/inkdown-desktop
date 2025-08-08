@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useDirectory } from '../../contexts/DirectoryContext';
-import { useAppearance } from '../../contexts/AppearanceContext';
 
 interface TitleProps {
   filePath: string;
@@ -15,7 +14,6 @@ export const Title = React.memo<TitleProps>(({
   className = '' 
 }) => {
   const { refreshFileTree } = useDirectory();
-  const { currentTheme } = useAppearance();
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -145,37 +143,6 @@ export const Title = React.memo<TitleProps>(({
       onClick={handleClick}
       className={`editable-title ${className}`}
       title={isEditing ? undefined : "Click to edit"}
-      style={{
-        background: 'transparent',
-        border: 'none',
-        margin: 0,
-        padding: '4px 8px',
-        borderRadius: '4px',
-        outline: 'none',
-        cursor: isEditing ? 'text' : 'pointer',
-        fontSize: '1.5rem',
-        fontWeight: 'bold',
-        lineHeight: '2rem',
-        color: currentTheme.primary,
-        width: '100%',
-        minWidth: '200px',
-        transition: isEditing ? 'none' : 'background-color 0.2s',
-        fontFamily: 'inherit',
-        opacity: 1,
-        ...(isEditing && {
-          cursor: 'text',
-        }),
-        ...(!isEditing && {
-          cursor: 'pointer',
-          pointerEvents: 'auto',
-        }),
-      }}
-      onMouseEnter={!isEditing ? (e) => {
-        e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
-      } : undefined}
-      onMouseLeave={!isEditing ? (e) => {
-        e.currentTarget.style.backgroundColor = 'transparent';
-      } : undefined}
     />
   );
 });

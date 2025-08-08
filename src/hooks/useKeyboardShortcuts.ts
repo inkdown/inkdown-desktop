@@ -4,12 +4,13 @@ interface UseKeyboardShortcutsOptions {
   onToggleSidebar?: () => void;
   onSave?: () => void;
   onOpenNotePalette?: () => void;
+  onTogglePreview?: () => void;
   shortcuts?: { name: string; shortcut: string }[];
 }
 
-export function useKeyboardShortcuts({ onToggleSidebar, onSave, onOpenNotePalette }: UseKeyboardShortcutsOptions) {
-  const handlersRef = useRef({ onToggleSidebar, onSave, onOpenNotePalette });
-  handlersRef.current = { onToggleSidebar, onSave, onOpenNotePalette };
+export function useKeyboardShortcuts({ onToggleSidebar, onSave, onOpenNotePalette, onTogglePreview }: UseKeyboardShortcutsOptions) {
+  const handlersRef = useRef({ onToggleSidebar, onSave, onOpenNotePalette, onTogglePreview });
+  handlersRef.current = { onToggleSidebar, onSave, onOpenNotePalette, onTogglePreview };
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -31,6 +32,12 @@ export function useKeyboardShortcuts({ onToggleSidebar, onSave, onOpenNotePalett
       if (isCtrlOrCmd && event.key === 'o' && handlersRef.current.onOpenNotePalette) {
         event.preventDefault();
         handlersRef.current.onOpenNotePalette();
+        return;
+      }
+      
+      if (isCtrlOrCmd && event.key === 'e' && handlersRef.current.onTogglePreview) {
+        event.preventDefault();
+        handlersRef.current.onTogglePreview();
         return;
       }
     };

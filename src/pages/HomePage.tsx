@@ -10,8 +10,10 @@ export default function HomePage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    initializeWorkspace();
-  }, [initializeWorkspace]);
+    if (!currentDirectory) {
+      initializeWorkspace();
+    }
+  }, [currentDirectory, initializeWorkspace]);
 
   useEffect(() => {
     if (currentDirectory) {

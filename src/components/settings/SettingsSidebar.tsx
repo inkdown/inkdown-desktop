@@ -1,6 +1,5 @@
 import { Palette, FileText, Settings, FolderOpen } from 'lucide-react';
 import { SettingsSection } from './SettingsModal';
-import { useAppearance } from '../../contexts/AppearanceContext';
 
 interface SettingsSidebarProps {
   activeSection: SettingsSection;
@@ -31,14 +30,12 @@ const sections = [
 ];
 
 export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSidebarProps) {
-  const { currentTheme } = useAppearance();
-  
   return (
     <div 
       className="w-40"
       style={{ 
-        borderRight: `1px solid ${currentTheme.border}`,
-        backgroundColor: currentTheme.background
+        borderRight: '1px solid var(--sidebar-border)',
+        backgroundColor: 'var(--sidebar-background)'
       }}
     >
       <nav className="p-1">
@@ -52,19 +49,20 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
               onClick={() => onSectionChange(section.id)}
               className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm font-medium transition-colors"
               style={{
-                backgroundColor: isActive ? currentTheme.muted : 'transparent',
-                color: isActive ? currentTheme.primary : currentTheme.mutedForeground
+                backgroundColor: isActive ? 'var(--sidebar-active)' : 'transparent',
+                color: isActive ? 'var(--text-accent)' : 'var(--text-secondary)',
+                border: 'none'
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {
-                  e.currentTarget.style.backgroundColor = currentTheme.muted;
-                  e.currentTarget.style.color = currentTheme.foreground;
+                  e.currentTarget.style.backgroundColor = 'var(--sidebar-hover)';
+                  e.currentTarget.style.color = 'var(--text-primary)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isActive) {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = currentTheme.mutedForeground;
+                  e.currentTarget.style.color = 'var(--text-secondary)';
                 }
               }}
             >

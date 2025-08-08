@@ -126,6 +126,34 @@
 
   --inkdown-scrollbar-width: 8px;
   --inkdown-scrollbar-border-radius: 4px;
+
+  /* === Semantic Aliases for Components === */
+  --modal-background: var(--theme-background);
+  --modal-foreground: var(--theme-foreground);
+  --modal-border: var(--theme-border);
+  --modal-overlay: rgba(0, 0, 0, 0.5);
+  
+  --button-background: var(--theme-secondary);
+  --button-foreground: var(--theme-secondary-foreground);
+  --button-border: var(--theme-border);
+  --button-hover: var(--theme-accent);
+  --button-primary-background: var(--theme-primary);
+  --button-primary-foreground: var(--theme-primary-foreground);
+  
+  --input-background: var(--theme-input);
+  --input-foreground: var(--theme-foreground);
+  --input-border: var(--theme-border);
+  --input-focus: var(--theme-ring);
+  
+  --sidebar-background: var(--theme-sidebar-background);
+  --sidebar-foreground: var(--theme-sidebar-foreground);
+  --sidebar-border: var(--theme-sidebar-border);
+  --sidebar-hover: var(--theme-sidebar-hover);
+  --sidebar-active: var(--theme-sidebar-active);
+  
+  --text-primary: var(--theme-foreground);
+  --text-secondary: var(--theme-muted-foreground);
+  --text-accent: var(--theme-primary);
 }
 
 /* === DARK THEME === */
@@ -229,6 +257,34 @@
   --inkdown-syntax-list: #94a3b8;
   --inkdown-syntax-quote: #94a3b8;
   --inkdown-syntax-separator: #94a3b8;
+
+  /* === Semantic Aliases for Components === */
+  --modal-background: var(--theme-background);
+  --modal-foreground: var(--theme-foreground);
+  --modal-border: var(--theme-border);
+  --modal-overlay: rgba(0, 0, 0, 0.6);
+  
+  --button-background: var(--theme-secondary);
+  --button-foreground: var(--theme-secondary-foreground);
+  --button-border: var(--theme-border);
+  --button-hover: var(--theme-accent);
+  --button-primary-background: var(--theme-primary);
+  --button-primary-foreground: var(--theme-primary-foreground);
+  
+  --input-background: var(--theme-input);
+  --input-foreground: var(--theme-foreground);
+  --input-border: var(--theme-border);
+  --input-focus: var(--theme-ring);
+  
+  --sidebar-background: var(--theme-sidebar-background);
+  --sidebar-foreground: var(--theme-sidebar-foreground);
+  --sidebar-border: var(--theme-sidebar-border);
+  --sidebar-hover: var(--theme-sidebar-hover);
+  --sidebar-active: var(--theme-sidebar-active);
+  
+  --text-primary: var(--theme-foreground);
+  --text-secondary: var(--theme-muted-foreground);
+  --text-accent: var(--theme-primary);
 }
 
 /* ==============================================
@@ -236,10 +292,22 @@
    ============================================== */
 
 /* === Body === */
+html, body {
+  overflow: hidden;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   background-color: var(--theme-background);
   color: var(--theme-foreground);
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#root {
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* === Editor Wrapper === */
@@ -271,10 +339,37 @@ body {
 
 .cm-editor {
   height: 100%;
+  width: 100% !important;
+  max-width: 100% !important;
   outline: none !important;
   border: none !important;
   background-color: var(--inkdown-editor-bg) !important;
   color: var(--inkdown-editor-fg) !important;
+  overflow: hidden !important;
+}
+
+.cm-content {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-wrap: break-word !important;
+  word-wrap: break-word !important;
+  white-space: pre-wrap !important;
+  overflow-x: hidden !important;
+}
+
+.cm-line {
+  max-width: 100% !important;
+  overflow-wrap: break-word !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  white-space: pre-wrap !important;
+}
+
+.cm-scroller {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
 }
 
 /* Remove any possible borders/outlines from all CodeMirror elements */
@@ -411,15 +506,15 @@ body {
 
 /* === UI Components === */
 .theme-card {
-  background-color: var(--theme-background);
-  border: 1px solid var(--theme-border);
-  color: var(--theme-foreground);
+  background-color: var(--theme-background) !important;
+  border: 1px solid var(--theme-border) !important;
+  color: var(--theme-foreground) !important;
 }
 
 .theme-button {
-  background-color: var(--theme-primary);
-  color: var(--theme-primary-foreground);
-  border: 1px solid var(--theme-primary);
+  background-color: var(--theme-primary) !important;
+  color: var(--theme-primary-foreground) !important;
+  border: 1px solid var(--theme-primary) !important;
   transition: all 0.2s ease;
 }
 
@@ -429,44 +524,44 @@ body {
 }
 
 .theme-button-secondary {
-  background-color: var(--theme-secondary);
-  color: var(--theme-secondary-foreground);
-  border: 1px solid var(--theme-border);
+  background-color: var(--theme-secondary) !important;
+  color: var(--theme-secondary-foreground) !important;
+  border: 1px solid var(--theme-border) !important;
 }
 
 .theme-button-secondary:hover {
-  background-color: var(--theme-accent);
+  background-color: var(--theme-accent) !important;
 }
 
 .theme-input {
-  background-color: var(--theme-input);
-  color: var(--theme-foreground);
-  border: 1px solid var(--theme-border);
+  background-color: var(--theme-input) !important;
+  color: var(--theme-foreground) !important;
+  border: 1px solid var(--theme-border) !important;
 }
 
 .theme-input:focus {
-  outline: 2px solid var(--theme-ring);
+  outline: 2px solid var(--theme-ring) !important;
   outline-offset: 2px;
 }
 
 .theme-sidebar {
-  background-color: var(--theme-sidebar-background);
-  color: var(--theme-sidebar-foreground);
-  border-right: 1px solid var(--theme-sidebar-border);
+  background-color: var(--theme-sidebar-background) !important;
+  color: var(--theme-sidebar-foreground) !important;
+  border-right: 1px solid var(--theme-sidebar-border) !important;
 }
 
 .theme-sidebar-item {
-  color: var(--theme-sidebar-foreground);
+  color: var(--theme-sidebar-foreground) !important;
   transition: background-color 0.2s ease;
 }
 
 .theme-sidebar-item:hover {
-  background-color: var(--theme-sidebar-hover);
+  background-color: var(--theme-sidebar-hover) !important;
 }
 
 .theme-sidebar-item.active {
-  background-color: var(--theme-sidebar-active);
-  color: var(--theme-primary);
+  background-color: var(--theme-sidebar-active) !important;
+  color: var(--theme-primary) !important;
 }
 
 .theme-editor {
@@ -543,8 +638,8 @@ body {
 }
 
 .theme-scrollbar::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 4px;
+  height: 4px;
 }
 
 .theme-scrollbar::-webkit-scrollbar-track {
@@ -624,12 +719,117 @@ body {
   }
 }
 
+/* === Editable Title === */
+.editable-title {
+  background: transparent !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  outline: none !important;
+  font-size: 1.5rem !important;
+  font-weight: bold !important;
+  line-height: 2rem !important;
+  color: var(--theme-primary) !important;
+  width: 100% !important;
+  min-width: 200px !important;
+  font-family: inherit !important;
+  opacity: 1 !important;
+  transition: background-color 0.2s !important;
+}
+
+.editable-title:not(:focus) {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+.editable-title:focus {
+  cursor: text !important;
+  transition: none !important;
+}
+
+.editable-title:not(:focus):hover {
+  background-color: rgba(var(--theme-primary-rgb, 99, 102, 241), 0.05) !important;
+}
+
+/* === Sidebar Header === */
+.sidebar-header {
+  background-color: var(--theme-sidebar-background) !important;
+  border-bottom: 1px solid var(--theme-sidebar-border) !important;
+  color: var(--theme-sidebar-foreground) !important;
+}
+
+.sidebar-header .project-name {
+  color: var(--theme-sidebar-foreground) !important;
+}
+
+.sidebar-header .workspace-label {
+  color: var(--theme-muted-foreground) !important;
+}
+
+.sidebar-header .settings-button {
+  color: var(--theme-muted-foreground) !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.sidebar-header .settings-button:hover {
+  background-color: var(--theme-sidebar-hover) !important;
+}
+
+/* === File Tree === */
+.file-tree-item {
+  color: var(--theme-sidebar-foreground) !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.file-tree-item:hover:not(.selected) {
+  background-color: var(--theme-sidebar-hover) !important;
+}
+
+.file-tree-item.selected {
+  background-color: var(--theme-primary) !important;
+  color: var(--theme-primary-foreground) !important;
+}
+
+.file-tree-item .file-icon {
+  color: var(--theme-muted-foreground) !important;
+}
+
+.file-tree-item .folder-icon {
+  color: var(--theme-primary) !important;
+}
+
+.file-tree-item .chevron {
+  color: var(--theme-muted-foreground) !important;
+}
+
+.file-tree-item .filename {
+  color: inherit !important;
+}
+
+.file-tree-item.directory .filename {
+  font-weight: 500 !important;
+}
+
+.file-tree-item.file .filename {
+  font-weight: 400 !important;
+}
+
+.explorer-label {
+  color: var(--theme-muted-foreground) !important;
+}
+
 /* === Preview Container === */
 .preview-container {
   height: 100%;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .preview-container::-webkit-scrollbar {
@@ -860,5 +1060,3 @@ body {
   background: var(--inkdown-syntax-monospace-bg);
   font-weight: 600;
 }
-
-/* Scrollbar styles handled by .preview-container */

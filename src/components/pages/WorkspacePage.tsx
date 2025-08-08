@@ -1,31 +1,32 @@
-import { useState, useCallback, memo, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useDirectory } from '../../contexts/DirectoryContext'
-import { useSidebarResize } from '../../hooks/useSidebarResize';
-import { useConfigManager } from '../../hooks/useConfigManager';
-import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
-import { useAppearance } from '../../contexts/AppearanceContext';
-import { Sidebar, SidebarResizer } from '../sidebar';
-import { MainWindow } from '../window';
-import { NotePalette } from '../palette';
+import { useState, useCallback, memo, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useDirectory } from "../../contexts/DirectoryContext";
+import { useSidebarResize } from "../../hooks/useSidebarResize";
+import { useConfigManager } from "../../hooks/useConfigManager";
+import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
+import { useAppearance } from "../../contexts/AppearanceContext";
+import { Sidebar, SidebarResizer } from "../sidebar";
+import { MainWindow } from "../window";
+import { NotePalette } from "../palette";
 
 export const WorkspacePage = memo(function WorkspacePage() {
   const { fileTree, currentDirectory } = useDirectory();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const saveRef = useRef<(() => void) | null>(null);
+  const togglePreviewRef = useRef<(() => void) | null>(null);
   const { sidebarWidth, handleMouseDown } = useSidebarResize(280);
   const { workspaceConfig, updateWorkspaceConfig } = useConfigManager();
-  const { currentTheme, themeMode } = useAppearance();
+  const { themeMode } = useAppearance();
   const navigate = useNavigate();
 
   const toggleSidebar = useCallback(() => {
     const currentState = workspaceConfig.sidebarVisible ?? true;
     const newState = !currentState;
-    
-    updateWorkspaceConfig({ sidebarVisible: newState }).then(() => {
-    }).catch((_) => {
-    });
+
+    updateWorkspaceConfig({ sidebarVisible: newState })
+      .then(() => {})
+      .catch((_) => {});
   }, [workspaceConfig.sidebarVisible, updateWorkspaceConfig]);
 
   const handleFileSelect = useCallback((filePath: string) => {
@@ -55,25 +56,35 @@ export const WorkspacePage = memo(function WorkspacePage() {
     }
   }, []);
 
+  const handleTogglePreview = useCallback(() => {
+    if (togglePreviewRef.current) {
+      togglePreviewRef.current();
+    }
+  }, []);
+
   useKeyboardShortcuts({
     onToggleSidebar: toggleSidebar,
     onSave: handleSave,
     onOpenNotePalette: handleOpenPalette,
-    shortcuts: workspaceConfig.shortcuts
+    onTogglePreview: handleTogglePreview,
+    shortcuts: workspaceConfig.shortcuts,
   });
 
   if (!fileTree || !currentDirectory) {
     return (
       <div className="h-screen flex items-center justify-center theme-card relative">
         <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--theme-foreground)' }}>
+          <h2
+            className="text-xl font-semibold mb-2"
+            style={{ color: "var(--theme-foreground)" }}
+          >
             Nenhum diretório selecionado
           </h2>
           <p className="theme-text-muted mb-4">
             Selecione um diretório para começar a editar
           </p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
             className="theme-button px-4 py-2 rounded-lg"
           >
             Voltar ao Início
@@ -96,27 +107,34 @@ export const WorkspacePage = memo(function WorkspacePage() {
           <SidebarResizer onMouseDown={handleMouseDown} />
         </>
       )}
-      
-      <MainWindow 
-        selectedFile={selectedFile} 
+
+      <MainWindow
+        selectedFile={selectedFile}
         onFilePathChange={handleFilePathChange}
         onToggleSidebar={toggleSidebar}
         onSelectNote={handleSelectNote}
         workspaceConfig={workspaceConfig}
-        currentTheme={currentTheme}
         themeMode={themeMode}
         onSaveRef={saveRef}
+        onTogglePreviewRef={togglePreviewRef}
       />
-      
-      {useMemo(() => (
-        <NotePalette
-          isOpen={isPaletteOpen}
-          onClose={handleClosePalette}
-          onSelectNote={handleSelectNote}
-          workspacePath={workspaceConfig.workspace_path}
-          currentTheme={currentTheme}
-        />
-      ), [isPaletteOpen, handleClosePalette, handleSelectNote, workspaceConfig.workspace_path, currentTheme])}
+
+      {useMemo(
+        () => (
+          <NotePalette
+            isOpen={isPaletteOpen}
+            onClose={handleClosePalette}
+            onSelectNote={handleSelectNote}
+            workspacePath={workspaceConfig.workspace_path}
+          />
+        ),
+        [
+          isPaletteOpen,
+          handleClosePalette,
+          handleSelectNote,
+          workspaceConfig.workspace_path,
+        ],
+      )}
     </div>
   );
 });

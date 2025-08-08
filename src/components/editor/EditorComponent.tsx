@@ -2,7 +2,6 @@ import { useRef, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { Editor, EditorConfig, EditorStateInfo } from './core/Editor';
 import { MarkdownPreview } from './preview/MarkdownPreview';
 import { useAppearance } from '../../contexts/AppearanceContext';
-import '../../styles/unified-theme.css';
 
 export interface EditorComponentProps {
   initialContent?: string;
@@ -143,36 +142,47 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
 
   // Effect to handle showPreview changes
   useEffect(() => {
-    if (!isInitialized.current || !previewContainerRef.current) return;
+    if (!isInitialized.current) return;
 
-    if (showPreview && !previewRef.current) {
+    if (showPreview && !previewRef.current && previewContainerRef.current) {
       // Create preview when showPreview becomes true
-      previewRef.current = new MarkdownPreview({
-        container: previewContainerRef.current,
-        theme: finalTheme,
-      });
-      // Sync current content
-      const currentContent = editorRef.current?.getContent() || initialContent;
-      if (currentContent.trim()) {
-        previewRef.current.updateFromContent(currentContent);
+      try {
+        previewRef.current = new MarkdownPreview({
+          container: previewContainerRef.current,
+          theme: finalTheme,
+        });
+        // Sync current content immediately
+        const currentContent = editorRef.current?.getContent() || initialContent;
+        if (currentContent) {
+          previewRef.current.updateFromContent(currentContent);
+        }
+      } catch (error) {
+        console.error('Failed to create preview:', error);
       }
     } else if (!showPreview && previewRef.current) {
-      // Destroy preview when showPreview becomes false
-      previewRef.current.destroy();
-      previewRef.current = null;
+      // Properly destroy preview when showPreview becomes false
+      try {
+        previewRef.current.destroy();
+      } catch (error) {
+        console.error('Failed to destroy preview:', error);
+      } finally {
+        previewRef.current = null;
+      }
     }
 
     // Optimize editor performance when in preview mode
     if (editorRef.current) {
       if (showPreview) {
-        // Disable editor updates for better performance
-        editorRef.current.blur?.(); // Remove focus
+        // Reduce editor update frequency during preview
+        editorRef.current.blur?.();
       } else {
-        // Re-enable editor when switching back
-        setTimeout(() => editorRef.current?.focus?.(), 0);
+        // Re-focus editor when switching back
+        requestAnimationFrame(() => {
+          editorRef.current?.focus?.();
+        });
       }
     }
-  }, [showPreview, finalTheme, initialContent]);
+  }, [showPreview, finalTheme]);
 
 
   useImperativeHandle(ref, () => ({
@@ -201,20 +211,21 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
             display: showPreview ? 'none' : 'block'
           }}
         />
-        {showPreview && (
-          <div
-            ref={previewContainerRef}
-            className="preview-container"
-            style={{ 
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 10
-            }}
-          />
-        )}
+        <div
+          ref={previewContainerRef}
+          className="preview-container"
+          style={{ 
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 10,
+            display: showPreview ? 'block' : 'none',
+            backgroundColor: 'var(--inkdown-editor-bg)',
+            overflow: 'auto'
+          }}
+        />
       </div>
     </div>
   );

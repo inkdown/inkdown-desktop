@@ -1,6 +1,14 @@
-import { createContext, useContext, useState, ReactNode, useRef, useMemo, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { WorkspaceConfig } from '../types/config';
+import {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { WorkspaceConfig } from "../types/config";
 
 export interface FileNode {
   name: string;
@@ -20,7 +28,9 @@ interface DirectoryContextType {
   refreshFileTree: () => Promise<void>;
 }
 
-const DirectoryContext = createContext<DirectoryContextType | undefined>(undefined);
+const DirectoryContext = createContext<DirectoryContextType | undefined>(
+  undefined,
+);
 
 interface DirectoryProviderProps {
   children: ReactNode;
@@ -35,59 +45,69 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
 
   const initializeWorkspace = async () => {
     if (initializedRef.current) return;
+
     initializedRef.current = true;
+    setIsLoading(true);
+    setError(null);
 
     try {
-      const configStr = await invoke<string>('load_workspace_config');
+      const configStr = await invoke<string>("load_workspace_config");
       const config = JSON.parse(configStr) as WorkspaceConfig;
-      
+
       if (config.workspace_path) {
-        setIsLoading(true);
-        setError(null);
-        
         try {
-          const result = await invoke<FileNode>('scan_directory', { path: config.workspace_path });
+          const result = await invoke<FileNode>("scan_directory", {
+            path: config.workspace_path,
+          });
           setCurrentDirectory(config.workspace_path);
           setFileTree(result);
         } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : 'Erro ao escanear diretório';
+          const errorMessage =
+            err instanceof Error ? err.message : "Erro ao escanear diretório";
           setError(errorMessage);
-        } finally {
-          setIsLoading(false);
         }
       }
     } catch (error) {
-      const savedDirectory = localStorage.getItem('inkdown-directory');
+      // Fallback to old localStorage method
+      const savedDirectory = localStorage.getItem("inkdown-directory");
       if (savedDirectory) {
         try {
-          setIsLoading(true);
-          const result = await invoke<FileNode>('scan_directory', { path: savedDirectory });
+          const result = await invoke<FileNode>("scan_directory", {
+            path: savedDirectory,
+          });
           setCurrentDirectory(savedDirectory);
           setFileTree(result);
         } catch (e) {
-          setError('Erro ao carregar diretório');
-        } finally {
-          setIsLoading(false);
+          setError("Erro ao carregar diretório");
         }
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const setDirectory = useCallback(async (path: string) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const result = await invoke<FileNode>('scan_directory', { path });
+      const result = await invoke<FileNode>("scan_directory", { path });
       setCurrentDirectory(path);
       setFileTree(result);
-      
-      invoke('save_workspace_config', { workspacePath: path }).catch(() => {
-        localStorage.setItem('inkdown-directory', path);
-      });
-      
+
+      // Save to Tauri config
+      try {
+        await invoke("save_workspace_config", { workspacePath: path });
+        // Remove localStorage fallback if Tauri save was successful
+        localStorage.removeItem("inkdown-directory");
+      } catch (saveError) {
+        console.warn("Failed to save workspace config to Tauri, using localStorage fallback:", saveError);
+        localStorage.setItem("inkdown-directory", path);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao escanear diretório');
+      setError(
+        err instanceof Error ? err.message : "Erro ao escanear diretório",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -95,12 +115,14 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
 
   const refreshFileTree = useCallback(async () => {
     if (!currentDirectory) return;
-    
+
     try {
-      const result = await invoke<FileNode>('scan_directory', { path: currentDirectory });
+      const result = await invoke<FileNode>("scan_directory", {
+        path: currentDirectory,
+      });
       setFileTree(result);
     } catch (err) {
-      console.error('Error refreshing file tree:', err);
+      console.error("Error refreshing file tree:", err);
     }
   }, [currentDirectory]);
 
@@ -108,22 +130,36 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
     setCurrentDirectory(null);
     setFileTree(null);
     setError(null);
-    
-    invoke('clear_workspace_config').catch(() => {});
-    localStorage.removeItem('inkdown-directory');
-    localStorage.removeItem('inkdown-file-tree');
+
+    try {
+      await invoke("clear_workspace_config");
+    } catch (clearError) {
+      console.warn("Failed to clear workspace config:", clearError);
+    }
+    localStorage.removeItem("inkdown-directory");
   }, []);
 
-  const contextValue = useMemo(() => ({
-    currentDirectory,
-    fileTree,
-    isLoading,
-    error,
-    setDirectory,
-    clearDirectory,
-    initializeWorkspace,
-    refreshFileTree
-  }), [currentDirectory, fileTree, isLoading, error, setDirectory, clearDirectory, refreshFileTree]);
+  const contextValue = useMemo(
+    () => ({
+      currentDirectory,
+      fileTree,
+      isLoading,
+      error,
+      setDirectory,
+      clearDirectory,
+      initializeWorkspace,
+      refreshFileTree,
+    }),
+    [
+      currentDirectory,
+      fileTree,
+      isLoading,
+      error,
+      setDirectory,
+      clearDirectory,
+      refreshFileTree,
+    ],
+  );
 
   return (
     <DirectoryContext.Provider value={contextValue}>
@@ -135,7 +171,9 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
 export function useDirectory() {
   const context = useContext(DirectoryContext);
   if (context === undefined) {
-    throw new Error('useDirectory deve ser usado dentro de um DirectoryProvider');
+    throw new Error(
+      "useDirectory deve ser usado dentro de um DirectoryProvider",
+    );
   }
   return context;
 }

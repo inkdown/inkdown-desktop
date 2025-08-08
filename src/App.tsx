@@ -1,17 +1,33 @@
 import "./App.css";
-import { Suspense, lazy } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Suspense, lazy, useEffect } from "react";
+import { Routes, Route, useNavigate } from "react-router-dom";
+import { useDirectory } from "./contexts/DirectoryContext";
 
 const HomePage = lazy(() => import("./pages/HomePage"));
 const EditorPage = lazy(() => import("./pages/EditorPage"));
 
 const LoadingSpinner = () => (
-  <div className="h-screen flex items-center justify-center bg-gray-50">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+  <div
+    className="h-screen flex items-center justify-center"
+    style={{ backgroundColor: "var(--theme-background)" }}
+  >
+    <div
+      className="animate-spin rounded-full h-8 w-8 border-b-2"
+      style={{ borderColor: "var(--theme-primary)" }}
+    ></div>
   </div>
 );
 
-function App() {
+function AppRouter() {
+  const { currentDirectory } = useDirectory();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (currentDirectory && window.location.pathname === "/") {
+      navigate("/editor", { replace: true });
+    }
+  }, [currentDirectory, navigate]);
+
   return (
     <Suspense fallback={<LoadingSpinner />}>
       <Routes>
@@ -21,6 +37,10 @@ function App() {
       </Routes>
     </Suspense>
   );
+}
+
+function App() {
+  return <AppRouter />;
 }
 
 export default App;

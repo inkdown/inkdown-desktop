@@ -1,13 +1,13 @@
 import { useAppearance } from '../../../contexts/AppearanceContext';
 
 export function EditorSettings() {
-  const { vimMode, showLineNumbers, highlightCurrentLine, readOnly, updateWorkspace, isLoading, currentTheme } = useAppearance();
+  const { vimMode, showLineNumbers, highlightCurrentLine, readOnly, updateWorkspace, isLoading } = useAppearance();
 
   if (isLoading) {
     return (
       <div className="space-y-5">
-        <div className="text-center py-8" style={{ color: currentTheme.mutedForeground }}>
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto mb-4" style={{ borderColor: currentTheme.primary }}></div>
+        <div className="text-center py-8" style={{ color: 'var(--text-secondary)' }}>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--text-accent)' }}></div>
           <p className="text-xs">Carregando configurações...</p>
         </div>
       </div>
@@ -21,10 +21,10 @@ export function EditorSettings() {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-medium mb-1" style={{ color: currentTheme.foreground }}>
+        <h3 className="text-base font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
           Editor
         </h3>
-        <p className="text-xs mb-4" style={{ color: currentTheme.mutedForeground }}>
+        <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>
           Configure o comportamento e aparência do editor de texto
         </p>
       </div>
@@ -32,20 +32,20 @@ export function EditorSettings() {
       <div 
         className="rounded-md border overflow-hidden"
         style={{ 
-          borderColor: currentTheme.border,
-          backgroundColor: currentTheme.background 
+          borderColor: 'var(--theme-border)',
+          backgroundColor: 'var(--theme-background)' 
         }}
       >
         {/* Vim Mode */}
         <div 
           className="flex items-center justify-between px-3 py-2.5"
-          style={{ borderBottom: `1px solid ${currentTheme.border}` }}
+          style={{ borderBottom: '1px solid var(--theme-border)' }}
         >
           <div>
-            <div className="text-xs font-medium" style={{ color: currentTheme.foreground }}>
+            <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
               Modo Vim
             </div>
-            <div className="text-xs leading-tight" style={{ color: currentTheme.mutedForeground }}>
+            <div className="text-xs leading-tight" style={{ color: 'var(--text-secondary)' }}>
               Habilita atalhos e navegação no estilo Vim
             </div>
           </div>
@@ -59,15 +59,15 @@ export function EditorSettings() {
             <div 
               className="w-8 h-4 rounded-full peer-focus:outline-none peer-focus:ring-1 peer-focus:ring-opacity-50 peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:rounded-full after:h-3 after:w-3 after:transition-all"
               style={{
-                backgroundColor: vimMode ? currentTheme.primary : currentTheme.muted,
-                border: `1px solid ${currentTheme.border}`,
+                backgroundColor: vimMode ? 'var(--text-accent)' : 'var(--theme-muted)',
+                border: '1px solid var(--theme-border)',
               }}
             >
               <div 
                 className="absolute top-[1px] left-[1px] bg-white rounded-full h-3 w-3 transition-transform"
                 style={{
                   transform: vimMode ? 'translateX(16px)' : 'translateX(0)',
-                  backgroundColor: currentTheme.background
+                  backgroundColor: 'var(--theme-background)'
                 }}
               />
             </div>
@@ -77,13 +77,13 @@ export function EditorSettings() {
         {/* Show Line Numbers */}
         <div 
           className="flex items-center justify-between px-3 py-2.5"
-          style={{ borderBottom: `1px solid ${currentTheme.border}` }}
+          style={{ borderBottom: '1px solid var(--theme-border)' }}
         >
           <div>
-            <div className="text-xs font-medium" style={{ color: currentTheme.foreground }}>
+            <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
               Números de Linha
             </div>
-            <div className="text-xs leading-tight" style={{ color: currentTheme.mutedForeground }}>
+            <div className="text-xs leading-tight" style={{ color: 'var(--text-secondary)' }}>
               Mostra números de linha no editor
             </div>
           </div>
@@ -97,15 +97,15 @@ export function EditorSettings() {
             <div 
               className="w-8 h-4 rounded-full peer-focus:outline-none peer-focus:ring-1 peer-focus:ring-opacity-50 peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:rounded-full after:h-3 after:w-3 after:transition-all"
               style={{
-                backgroundColor: showLineNumbers ? currentTheme.primary : currentTheme.muted,
-                border: `1px solid ${currentTheme.border}`,
+                backgroundColor: showLineNumbers ? 'var(--text-accent)' : 'var(--theme-muted)',
+                border: '1px solid var(--theme-border)',
               }}
             >
               <div 
                 className="absolute top-[1px] left-[1px] bg-white rounded-full h-3 w-3 transition-transform"
                 style={{
                   transform: showLineNumbers ? 'translateX(16px)' : 'translateX(0)',
-                  backgroundColor: currentTheme.background
+                  backgroundColor: 'var(--theme-background)'
                 }}
               />
             </div>
@@ -115,13 +115,13 @@ export function EditorSettings() {
         {/* Highlight Current Line */}
         <div 
           className="flex items-center justify-between px-3 py-2.5"
-          style={{ borderBottom: `1px solid ${currentTheme.border}` }}
+          style={{ borderBottom: '1px solid var(--theme-border)' }}
         >
           <div>
-            <div className="text-xs font-medium" style={{ color: currentTheme.foreground }}>
+            <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
               Destacar Linha Atual
             </div>
-            <div className="text-xs leading-tight" style={{ color: currentTheme.mutedForeground }}>
+            <div className="text-xs leading-tight" style={{ color: 'var(--text-secondary)' }}>
               Destaca a linha onde está o cursor
             </div>
           </div>
@@ -135,15 +135,15 @@ export function EditorSettings() {
             <div 
               className="w-8 h-4 rounded-full peer-focus:outline-none peer-focus:ring-1 peer-focus:ring-opacity-50 peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:rounded-full after:h-3 after:w-3 after:transition-all"
               style={{
-                backgroundColor: highlightCurrentLine ? currentTheme.primary : currentTheme.muted,
-                border: `1px solid ${currentTheme.border}`,
+                backgroundColor: highlightCurrentLine ? 'var(--text-accent)' : 'var(--theme-muted)',
+                border: '1px solid var(--theme-border)',
               }}
             >
               <div 
                 className="absolute top-[1px] left-[1px] bg-white rounded-full h-3 w-3 transition-transform"
                 style={{
                   transform: highlightCurrentLine ? 'translateX(16px)' : 'translateX(0)',
-                  backgroundColor: currentTheme.background
+                  backgroundColor: 'var(--theme-background)'
                 }}
               />
             </div>
@@ -153,10 +153,10 @@ export function EditorSettings() {
         {/* Read Only */}
         <div className="flex items-center justify-between px-3 py-2.5">
           <div>
-            <div className="text-xs font-medium" style={{ color: currentTheme.foreground }}>
+            <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
               Modo Somente Leitura
             </div>
-            <div className="text-xs leading-tight" style={{ color: currentTheme.mutedForeground }}>
+            <div className="text-xs leading-tight" style={{ color: 'var(--text-secondary)' }}>
               Impede edição de arquivos
             </div>
           </div>
@@ -170,15 +170,15 @@ export function EditorSettings() {
             <div 
               className="w-8 h-4 rounded-full peer-focus:outline-none peer-focus:ring-1 peer-focus:ring-opacity-50 peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:rounded-full after:h-3 after:w-3 after:transition-all"
               style={{
-                backgroundColor: readOnly ? currentTheme.primary : currentTheme.muted,
-                border: `1px solid ${currentTheme.border}`,
+                backgroundColor: readOnly ? 'var(--text-accent)' : 'var(--theme-muted)',
+                border: '1px solid var(--theme-border)',
               }}
             >
               <div 
                 className="absolute top-[1px] left-[1px] bg-white rounded-full h-3 w-3 transition-transform"
                 style={{
                   transform: readOnly ? 'translateX(16px)' : 'translateX(0)',
-                  backgroundColor: currentTheme.background
+                  backgroundColor: 'var(--theme-background)'
                 }}
               />
             </div>
