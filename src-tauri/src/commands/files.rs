@@ -4,7 +4,7 @@ use std::path::Path;
 
 #[cfg(target_os = "windows")]
 mod windows_utils {
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     // Windows reserved names
     const RESERVED_NAMES: &[&str] = &[
