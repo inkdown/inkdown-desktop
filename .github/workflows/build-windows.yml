@@ -3,8 +3,6 @@ name: Build and Deploy Windows
 on:
   push:
     branches: ["main"]
-  push:
-    tags: ["v*"]
   release:
     types: [published]
 
