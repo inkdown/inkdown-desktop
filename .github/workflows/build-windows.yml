@@ -114,7 +114,6 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       - name: Upload artifacts to R2 (Release)
-        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
         run: |
           $version = "${{ steps.version.outputs.VERSION }}"
           Write-Host "Uploading RELEASE files for version: $version"
