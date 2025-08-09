@@ -28,7 +28,7 @@
         "https://releases.inkdown.app/{{target}}/{{arch}}/latest.json"
       ],
       "dialog": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ5NzZBMTlEMjRGMDg4QTUKUldTbGlQQWtuYUYyMlJQT3hRT3lHWWJ2bkdzWGNjSXk4ZWFGWXhIL1krMlJ2dU5nUHd1QjliT2UK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVDNjQ0MTFGQzk0MkFGRTMKUldUanIwTEpIMEZrWFByR05FOFhseDZoQzV1dlllM0kyNGtEdjVzVjhUVEc0QWtiTmJmZzdoQkUK"
     }
   },
   "bundle": {
