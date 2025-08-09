@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { cacheUtils } from "../utils/localStorage";
 
 export interface CommunityTheme {
   name: string;
@@ -132,6 +133,9 @@ export function useCommunityThemes(): UseCommunityThemesResult {
         setDownloadedThemes((prev) => new Set(prev.add(themeKey)));
         installedThemesCache.add(theme.name);
         installedThemesCache.add(themeKey);
+        
+        // Invalidate custom themes cache to force refresh
+        cacheUtils.invalidateThemes();
       } catch (err) {
         console.error("Erro ao baixar tema:", err);
       } finally {

@@ -11,6 +11,7 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 import { useConfigManager } from "../hooks/useConfigManager";
 import { ThemeMode, CustomTheme } from "../types/config";
+import { cacheUtils } from "../utils/localStorage";
 
 interface AppearanceState {
   themeMode: ThemeMode;
@@ -337,13 +338,25 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     [updateWorkspaceConfig],
   );
 
-  const refreshCustomThemes = useCallback(async () => {
+  const refreshCustomThemes = useCallback(async (forceRefresh = false) => {
     if (state.customThemesLoading) return;
 
     dispatch({ type: "SET_CUSTOM_THEME_LOADING", payload: true });
 
     try {
-      const customThemes = await invoke<CustomTheme[]>("get_custom_themes");
+      let customThemes = null;
+      
+      // Try cache first if not forcing refresh
+      if (!forceRefresh) {
+        customThemes = cacheUtils.getCustomThemes();
+      }
+      
+      // If not in cache or forcing refresh, load from Rust
+      if (!customThemes) {
+        customThemes = await invoke<CustomTheme[]>("get_custom_themes");
+        cacheUtils.setCustomThemes(customThemes);
+      }
+      
       dispatch({ type: "SET_CUSTOM_THEMES", payload: customThemes });
     } catch (err) {
       console.error("Failed to load custom themes:", err);
