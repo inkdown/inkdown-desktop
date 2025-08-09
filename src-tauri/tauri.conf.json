@@ -25,7 +25,7 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://releases.inkdown.app/{{target}}/{{arch}}/latest.json"
+        "https://pub-43c32df55ce445d4b28356d240d95db1.r2.dev/{{target}}/{{arch}}/latest.json"
       ],
       "dialog": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ1MDc5NDM1QUVBMDY1RDUKUldUVlphQ3VOWlFIMVg0Z1YyZ3FFOGJhVVZBNlFaTVVDSEdjbHVqOUx2Z1VoQVR0RThqT2dwOE8K"
