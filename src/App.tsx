@@ -3,6 +3,8 @@ import { Suspense, lazy, useEffect, useState } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import { useDirectory } from "./contexts/DirectoryContext";
 import { cacheUtils } from "./utils/localStorage";
+import { UpdateNotification } from "./components/updater/UpdateNotification";
+import { useUpdater } from "./hooks/useUpdater";
 
 const HomePage = lazy(() => import("./pages/HomePage"));
 const EditorPage = lazy(() => import("./pages/EditorPage"));
@@ -63,7 +65,19 @@ function AppRouter() {
 }
 
 function App() {
-  return <AppRouter />;
+  const { autoCheck } = useUpdater();
+
+  useEffect(() => {
+    // Auto-check para atualizações na inicialização
+    autoCheck();
+  }, [autoCheck]);
+
+  return (
+    <>
+      <AppRouter />
+      <UpdateNotification />
+    </>
+  );
 }
 
 export default App;

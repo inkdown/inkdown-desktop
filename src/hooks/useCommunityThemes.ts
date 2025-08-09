@@ -29,41 +29,18 @@ export function useCommunityThemes(): UseCommunityThemesResult {
   const [downloadingThemes, setDownloadingThemes] = useState<Set<string>>(
     new Set(),
   );
-  const [downloadedThemes, setDownloadedThemes] = useState<Set<string>>(
-    new Set(),
-  );
+  
+  const [downloadedThemes, setDownloadedThemes] = useState<Set<string>>(() => {
+    const cached = cacheUtils.getCustomThemes() || [];
+    return new Set(cached.map(theme => `${theme.author}-${theme.name}`));
+  });
 
-  // Cache for installed themes - loaded only when needed
-  const installedThemesCache = useMemo(() => {
-    let cache: Set<string> | null = null;
-
-    return {
-      async get(): Promise<Set<string>> {
-        if (cache === null) {
-          try {
-            const installed = await invoke<string[]>(
-              "get_installed_theme_names",
-            );
-            cache = new Set(installed);
-          } catch (err) {
-            console.warn("Failed to load installed themes:", err);
-            cache = new Set();
-          }
-        }
-        return cache;
-      },
-
-      invalidate() {
-        cache = null;
-      },
-
-      add(themeName: string) {
-        if (cache) {
-          cache.add(themeName);
-        }
-      },
-    };
+  // Cache para evitar recalcular downloaded themes keys
+  const getDownloadedKeys = useCallback(() => {
+    const cached = cacheUtils.getCustomThemes() || [];
+    return new Set(cached.map(t => `${t.author}-${t.name}`));
   }, []);
+
 
   const searchThemes = useCallback(
     async (repoUrl: string) => {
@@ -76,45 +53,37 @@ export function useCommunityThemes(): UseCommunityThemesResult {
       setError(null);
 
       try {
-        const [result, installedThemes] = await Promise.all([
-          invoke<CommunityTheme[]>("search_community_themes", {
-            repoUrl: repoUrl.trim(),
-          }),
-          installedThemesCache.get(),
-        ]);
+        const result = await invoke<CommunityTheme[]>("search_community_themes", {
+          repoUrl: repoUrl.trim(),
+        });
 
-        // Mark already downloaded themes
+        // Use cached downloaded keys para evitar recomputação
+        const cachedThemeKeys = getDownloadedKeys();
+
+        // Mark already downloaded themes - otimizado para menos alocações
         const alreadyDownloaded = new Set<string>();
-        result.forEach((theme) => {
-          const themeKey = `${theme.repo}-${theme.name}`;
-          if (
-            installedThemes.has(theme.name) ||
-            installedThemes.has(themeKey)
-          ) {
+        for (const theme of result) {
+          const themeKey = `${theme.author}-${theme.name}`;
+          if (cachedThemeKeys.has(themeKey)) {
             alreadyDownloaded.add(themeKey);
           }
-        });
+        }
 
-        setDownloadedThemes((prev) => {
-          const newSet = new Set(prev);
-          alreadyDownloaded.forEach((key) => newSet.add(key));
-          return newSet;
-        });
-
+        setDownloadedThemes(alreadyDownloaded);
         setThemes(result);
       } catch (err) {
-        setError(err as string);
+        setError(err instanceof Error ? err.message : String(err));
         setThemes([]);
       } finally {
         setLoading(false);
       }
     },
-    [installedThemesCache],
+    [],
   );
 
   const downloadTheme = useCallback(
     async (theme: CommunityTheme) => {
-      const themeKey = `${theme.repo}-${theme.name}`;
+      const themeKey = `${theme.author}-${theme.name}`;
 
       setDownloadingThemes((prev) => new Set(prev.add(themeKey)));
 
@@ -129,24 +98,34 @@ export function useCommunityThemes(): UseCommunityThemesResult {
           },
         });
 
-        // Update both download state and cache
-        setDownloadedThemes((prev) => new Set(prev.add(themeKey)));
-        installedThemesCache.add(theme.name);
-        installedThemesCache.add(themeKey);
+        // Update download state de forma otimizada
+        setDownloadedThemes((prev) => {
+          if (prev.has(themeKey)) return prev; // Evita recriação desnecessária
+          const newSet = new Set(prev);
+          newSet.add(themeKey);
+          return newSet;
+        });
         
-        // Invalidate custom themes cache to force refresh
-        cacheUtils.invalidateThemes();
+        // Persist downloaded theme in localStorage - otimizado
+        const currentThemes = cacheUtils.getCustomThemes() || [];
+        // Evita duplicatas no cache
+        const exists = currentThemes.some(t => `${t.author}-${t.name}` === themeKey);
+        if (!exists) {
+          const updatedThemes = [...currentThemes, theme];
+          cacheUtils.setCustomThemes(updatedThemes);
+        }
       } catch (err) {
         console.error("Erro ao baixar tema:", err);
       } finally {
         setDownloadingThemes((prev) => {
+          if (!prev.has(themeKey)) return prev; // Evita recriação desnecessária
           const newSet = new Set(prev);
           newSet.delete(themeKey);
           return newSet;
         });
       }
     },
-    [installedThemesCache],
+    [],
   );
 
   const clearThemes = useCallback(() => {
@@ -154,7 +133,7 @@ export function useCommunityThemes(): UseCommunityThemesResult {
     setError(null);
   }, []);
 
-  return {
+  return useMemo(() => ({
     themes,
     loading,
     error,
@@ -163,5 +142,14 @@ export function useCommunityThemes(): UseCommunityThemesResult {
     searchThemes,
     downloadTheme,
     clearThemes,
-  };
+  }), [
+    themes,
+    loading, 
+    error,
+    downloadingThemes,
+    downloadedThemes,
+    searchThemes,
+    downloadTheme,
+    clearThemes
+  ]);
 }

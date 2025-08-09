@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { LogOut, FolderOpen, Home } from 'lucide-react';
+import { LogOut, FolderOpen } from 'lucide-react';
 import { useDirectory } from '../../../contexts/DirectoryContext';
 
 export function WorkspaceSettings() {
@@ -83,33 +83,6 @@ export function WorkspaceSettings() {
                   style={{ color: 'var(--text-secondary)' }}
                 >
                   Retorna para a tela inicial
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => navigate('/')}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md transition-colors text-left"
-              style={{
-                backgroundColor: 'var(--theme-background)',
-                border: '1px solid var(--input-border)',
-                color: 'var(--text-primary)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--theme-muted)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--theme-background)';
-              }}
-            >
-              <Home size={14} />
-              <div>
-                <div className="text-xs font-medium">Tela Inicial</div>
-                <div 
-                  className="text-xs opacity-70"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  Ir para a página inicial do app
                 </div>
               </div>
             </button>

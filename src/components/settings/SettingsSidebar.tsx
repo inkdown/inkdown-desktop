@@ -1,4 +1,4 @@
-import { Palette, FileText, Settings, FolderOpen } from 'lucide-react';
+import { Palette, FileText, Settings, FolderOpen, RefreshCw } from 'lucide-react';
 import { SettingsSection } from './SettingsModal';
 
 interface SettingsSidebarProps {
@@ -26,6 +26,11 @@ const sections = [
     id: 'preferences' as const,
     label: 'Preferências',
     icon: Settings,
+  },
+  {
+    id: 'updates' as const,
+    label: 'Atualizações',
+    icon: RefreshCw,
   },
 ];
 

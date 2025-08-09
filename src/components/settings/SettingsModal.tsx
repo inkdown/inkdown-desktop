@@ -5,8 +5,9 @@ import { WorkspaceSettings } from './sections/WorkspaceSettings';
 import { AppearanceSettings } from './sections/AppearanceSettings';
 import { EditorSettings } from './sections/EditorSettings';
 import { PreferencesSettings } from './sections/PreferencesSettings';
+import { UpdateSettings } from './sections/UpdateSettings';
 
-export type SettingsSection = 'workspace' | 'appearance' | 'editor' | 'preferences';
+export type SettingsSection = 'workspace' | 'appearance' | 'editor' | 'preferences' | 'updates';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -29,6 +30,8 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
         return <EditorSettings />;
       case 'preferences':
         return <PreferencesSettings />;
+      case 'updates':
+        return <UpdateSettings />;
       default:
         return <WorkspaceSettings />;
     }
