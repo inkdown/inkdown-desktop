@@ -426,7 +426,16 @@ pub fn rename_file_or_directory(old_path: String, new_name: String) -> Result<St
     // Sanitize the new name based on the operating system
     let sanitized_name = windows_utils::sanitize_filename(&new_name)?;
 
-    let new_path = parent.join(&sanitized_name);
+    // Preserve the original file extension if it's a file
+    let new_path = if canonical_old_path.is_file() {
+        if let Some(extension) = canonical_old_path.extension() {
+            parent.join(format!("{}.{}", sanitized_name, extension.to_string_lossy()))
+        } else {
+            parent.join(&sanitized_name)
+        }
+    } else {
+        parent.join(&sanitized_name)
+    };
 
     // Check if target already exists
     if new_path.exists() {

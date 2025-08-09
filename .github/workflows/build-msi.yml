@@ -1,7 +1,7 @@
 name: Build MSI on Issue Open
 
 on:
-  push:
+  pull_request:
     branches: ["main"]
 
 jobs:

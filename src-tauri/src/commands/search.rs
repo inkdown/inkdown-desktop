@@ -91,7 +91,7 @@ fn build_tree(path: &Path) -> Result<FileNode, String> {
                     {
                         match build_tree(&entry_path) {
                             Ok(child_node) => children.push(child_node),
-                            Err(_) => {} // Skip problematic entries
+                            Err(_) => {}
                         }
                     }
                 }
@@ -496,7 +496,16 @@ pub fn rename_file(old_path: String, new_name: String) -> Result<String, String>
         .parent()
         .ok_or("Cannot determine parent directory".to_string())?;
 
-    let new_path = parent.join(&new_name);
+    // Preserve the original file extension if it's a file
+    let new_path = if old_path_obj.is_file() {
+        if let Some(extension) = old_path_obj.extension() {
+            parent.join(format!("{}.{}", new_name, extension.to_string_lossy()))
+        } else {
+            parent.join(&new_name)
+        }
+    } else {
+        parent.join(&new_name)
+    };
 
     if new_path.exists() {
         return Err("A file with this name already exists".to_string());
