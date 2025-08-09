@@ -3,13 +3,17 @@ use std::fs;
 
 fn get_themes_directory() -> Result<std::path::PathBuf, String> {
     let home_dir = if cfg!(target_os = "windows") {
-        std::env::var("USERPROFILE").or_else(|_| std::env::var("HOMEDRIVE")
-            .and_then(|drive| std::env::var("HOMEPATH").map(|path| format!("{}{}", drive, path))))
+        std::env::var("USERPROFILE")
+            .or_else(|_| {
+                std::env::var("HOMEDRIVE").and_then(|drive| {
+                    std::env::var("HOMEPATH").map(|path| format!("{}{}", drive, path))
+                })
+            })
             .map_err(|_| "Não foi possível obter diretório home no Windows")?
     } else {
         std::env::var("HOME").map_err(|_| "Não foi possível obter diretório home")?
     };
-    
+
     let inkdown_dir = std::path::Path::new(&home_dir).join(".inkdown");
     Ok(inkdown_dir.join("themes"))
 }
@@ -113,11 +117,11 @@ pub fn get_theme_css(theme_id: String) -> Result<String, String> {
 
                 if let Some(variant) = theme.variants.iter().find(|v| v.id == theme_id) {
                     let css_file_path = theme_path.join(&variant.css_file);
-                    
+
                     // Debug: Mostrar o que está sendo procurado
                     println!("Looking for CSS file: {:?}", css_file_path);
                     println!("Variant CSS file: {}", variant.css_file);
-                    
+
                     if css_file_path.exists() {
                         return fs::read_to_string(css_file_path).map_err(|e| {
                             format!("Failed to read CSS file '{}': {}", variant.css_file, e)
@@ -132,7 +136,7 @@ pub fn get_theme_css(theme_id: String) -> Result<String, String> {
                                 }
                             }
                         }
-                        
+
                         return Err(format!(
                             "CSS file '{}' not found for theme '{}' at path: {:?}",
                             variant.css_file, theme.name, css_file_path
@@ -149,9 +153,9 @@ pub fn get_theme_css(theme_id: String) -> Result<String, String> {
 #[tauri::command]
 pub async fn search_community_themes(repo_url: String) -> Result<Vec<ThemeWithScreenshot>, String> {
     let client = reqwest::Client::new();
-    
+
     let themes_json_url = format!("{}/raw/main/themes.json", repo_url);
-    
+
     let response = client
         .get(&themes_json_url)
         .header("User-Agent", "Inkdown/1.0")
@@ -160,7 +164,10 @@ pub async fn search_community_themes(repo_url: String) -> Result<Vec<ThemeWithSc
         .map_err(|e| format!("Failed to fetch themes.json: {}", e))?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to fetch themes.json: HTTP {}", response.status()));
+        return Err(format!(
+            "Failed to fetch themes.json: HTTP {}",
+            response.status()
+        ));
     }
 
     let themes: Vec<RepositoryTheme> = response
@@ -172,7 +179,7 @@ pub async fn search_community_themes(repo_url: String) -> Result<Vec<ThemeWithSc
 
     for theme in themes {
         let screenshot_data = fetch_theme_screenshot(&client, &theme.repo, &theme.screenshot).await;
-        
+
         themes_with_screenshots.push(ThemeWithScreenshot {
             name: theme.name,
             author: theme.author,
@@ -191,23 +198,25 @@ async fn fetch_theme_screenshot(
     repo: &str,
     screenshot_filename: &str,
 ) -> Option<String> {
-    let screenshot_url = format!("https://github.com/{}/raw/main/{}", repo, screenshot_filename);
-    
+    let screenshot_url = format!(
+        "https://github.com/{}/raw/main/{}",
+        repo, screenshot_filename
+    );
+
     match client
         .get(&screenshot_url)
         .header("User-Agent", "Inkdown/1.0")
         .send()
         .await
     {
-        Ok(response) if response.status().is_success() => {
-            match response.bytes().await {
-                Ok(bytes) => {
-                    let base64_data = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes);
-                    Some(format!("data:image/png;base64,{}", base64_data))
-                }
-                Err(_) => None,
+        Ok(response) if response.status().is_success() => match response.bytes().await {
+            Ok(bytes) => {
+                let base64_data =
+                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes);
+                Some(format!("data:image/png;base64,{}", base64_data))
             }
-        }
+            Err(_) => None,
+        },
         _ => None,
     }
 }
@@ -215,50 +224,51 @@ async fn fetch_theme_screenshot(
 #[tauri::command]
 pub async fn download_community_theme(theme: RepositoryTheme) -> Result<(), String> {
     let client = reqwest::Client::new();
-    
+
     let themes_dir = get_themes_directory()?;
-    
+
     // Sanitizar nome do tema para ser compatível com sistemas de arquivos
     let safe_theme_name = sanitize_filename(&theme.name);
     let theme_dir = themes_dir.join(safe_theme_name);
-    
+
     // Criar diretórios se não existirem
     std::fs::create_dir_all(&theme_dir)
         .map_err(|e| format!("Falha ao criar diretório do tema: {}", e))?;
-    
+
     // Buscar lista de arquivos CSS do repositório
     let css_files = fetch_css_files_from_repo(&client, &theme.repo).await?;
-    
+
     // Baixar e renomear arquivos CSS seguindo o padrão
     for css_file in &css_files {
         let css_content = fetch_file_content(&client, &theme.repo, &css_file).await?;
         let file_path = theme_dir.join(&css_file);
-        
+
         // Criar diretório pai se necessário
         if let Some(parent) = file_path.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("Falha ao criar diretório: {}", e))?;
         }
-        
+
         // Salvar arquivo CSS original
         std::fs::write(&file_path, &css_content)
             .map_err(|e| format!("Falha ao salvar arquivo CSS {}: {}", css_file, e))?;
     }
-    
+
     // Aplicar padrão: renomear/copiar arquivos para light.css e dark.css se necessário
     if theme.modes.len() > 1 {
         // Múltiplos modos: criar light.css e dark.css
         for mode in &theme.modes {
             let target_file = format!("{}.css", mode.to_lowercase());
             let target_path = theme_dir.join(&target_file);
-            
+
             // Encontrar arquivo CSS correspondente ou usar o primeiro
-            let source_css = css_files.iter()
+            let source_css = css_files
+                .iter()
                 .find(|css| css.to_lowercase().contains(&mode.to_lowercase()))
                 .unwrap_or(&css_files[0]);
-            
+
             let source_path = theme_dir.join(source_css);
-            
+
             // Copiar/renomear para o padrão
             if source_path != target_path {
                 std::fs::copy(&source_path, &target_path)
@@ -267,25 +277,37 @@ pub async fn download_community_theme(theme: RepositoryTheme) -> Result<(), Stri
         }
     }
     // Modo único: arquivos ficam com nomes originais
-    
+
     // Criar theme.json seguindo o padrão simples
     let variants = if theme.modes.len() > 1 {
         // Múltiplos modos: usar light.css e dark.css
-        theme.modes.iter().map(|mode| serde_json::json!({
-            "id": format!("{}-{}", theme.name.to_lowercase().replace(" ", "-"), mode),
-            "name": format!("{} {}", theme.name, mode),
-            "mode": mode,
-            "css_file": format!("{}.css", mode.to_lowercase())
-        })).collect::<Vec<_>>()
+        theme
+            .modes
+            .iter()
+            .map(|mode| {
+                serde_json::json!({
+                    "id": format!("{}-{}", theme.name.to_lowercase().replace(" ", "-"), mode),
+                    "name": format!("{} {}", theme.name, mode),
+                    "mode": mode,
+                    "css_file": format!("{}.css", mode.to_lowercase())
+                })
+            })
+            .collect::<Vec<_>>()
     } else {
         // Modo único: usar o primeiro arquivo CSS
         let css_file = &css_files[0];
-        theme.modes.iter().map(|mode| serde_json::json!({
-            "id": format!("{}-{}", theme.name.to_lowercase().replace(" ", "-"), mode),
-            "name": format!("{} {}", theme.name, mode),
-            "mode": mode,
-            "css_file": css_file
-        })).collect::<Vec<_>>()
+        theme
+            .modes
+            .iter()
+            .map(|mode| {
+                serde_json::json!({
+                    "id": format!("{}-{}", theme.name.to_lowercase().replace(" ", "-"), mode),
+                    "name": format!("{} {}", theme.name, mode),
+                    "mode": mode,
+                    "css_file": css_file
+                })
+            })
+            .collect::<Vec<_>>()
     };
 
     let theme_json = serde_json::json!({
@@ -296,11 +318,14 @@ pub async fn download_community_theme(theme: RepositoryTheme) -> Result<(), Stri
         "homepage": format!("https://github.com/{}", theme.repo),
         "variants": variants
     });
-    
+
     let theme_json_path = theme_dir.join("theme.json");
-    std::fs::write(&theme_json_path, serde_json::to_string_pretty(&theme_json).unwrap())
-        .map_err(|e| format!("Falha ao salvar theme.json: {}", e))?;
-    
+    std::fs::write(
+        &theme_json_path,
+        serde_json::to_string_pretty(&theme_json).unwrap(),
+    )
+    .map_err(|e| format!("Falha ao salvar theme.json: {}", e))?;
+
     Ok(())
 }
 
@@ -310,7 +335,7 @@ async fn fetch_css_files_from_repo(
 ) -> Result<Vec<String>, String> {
     // Buscar conteúdo do diretório via GitHub API
     let api_url = format!("https://api.github.com/repos/{}/contents", repo);
-    
+
     let response = client
         .get(&api_url)
         .header("User-Agent", "Inkdown/1.0")
@@ -319,7 +344,10 @@ async fn fetch_css_files_from_repo(
         .map_err(|e| format!("Falha ao buscar conteúdo do repositório: {}", e))?;
 
     if !response.status().is_success() {
-        return Err(format!("Falha ao buscar conteúdo: HTTP {}", response.status()));
+        return Err(format!(
+            "Falha ao buscar conteúdo: HTTP {}",
+            response.status()
+        ));
     }
 
     let files: Vec<serde_json::Value> = response
@@ -353,7 +381,7 @@ async fn fetch_file_content(
     filename: &str,
 ) -> Result<String, String> {
     let file_url = format!("https://github.com/{}/raw/main/{}", repo, filename);
-    
+
     let response = client
         .get(&file_url)
         .header("User-Agent", "Inkdown/1.0")
@@ -362,7 +390,11 @@ async fn fetch_file_content(
         .map_err(|e| format!("Falha ao baixar arquivo {}: {}", filename, e))?;
 
     if !response.status().is_success() {
-        return Err(format!("Falha ao baixar {}: HTTP {}", filename, response.status()));
+        return Err(format!(
+            "Falha ao baixar {}: HTTP {}",
+            filename,
+            response.status()
+        ));
     }
 
     response
@@ -383,4 +415,34 @@ fn sanitize_filename(name: &str) -> String {
         .collect::<String>()
         .trim()
         .to_string()
+}
+
+#[tauri::command]
+pub fn get_installed_theme_names() -> Result<Vec<String>, String> {
+    let themes_dir = get_themes_directory()?;
+
+    if !themes_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut theme_names = Vec::new();
+
+    // Scan for .json theme files
+    if let Ok(entries) = fs::read_dir(&themes_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(extension) = path.extension() {
+                    if extension == "json" {
+                        if let Some(name) = path.file_stem().and_then(|n| n.to_str()) {
+                            theme_names.push(name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    theme_names.sort();
+    Ok(theme_names)
 }

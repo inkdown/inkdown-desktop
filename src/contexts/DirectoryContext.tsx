@@ -42,6 +42,8 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const initializedRef = useRef(false);
+  const fileTreeCacheRef = useRef<Map<string, FileNode>>(new Map());
+  const lastRefreshRef = useRef<Map<string, number>>(new Map());
 
   const initializeWorkspace = async () => {
     if (initializedRef.current) return;
@@ -113,13 +115,30 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
     }
   }, []);
 
-  const refreshFileTree = useCallback(async () => {
+  const refreshFileTree = useCallback(async (forceRefresh = false) => {
     if (!currentDirectory) return;
+
+    // Cache with 1 second debounce to avoid excessive refreshes
+    const lastRefresh = lastRefreshRef.current.get(currentDirectory) || 0;
+    const now = Date.now();
+    
+    if (!forceRefresh && now - lastRefresh < 1000) {
+      const cached = fileTreeCacheRef.current.get(currentDirectory);
+      if (cached) {
+        setFileTree(cached);
+        return;
+      }
+    }
 
     try {
       const result = await invoke<FileNode>("scan_directory", {
         path: currentDirectory,
       });
+      
+      // Update cache
+      fileTreeCacheRef.current.set(currentDirectory, result);
+      lastRefreshRef.current.set(currentDirectory, now);
+      
       setFileTree(result);
     } catch (err) {
       console.error("Error refreshing file tree:", err);

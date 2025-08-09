@@ -67,7 +67,6 @@ export const WorkspacePage = memo(function WorkspacePage() {
     onSave: handleSave,
     onOpenNotePalette: handleOpenPalette,
     onTogglePreview: handleTogglePreview,
-    shortcuts: workspaceConfig.shortcuts,
   });
 
   if (!fileTree || !currentDirectory) {

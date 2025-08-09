@@ -216,4 +216,3 @@ export function createInkdownTheme(theme: 'light' | 'dark'): Extension {
     syntaxHighlighting(syntaxTheme),
   ];
 }
-

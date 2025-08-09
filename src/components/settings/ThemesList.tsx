@@ -64,11 +64,11 @@ export function ThemesList({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-2 gap-3">
       {themes.map((theme, index) => (
         <div
           key={`${theme.repo}-${index}`}
-          className="rounded-lg w-[62]  shadow-xl border overflow-hidden hover:shadow-md transition-shadow"
+          className="rounded-lg shadow-sm border overflow-hidden hover:shadow-md transition-shadow"
           style={{
             backgroundColor: "var(--background)",
             border: "1px solid var(--modal-border)",
@@ -80,27 +80,30 @@ export function ThemesList({
                 src={theme.screenshot_data}
                 alt={`Screenshot do tema ${theme.name}`}
                 className="w-full h-full object-cover"
+                loading="lazy"
               />
             </div>
           )}
 
-          <div className="p-4">
-            <div className="mb-3">
+          <div className="p-3">
+            <div className="mb-2">
               <h4
-                className="text-sm font-semibold mb-1"
+                className="text-sm font-semibold mb-1 truncate"
                 style={{ color: "var(--text-primary)" }}
+                title={theme.name}
               >
                 {theme.name}
               </h4>
               <p
-                className="text-xs opacity-80"
+                className="text-xs opacity-80 truncate"
                 style={{ color: "var(--text-secondary)" }}
+                title={`por ${theme.author}`}
               >
                 por {theme.author}
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-1 mb-4">
+            <div className="flex flex-wrap gap-1 mb-3">
               {theme.modes.map((mode) => (
                 <span
                   key={mode}
@@ -122,7 +125,7 @@ export function ThemesList({
                 downloadingThemes.has(`${theme.repo}-${theme.name}`) ||
                 downloadedThemes.has(`${theme.repo}-${theme.name}`)
               }
-              className="w-full px-3 py-2 rounded text-xs font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+              className="w-full px-3 py-1.5 rounded text-xs font-medium transition-colors hover:opacity-90 disabled:opacity-50"
               style={{
                 backgroundColor: downloadedThemes.has(
                   `${theme.repo}-${theme.name}`,

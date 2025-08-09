@@ -77,7 +77,7 @@ export class ExtensionsFactory {
       EditorState.tabSize.of(2),
     ];
   }
-  
+
   static getMarkdown(): Extension {
     return markdown();
   }
@@ -85,15 +85,15 @@ export class ExtensionsFactory {
   static getVimMode(): Extension {
     return vim();
   }
-  
+
   static getLineNumbers(): Extension {
     return lineNumbers();
   }
-  
+
   static getCurrentLineHighlight(): Extension[] {
     return [highlightActiveLine(), highlightActiveLineGutter()];
   }
-  
+
   static buildExtensions(config: {
     markdown?: boolean;
     vim?: boolean;
@@ -135,7 +135,7 @@ export class ExtensionsFactory {
     
     return extensions;
   }
-  
+
   static getDefaultConfig(): Extension[] {
     return this.buildExtensions({
       markdown: true,

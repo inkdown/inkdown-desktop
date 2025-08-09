@@ -1,7 +1,7 @@
-import { useState, useCallback, useRef, memo } from "react";
+import { useState, useCallback, useRef, memo, useMemo } from "react";
 import { ChevronRight, Folder, FolderOpen, FileText } from "lucide-react";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { FileNode } from "../../contexts/DirectoryContext";
+import { FileNode, useDirectory } from "../../contexts/DirectoryContext";
 import { ContextMenu } from "../ui/overlays/ContextMenu";
 import { useFileOperations } from "../../hooks/useFileOperations";
 import { useEditing } from "../../contexts/EditingContext";
@@ -279,7 +279,7 @@ interface FileTreeProps {
   className?: string;
 }
 
-export function FileTree({
+export const FileTree = memo(function FileTree({
   fileTree,
   onFileSelect,
   selectedFile,
@@ -291,8 +291,11 @@ export function FileTree({
   } | null>(null);
   const { createDirectory, createFile } = useFileOperations();
   const { setEditingPath } = useEditing();
+  const { refreshFileTree } = useDirectory();
 
-  const handleRefresh = useCallback(() => {}, []);
+  const handleRefresh = useCallback(() => {
+    refreshFileTree(); // Force refresh when manually triggered
+  }, [refreshFileTree]);
 
   const handleEmptyAreaContextMenu = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -335,26 +338,33 @@ export function FileTree({
         <div className="explorer-label text-xs font-medium uppercase tracking-wide mb-2 px-2 opacity-70">
           Explorer
         </div>
-        {fileTree.children?.map((child) => (
-          <FileTreeItem
-            key={child.path}
-            node={child}
-            level={0}
-            onFileSelect={onFileSelect}
-            selectedFile={selectedFile}
-            onRefresh={handleRefresh}
-            isWorkspaceRoot={false}
-          />
-        )) || (
-          <FileTreeItem
-            node={fileTree}
-            level={0}
-            onFileSelect={onFileSelect}
-            selectedFile={selectedFile}
-            onRefresh={handleRefresh}
-            isWorkspaceRoot={true}
-          />
-        )}
+        {useMemo(() => {
+          if (!fileTree.children) {
+            return (
+              <FileTreeItem
+                key={fileTree.path}
+                node={fileTree}
+                level={0}
+                onFileSelect={onFileSelect}
+                selectedFile={selectedFile}
+                onRefresh={handleRefresh}
+                isWorkspaceRoot={true}
+              />
+            );
+          }
+
+          return fileTree.children.map((child) => (
+            <FileTreeItem
+              key={child.path}
+              node={child}
+              level={0}
+              onFileSelect={onFileSelect}
+              selectedFile={selectedFile}
+              onRefresh={handleRefresh}
+              isWorkspaceRoot={false}
+            />
+          ));
+        }, [fileTree, onFileSelect, selectedFile, handleRefresh])}
       </div>
 
       {contextMenu && (
@@ -370,4 +380,4 @@ export function FileTree({
       )}
     </div>
   );
-}
+});
