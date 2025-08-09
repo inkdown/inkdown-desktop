@@ -70,7 +70,9 @@ jobs:
 
       - name: Sign updater artifacts
         run: |
-          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" > private.key
+          $base64Key = "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}"
+          $decodedKey = [System.Convert]::FromBase64String($base64Key)
+          [System.IO.File]::WriteAllBytes("private.key", $decodedKey)
           bunx tauri signer sign src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi -k private.key -p "${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}"
           Remove-Item private.key
         shell: pwsh
