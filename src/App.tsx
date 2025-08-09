@@ -1,7 +1,8 @@
 import "./App.css";
-import { Suspense, lazy, useEffect } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import { useDirectory } from "./contexts/DirectoryContext";
+import { cacheUtils } from "./utils/localStorage";
 
 const HomePage = lazy(() => import("./pages/HomePage"));
 const EditorPage = lazy(() => import("./pages/EditorPage"));
@@ -19,14 +20,36 @@ const LoadingSpinner = () => (
 );
 
 function AppRouter() {
-  const { currentDirectory } = useDirectory();
+  const { currentDirectory, initializeWorkspace } = useDirectory();
   const navigate = useNavigate();
+  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    if (currentDirectory && window.location.pathname === "/") {
+    const initApp = async () => {
+      const cachedWorkspace = cacheUtils.getWorkspacePath();
+      
+      if (cachedWorkspace) {
+        navigate("/editor", { replace: true });
+        await initializeWorkspace();
+      } else {
+        await initializeWorkspace();
+      }
+      
+      setInitializing(false);
+    };
+
+    initApp();
+  }, [navigate, initializeWorkspace]);
+
+  useEffect(() => {
+    if (!initializing && currentDirectory && window.location.pathname === "/") {
       navigate("/editor", { replace: true });
     }
-  }, [currentDirectory, navigate]);
+  }, [currentDirectory, navigate, initializing]);
+
+  if (initializing) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <Suspense fallback={<LoadingSpinner />}>

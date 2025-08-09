@@ -9,6 +9,7 @@ import {
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { WorkspaceConfig } from "../types/config";
+import { cacheUtils } from "../utils/localStorage";
 
 export interface FileNode {
   name: string;
@@ -53,15 +54,35 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
     setError(null);
 
     try {
-      const configStr = await invoke<string>("load_workspace_config");
-      const config = JSON.parse(configStr) as WorkspaceConfig;
+      // Try to get workspace path from cache first
+      let workspacePath = cacheUtils.getWorkspacePath();
 
-      if (config.workspace_path) {
+      // If not in cache, load from Rust config
+      if (!workspacePath) {
+        try {
+          const configStr = await invoke<string>("load_workspace_config");
+          const config = JSON.parse(configStr) as WorkspaceConfig;
+          
+          if (config.workspace_path) {
+            workspacePath = config.workspace_path;
+            cacheUtils.setWorkspacePath(workspacePath);
+          }
+        } catch (error) {
+          // Fallback to old localStorage method
+          const savedDirectory = localStorage.getItem("inkdown-directory");
+          if (savedDirectory) {
+            workspacePath = savedDirectory;
+            cacheUtils.setWorkspacePath(workspacePath);
+          }
+        }
+      }
+
+      if (workspacePath) {
         try {
           const result = await invoke<FileNode>("scan_directory", {
-            path: config.workspace_path,
+            path: workspacePath,
           });
-          setCurrentDirectory(config.workspace_path);
+          setCurrentDirectory(workspacePath);
           setFileTree(result);
         } catch (err) {
           const errorMessage =
@@ -70,19 +91,7 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
         }
       }
     } catch (error) {
-      // Fallback to old localStorage method
-      const savedDirectory = localStorage.getItem("inkdown-directory");
-      if (savedDirectory) {
-        try {
-          const result = await invoke<FileNode>("scan_directory", {
-            path: savedDirectory,
-          });
-          setCurrentDirectory(savedDirectory);
-          setFileTree(result);
-        } catch (e) {
-          setError("Erro ao carregar diretório");
-        }
-      }
+      setError("Erro ao carregar workspace");
     } finally {
       setIsLoading(false);
     }
