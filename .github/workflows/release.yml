@@ -1,0 +1,220 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+            target: 'darwin'
+            arch: 'aarch64'
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
+            target: 'darwin'
+            arch: 'x86_64'
+          - platform: 'ubuntu-22.04'
+            args: ''
+            target: 'linux'
+            arch: 'x86_64'
+          - platform: 'windows-latest'
+            args: '--target x86_64-pc-windows-msvc'
+            target: 'windows'
+            arch: 'x86_64'
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.bun/install/cache
+            .bun
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb', 'package.json') }}
+          restore-keys: |
+            bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
+            bun-${{ runner.os }}-
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: bun install
+
+      - name: Build frontend
+        run: bun run build
+
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "VERSION=$version" >> $GITHUB_OUTPUT
+          echo "Detected version: $version"
+
+      - name: Build Tauri app
+        run: bunx tauri build ${{ matrix.args }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+
+      - name: Install AWS CLI (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: choco install awscli -y
+
+      - name: Install AWS CLI (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
+          sudo installer -pkg AWSCLIV2.pkg -target /
+
+      - name: Install AWS CLI (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+
+      - name: Get bundle info and create updater manifest
+        id: bundle_info
+        shell: bash
+        run: |
+          version="${{ steps.version.outputs.VERSION }}"
+          target="${{ matrix.target }}"
+          arch="${{ matrix.arch }}"
+          
+          case "${{ runner.os }}" in
+            "Windows")
+              bundle_dir="src-tauri/target/x86_64-pc-windows-msvc/release/bundle"
+              installer_file=$(ls $bundle_dir/msi/*.msi 2>/dev/null | head -1)
+              updater_file=$(ls $bundle_dir/msi/*.msi.sig 2>/dev/null | head -1)
+              installer_name=$(basename "$installer_file" 2>/dev/null || echo "")
+              ;;
+            "macOS")
+              if [[ "${{ matrix.args }}" == *"aarch64"* ]]; then
+                bundle_dir="src-tauri/target/aarch64-apple-darwin/release/bundle"
+              else
+                bundle_dir="src-tauri/target/x86_64-apple-darwin/release/bundle"
+              fi
+              installer_file=$(ls $bundle_dir/dmg/*.dmg 2>/dev/null | head -1)
+              updater_file=$(ls $bundle_dir/macos/*.app.tar.gz.sig 2>/dev/null | head -1)
+              installer_name=$(basename "$installer_file" 2>/dev/null || echo "")
+              ;;
+            "Linux")
+              bundle_dir="src-tauri/target/release/bundle"
+              installer_file=$(ls $bundle_dir/appimage/*.AppImage 2>/dev/null | head -1)
+              updater_file=$(ls $bundle_dir/appimage/*.AppImage.sig 2>/dev/null | head -1)
+              installer_name=$(basename "$installer_file" 2>/dev/null || echo "")
+              ;;
+          esac
+          
+          echo "BUNDLE_DIR=$bundle_dir" >> $GITHUB_OUTPUT
+          echo "INSTALLER_FILE=$installer_file" >> $GITHUB_OUTPUT
+          echo "UPDATER_FILE=$updater_file" >> $GITHUB_OUTPUT
+          echo "INSTALLER_NAME=$installer_name" >> $GITHUB_OUTPUT
+          echo "INSTALLER_URL=https://releases.inkdown.app/releases/$version/$target/$arch/$installer_name" >> $GITHUB_OUTPUT
+          
+          if [[ -f "$updater_file" ]]; then
+            signature=$(cat "$updater_file")
+            echo "SIGNATURE=$signature" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload artifacts to R2 (Release)
+        run: |
+          version="${{ steps.version.outputs.VERSION }}"
+          target="${{ matrix.target }}"
+          arch="${{ matrix.arch }}"
+          bundle_dir="${{ steps.bundle_info.outputs.BUNDLE_DIR }}"
+          
+          # Upload all bundle files to versioned directory
+          aws s3 cp "$bundle_dir/" \
+            "s3://${{ secrets.R2_BUCKET_NAME }}/releases/$version/$target/$arch/" \
+            --recursive \
+            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          
+          echo "Files uploaded to: releases/$version/$target/$arch/"
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      - name: Create and upload updater manifest
+        run: |
+          version="${{ steps.version.outputs.VERSION }}"
+          target="${{ matrix.target }}"
+          arch="${{ matrix.arch }}"
+          installer_url="${{ steps.bundle_info.outputs.INSTALLER_URL }}"
+          signature="${{ steps.bundle_info.outputs.SIGNATURE }}"
+          
+          # Create update manifest
+          cat > latest.json << EOF
+          {
+            "version": "$version",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "url": "$installer_url",
+            "signature": "$signature",
+            "notes": "Nova versão disponível - $version"
+          }
+          EOF
+          
+          # Upload updater manifest
+          aws s3 cp latest.json \
+            "s3://${{ secrets.R2_BUCKET_NAME }}/$target/$arch/latest.json" \
+            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          
+          echo "Updater manifest uploaded to: $target/$arch/latest.json"
+          cat latest.json
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      - name: Upload development artifacts (on push to main)
+        run: |
+          datetime=$(date -u +%Y-%m-%d_%H-%M-%S)
+          target="${{ matrix.target }}"
+          arch="${{ matrix.arch }}"
+          bundle_dir="${{ steps.bundle_info.outputs.BUNDLE_DIR }}"
+          
+          aws s3 cp "$bundle_dir/" \
+            "s3://${{ secrets.R2_BUCKET_NAME }}/dev/$datetime/$target/$arch/" \
+            --recursive \
+            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          
+          echo "Development build uploaded to: dev/$datetime/$target/$arch/"
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
