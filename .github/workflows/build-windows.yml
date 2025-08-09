@@ -21,9 +21,11 @@ jobs:
         with:
           path: |
             node_modules
+            ~/.bun/install/cache
             .bun
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb', 'package.json') }}
           restore-keys: |
+            bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
             bun-${{ runner.os }}-
 
       - name: Setup Bun
@@ -35,11 +37,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
             src-tauri/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          key: cargo-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock', 'src-tauri/Cargo.toml') }}-v2
           restore-keys: |
+            cargo-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock', 'src-tauri/Cargo.toml') }}
+            cargo-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
             cargo-${{ runner.os }}-
 
       - name: Setup Rust
@@ -68,9 +73,19 @@ jobs:
         if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
         run: |
           echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" > private.key
-          bunx tauri signer sign src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi -k private.key
+          bunx tauri signer sign src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi -k private.key -p "${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}"
           Remove-Item private.key
         shell: pwsh
+
+      - name: Cache Chocolatey packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\Temp\chocolatey
+            C:\ProgramData\chocolatey\lib
+          key: choco-${{ runner.os }}-awscli
+          restore-keys: |
+            choco-${{ runner.os }}-
 
       - name: Install AWS CLI
         run: |
