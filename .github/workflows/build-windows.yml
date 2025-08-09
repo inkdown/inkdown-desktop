@@ -1,8 +1,12 @@
-name: Build Windows artifacts
+name: Build and Deploy Windows
 
 on:
   pull_request:
     branches: ["main"]
+  push:
+    tags: ["v*"]
+  release:
+    types: [published]
 
 jobs:
   build:
@@ -58,8 +62,70 @@ jobs:
       - name: Build Tauri app
         run: bunx tauri build --target x86_64-pc-windows-msvc
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-artifacts
-          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/**
+      - name: Sign updater artifacts
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+        run: |
+          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" > private.key
+          bunx tauri signer sign src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi -k private.key
+          Remove-Item private.key
+        shell: pwsh
+
+      - name: Install AWS CLI
+        run: |
+          choco install awscli -y
+
+      - name: Extract version
+        id: version
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "Detected version: $version"
+        shell: pwsh
+
+      - name: Upload artifacts to R2 (Development)
+        if: github.event_name == 'pull_request'
+        run: |
+          $datetime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+          Write-Host "Uploading DEV files to path: dev/$datetime/windows/"
+
+          aws s3 cp src-tauri/target/x86_64-pc-windows-msvc/release/bundle/ `
+            s3://${{ secrets.R2_BUCKET_NAME }}/dev/$datetime/windows/ `
+            --recursive `
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+        shell: pwsh
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      - name: Upload artifacts to R2 (Release)
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+        run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          Write-Host "Uploading RELEASE files for version: $version"
+
+          # Upload versioned files
+          aws s3 cp src-tauri/target/x86_64-pc-windows-msvc/release/bundle/ `
+            s3://${{ secrets.R2_BUCKET_NAME }}/releases/$version/windows/ `
+            --recursive `
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+
+          # Create and upload update manifest
+          $updateManifest = @{
+            version = $version
+            pub_date = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
+            url = "https://releases.inkdown.app/releases/$version/windows/inkdown_$version_x64_en-US.msi"
+            signature = ""
+            notes = "Nova versão disponível"
+          } | ConvertTo-Json
+
+          $updateManifest | Out-File -FilePath "latest.json" -Encoding utf8
+          
+          aws s3 cp latest.json `
+            s3://${{ secrets.R2_BUCKET_NAME }}/windows/x86_64/latest.json `
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+
+          Remove-Item latest.json
+        shell: pwsh
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}

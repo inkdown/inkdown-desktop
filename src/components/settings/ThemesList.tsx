@@ -122,26 +122,26 @@ export function ThemesList({
             <button
               onClick={() => onDownloadTheme?.(theme)}
               disabled={
-                downloadingThemes.has(`${theme.repo}-${theme.name}`) ||
-                downloadedThemes.has(`${theme.repo}-${theme.name}`)
+                downloadingThemes.has(`${theme.author}-${theme.name}`) ||
+                downloadedThemes.has(`${theme.author}-${theme.name}`)
               }
               className="w-full px-3 py-1.5 rounded text-xs font-medium transition-colors hover:opacity-90 disabled:opacity-50"
               style={{
                 backgroundColor: downloadedThemes.has(
-                  `${theme.repo}-${theme.name}`,
+                  `${theme.author}-${theme.name}`,
                 )
                   ? "var(--button-success-background)"
                   : "var(--button-primary-background)",
-                color: downloadedThemes.has(`${theme.repo}-${theme.name}`)
+                color: downloadedThemes.has(`${theme.author}-${theme.name}`)
                   ? "var(--button-success-foreground)"
                   : "var(--button-primary-foreground)",
                 border: "none",
               }}
             >
-              {downloadingThemes.has(`${theme.repo}-${theme.name}`)
+              {downloadingThemes.has(`${theme.author}-${theme.name}`)
                 ? "Baixando..."
-                : downloadedThemes.has(`${theme.repo}-${theme.name}`)
-                  ? "✓ Baixado"
+                : downloadedThemes.has(`${theme.author}-${theme.name}`)
+                  ? "✓ Instalado"
                   : "Baixar Tema"}
             </button>
           </div>

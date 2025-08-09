@@ -158,13 +158,21 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
     setCurrentDirectory(null);
     setFileTree(null);
     setError(null);
+    
+    // Clear memory caches
+    fileTreeCacheRef.current.clear();
+    lastRefreshRef.current.clear();
+    initializedRef.current = false;
+
+    // Clear persistent caches
+    cacheUtils.invalidateWorkspace();
+    localStorage.removeItem("inkdown-directory");
 
     try {
       await invoke("clear_workspace_config");
     } catch (clearError) {
       console.warn("Failed to clear workspace config:", clearError);
     }
-    localStorage.removeItem("inkdown-directory");
   }, []);
 
   const contextValue = useMemo(
