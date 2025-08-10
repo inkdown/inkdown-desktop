@@ -212,7 +212,6 @@ export const WindowContent = memo(function WindowContent({
             style={{
               backgroundColor: "var(--theme-accent)",
               color: "var(--theme-accent-foreground)",
-              border: "1px solid var(--theme-border)",
             }}
           >
             Não salvo

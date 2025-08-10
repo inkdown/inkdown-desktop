@@ -42,6 +42,7 @@ pub struct ThemeVariant {
     pub id: String,
     pub name: String,
     pub mode: String,
+    #[serde(rename = "cssFile")]
     pub css_file: String,
 }
 
@@ -289,7 +290,7 @@ pub async fn download_community_theme(theme: RepositoryTheme) -> Result<(), Stri
                     "id": format!("{}-{}", theme.name.to_lowercase().replace(" ", "-"), mode),
                     "name": format!("{} {}", theme.name, mode),
                     "mode": mode,
-                    "css_file": format!("{}.css", mode.to_lowercase())
+                    "cssFile": format!("{}.css", mode.to_lowercase())
                 })
             })
             .collect::<Vec<_>>()
@@ -304,7 +305,7 @@ pub async fn download_community_theme(theme: RepositoryTheme) -> Result<(), Stri
                     "id": format!("{}-{}", theme.name.to_lowercase().replace(" ", "-"), mode),
                     "name": format!("{} {}", theme.name, mode),
                     "mode": mode,
-                    "css_file": css_file
+                    "cssFile": css_file
                 })
             })
             .collect::<Vec<_>>()

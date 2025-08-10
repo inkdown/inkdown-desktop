@@ -1,10 +1,15 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::Path;
-// Removed Arc, Mutex and thread for simpler, memory-efficient search
+use std::path::{Path};
 
 #[cfg(target_os = "windows")]
 use std::os::windows::fs::MetadataExt;
+
+// Cross-platform path normalization
+fn normalize_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileNode {
@@ -67,8 +72,8 @@ fn build_tree(path: &Path) -> Result<FileNode, String> {
         .to_string_lossy()
         .to_string();
 
-    // Use cross-platform path representation
-    let path_str = path.display().to_string();
+    // Use normalized cross-platform path representation
+    let path_str = normalize_path(path);
 
     if path.is_dir() {
         let entries = fs::read_dir(path).map_err(|e| format!("Error reading directory: {}", e))?;
@@ -175,7 +180,7 @@ pub fn search_notes(
 
     // Simple recursive search - more memory efficient
     let mut results = Vec::new();
-    let workspace_str = workspace.display().to_string();
+    let workspace_str = normalize_path(&workspace);
     search_notes_simple(&workspace_str, &query, &mut results, limit)?;
 
     // Sort by relevance score (higher is better) then by modification time (newer first)
@@ -300,7 +305,7 @@ fn create_search_result_simple(
 
     Ok(NoteSearchResult {
         name: filename,
-        path: path.display().to_string(),
+        path: normalize_path(path),
         content_preview,
         modified_time,
         size: metadata.len(),
@@ -339,5 +344,5 @@ pub fn rename_file(old_path: String, new_name: String) -> Result<String, String>
 
     fs::rename(&old_path_obj, &new_path).map_err(|e| format!("Failed to rename file: {}", e))?;
 
-    Ok(new_path.to_string_lossy().to_string())
+    Ok(normalize_path(&new_path))
 }

@@ -33,3 +33,4 @@ CLAUDE.md
 /gen/schemas
 
 .env
+*.key

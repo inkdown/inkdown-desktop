@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, memo, useMemo } from "react";
-import { ChevronRight, Folder, FolderOpen, FileText } from "lucide-react";
+import { Folder, FolderOpen, FileText } from "lucide-react";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { FileNode, useDirectory } from "../../contexts/DirectoryContext";
 import { ContextMenu } from "../ui/overlays/ContextMenu";
@@ -52,7 +52,6 @@ const FileTreeItem = memo(function FileTreeItem({
     paddingLeft: `${level * 14 + 8}px`,
   };
 
-  const chevronClasses = `mr-1 transition-transform duration-150 chevron ${isExpanded ? "rotate-90" : ""}`;
   const itemClasses = `file-tree-item flex items-center py-1 px-2 cursor-pointer rounded text-sm theme-transition ${isSelected ? "selected" : ""} ${node.is_directory ? "directory" : "file"}`;
 
   const handleToggle = useCallback(
@@ -98,6 +97,21 @@ const FileTreeItem = memo(function FileTreeItem({
       requestAnimationFrame(() => setEditingPath(newPath));
     }
   }, [createFile, node.path, isExpanded, setEditingPath]);
+
+  const handleCreateDailyNote = useCallback(async () => {
+    if (!isExpanded) setIsExpanded(true);
+    
+    // Generate daily note name with current date
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const dailyNoteName = `${dateStr}`;
+    
+    const newPath = await createFile(node.path, dailyNoteName);
+    if (newPath) {
+      // Auto-open the daily note
+      onFileSelect(newPath);
+    }
+  }, [createFile, node.path, isExpanded, onFileSelect]);
 
   const handleRename = useCallback(() => {
     const nameWithoutExt = node.is_directory
@@ -193,9 +207,6 @@ const FileTreeItem = memo(function FileTreeItem({
         onClick={node.is_directory ? handleToggle : handleSelect}
         onContextMenu={handleContextMenu}
       >
-        {node.is_directory && (
-          <ChevronRight size={14} className={chevronClasses} />
-        )}
 
         <span className="mr-2">{icon}</span>
 
@@ -262,6 +273,7 @@ const FileTreeItem = memo(function FileTreeItem({
           onClose={closeContextMenu}
           onCreateFolder={handleCreateFolder}
           onCreateFile={handleCreateFile}
+          onCreateDailyNote={handleCreateDailyNote}
           onRename={!isRootDirectory ? handleRename : undefined}
           onDelete={!isRootDirectory ? handleDelete : undefined}
           isDirectory={node.is_directory}
@@ -329,6 +341,18 @@ export const FileTree = memo(function FileTree({
     closeContextMenu();
   }, [createFile, fileTree.path, setEditingPath, closeContextMenu]);
 
+  const handleCreateDailyNote = useCallback(async () => {
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const dailyNoteName = `${dateStr}`;
+    
+    const newPath = await createFile(fileTree.path, dailyNoteName);
+    if (newPath) {
+      onFileSelect(newPath);
+    }
+    closeContextMenu();
+  }, [createFile, fileTree.path, onFileSelect, closeContextMenu]);
+
   return (
     <div
       className={`h-full overflow-auto theme-scrollbar ${className}`}
@@ -374,6 +398,7 @@ export const FileTree = memo(function FileTree({
           onClose={closeContextMenu}
           onCreateFolder={handleCreateFolder}
           onCreateFile={handleCreateFile}
+          onCreateDailyNote={handleCreateDailyNote}
           isDirectory={true}
           isRootDirectory={true}
         />

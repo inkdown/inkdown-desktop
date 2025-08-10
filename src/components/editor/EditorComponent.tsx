@@ -68,6 +68,7 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
         content: initialContent,
         readOnly: configReadOnly ?? readOnly ?? false,
         theme: finalTheme,
+        markdownShortcuts: true,
         markdown: true,
         vim: configVimMode ?? plugins.includes('vim'),
         showLineNumbers: configShowLineNumbers ?? showLineNumbers ?? true,
@@ -117,15 +118,21 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
     };
   }, []);
 
+  // Otimização: usar refs para evitar re-execuções desnecessárias
+  const prevConfigRef = useRef({
+    theme: finalTheme,
+    vim: configVimMode,
+    showLineNumbers: configShowLineNumbers,
+    highlightCurrentLine: configHighlightCurrentLine,
+    readOnly: configReadOnly,
+    fontSize: configFontSize,
+    fontFamily: configFontFamily,
+  });
+
   useEffect(() => {
     if (!editorRef.current || !isInitialized.current) return;
 
-    const hasContentChanged = initialContent !== editorRef.current.getContent();
-    if (hasContentChanged) {
-      editorRef.current.setContent(initialContent);
-    }
-
-    editorRef.current.updateConfig({
+    const currentConfig = {
       theme: finalTheme,
       vim: configVimMode,
       showLineNumbers: configShowLineNumbers,
@@ -133,9 +140,25 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
       readOnly: configReadOnly,
       fontSize: configFontSize,
       fontFamily: configFontFamily,
-    });
+    };
 
-    if (previewRef.current) {
+    // Verificar se realmente mudou algo importante
+    const hasConfigChanged = Object.keys(currentConfig).some(
+      key => prevConfigRef.current[key as keyof typeof currentConfig] !== currentConfig[key as keyof typeof currentConfig]
+    );
+
+    const hasContentChanged = initialContent !== editorRef.current.getContent();
+    
+    if (hasContentChanged) {
+      editorRef.current.setContent(initialContent);
+    }
+
+    if (hasConfigChanged) {
+      editorRef.current.updateConfig(currentConfig);
+      prevConfigRef.current = currentConfig;
+    }
+
+    if (previewRef.current && prevConfigRef.current.theme !== finalTheme) {
       previewRef.current.setTheme(finalTheme);
     }
   }, [finalTheme, initialContent, configVimMode, configShowLineNumbers, configHighlightCurrentLine, configReadOnly, configFontSize, configFontFamily]);

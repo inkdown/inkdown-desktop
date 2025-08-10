@@ -65,8 +65,8 @@ export function AppearanceSettings() {
   
   const getAllThemeOptions = () => [
     ...THEME_OPTIONS,
-    ...customThemes.flatMap(theme => 
-      theme.variants.map(variant => ({
+    ...(customThemes || []).flatMap(theme => 
+      (theme.variants || []).map(variant => ({
         value: variant.id,
         label: `${theme.name} - ${variant.name}`
       }))

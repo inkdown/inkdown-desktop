@@ -20,9 +20,10 @@ const DEFAULT_WORKSPACE: WorkspaceConfig = {
   readOnly: false,
   sidebarVisible: true,
   shortcuts: [
-    { name: "toggleSidebar", shortcut: "Ctrl+B" },
+    { name: "toggleSidebar", shortcut: "Ctrl+Shift+B" },
     { name: "save", shortcut: "Ctrl+S" },
     { name: "openNotePalette", shortcut: "Ctrl+O" },
+    { name: "openSettings", shortcut: "Ctrl+P" },
   ],
 };
 

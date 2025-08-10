@@ -263,6 +263,51 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     );
   }, [appearanceConfig, workspaceConfig, isLoading]);
 
+  // Ref para manter referência atual dos temas
+  const customThemesRef = useRef(state.customThemes);
+  useEffect(() => {
+    customThemesRef.current = state.customThemes;
+  }, [state.customThemes]);
+
+  // Função estável para converter tema
+  const handleThemeDownloaded = useCallback((event: CustomEvent) => {
+    const { theme } = event.detail;
+    
+    // Verificar se tema já existe para evitar duplicatas
+    const exists = customThemesRef.current.some(t => t.name === theme.name && t.author === theme.author);
+    if (exists) return;
+    
+    // Converter tema
+    const convertedTheme: CustomTheme = {
+      name: theme.name,
+      author: theme.author,
+      description: `Tema ${theme.name} criado por ${theme.author}`,
+      version: "1.0.0",
+      homepage: theme.repo ? `https://github.com/${theme.repo}` : undefined,
+      variants: (theme.modes || []).map((mode: any) => ({
+        id: `${theme.name.toLowerCase().replace(/\s+/g, '-')}-${mode}`,
+        name: `${theme.name} ${mode}`,
+        mode: mode,
+        cssFile: `${mode.toLowerCase()}.css`
+      }))
+    };
+    
+    const updatedThemes = [...customThemesRef.current, convertedTheme];
+    dispatch({ type: "SET_CUSTOM_THEMES", payload: updatedThemes });
+  }, []);
+
+  // Listen for new theme downloads com dependência estável
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    window.addEventListener('inkdown-theme-downloaded', handleThemeDownloaded as EventListener);
+    
+    return () => {
+      window.removeEventListener('inkdown-theme-downloaded', handleThemeDownloaded as EventListener);
+    };
+  }, [handleThemeDownloaded]);
+
+
   const updateAppearance = useCallback(
     async (updates: {
       theme?: ThemeMode;
@@ -338,23 +383,53 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     [updateWorkspaceConfig],
   );
 
+  const convertCommunityThemeToCustomTheme = useCallback((theme: any): CustomTheme => ({
+    name: theme.name,
+    author: theme.author,
+    description: `Tema ${theme.name} criado por ${theme.author}`,
+    version: "1.0.0",
+    homepage: theme.repo ? `https://github.com/${theme.repo}` : undefined,
+    variants: (theme.modes || []).map((mode: any) => ({
+      id: `${theme.name.toLowerCase().replace(/\s+/g, '-')}-${mode}`,
+      name: `${theme.name} ${mode}`,
+      mode: mode,
+      cssFile: `${mode.toLowerCase()}.css`
+    }))
+  }), []);
+
   const refreshCustomThemes = useCallback(async (forceRefresh = false) => {
     if (state.customThemesLoading) return;
 
     dispatch({ type: "SET_CUSTOM_THEME_LOADING", payload: true });
 
     try {
-      let customThemes = null;
+      let customThemes: CustomTheme[] = [];
+      const cachedThemes = cacheUtils.getCustomThemes() || [];
       
-      // Try cache first if not forcing refresh
-      if (!forceRefresh) {
-        customThemes = cacheUtils.getCustomThemes();
+      // Sempre carregar do cache primeiro para performance
+      if (cachedThemes.length > 0) {
+        customThemes = cachedThemes.map(theme => 
+          theme.variants ? theme : convertCommunityThemeToCustomTheme(theme)
+        );
       }
       
-      // If not in cache or forcing refresh, load from Rust
-      if (!customThemes) {
-        customThemes = await invoke<CustomTheme[]>("get_custom_themes");
-        cacheUtils.setCustomThemes(customThemes);
+      // Carregar do Rust apenas se forçado ou cache vazio
+      if (forceRefresh || customThemes.length === 0) {
+        try {
+          const rustThemes = await invoke<CustomTheme[]>("get_custom_themes");
+          const communityThemes = cachedThemes.filter(theme => !theme.variants);
+          const convertedCommunityThemes = communityThemes.map(convertCommunityThemeToCustomTheme);
+          
+          customThemes = [...rustThemes, ...convertedCommunityThemes];
+        } catch (err) {
+          console.warn("Failed to load themes from Rust:", err);
+          // Se falhar, usar apenas temas do cache
+          if (cachedThemes.length > 0) {
+            customThemes = cachedThemes.map(theme => 
+              theme.variants ? theme : convertCommunityThemeToCustomTheme(theme)
+            );
+          }
+        }
       }
       
       dispatch({ type: "SET_CUSTOM_THEMES", payload: customThemes });
@@ -363,7 +438,8 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     } finally {
       dispatch({ type: "SET_CUSTOM_THEME_LOADING", payload: false });
     }
-  }, [state.customThemesLoading]);
+  }, [state.customThemesLoading, convertCommunityThemeToCustomTheme]);
+
 
   const applyCustomTheme = useCallback(
     async (themeId: string) => {
@@ -386,10 +462,18 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
           console.error,
         );
       } catch (err) {
-        console.error("Failed to apply theme:", err);
+        // Se falhar, aplicar tema nativo baseado no modo extraído
+        const parts = themeId.split('-');
+        const mode = parts[parts.length - 1];
+        
+        if (['light', 'dark'].includes(mode)) {
+          dispatch({ type: "SET_CURRENT_CUSTOM_THEME", payload: null });
+          applyThemeToDOM(mode as "light" | "dark");
+          await updateAppearance({ theme: mode as ThemeMode });
+        }
       }
     },
-    [state.currentCustomThemeId, applyThemeToDOM, updateAppearanceConfig],
+    [state.currentCustomThemeId, applyThemeToDOM, updateAppearanceConfig, updateAppearance],
   );
 
   const removeCustomTheme = useCallback(() => {

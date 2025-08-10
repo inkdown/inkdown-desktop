@@ -8,11 +8,13 @@ import { useAppearance } from "../../contexts/AppearanceContext";
 import { Sidebar, SidebarResizer } from "../sidebar";
 import { MainWindow } from "../window";
 import { NotePalette } from "../palette";
+import { SettingsModal } from "../settings";
 
 export const WorkspacePage = memo(function WorkspacePage() {
   const { fileTree, currentDirectory } = useDirectory();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const saveRef = useRef<(() => void) | null>(null);
   const togglePreviewRef = useRef<(() => void) | null>(null);
   const { sidebarWidth, handleMouseDown } = useSidebarResize(280);
@@ -42,31 +44,24 @@ export const WorkspacePage = memo(function WorkspacePage() {
     setIsPaletteOpen(false); // Close palette when selecting note
   }, []);
 
-  const handleOpenPalette = useCallback(() => {
-    setIsPaletteOpen(true);
-  }, []);
-
   const handleClosePalette = useCallback(() => {
     setIsPaletteOpen(false);
   }, []);
 
   const handleSave = useCallback(() => {
-    if (saveRef.current) {
-      saveRef.current();
-    }
+    saveRef.current?.();
   }, []);
 
   const handleTogglePreview = useCallback(() => {
-    if (togglePreviewRef.current) {
-      togglePreviewRef.current();
-    }
+    togglePreviewRef.current?.();
   }, []);
 
   useKeyboardShortcuts({
     onToggleSidebar: toggleSidebar,
     onSave: handleSave,
-    onOpenNotePalette: handleOpenPalette,
+    onOpenNotePalette: () => setIsPaletteOpen(true),
     onTogglePreview: handleTogglePreview,
+    onOpenSettings: () => setIsSettingsOpen(true),
   });
 
   if (!fileTree || !currentDirectory) {
@@ -94,7 +89,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
   }
 
   return (
-    <div className="h-screen flex theme-card relative">
+    <div className="h-screen flex relative">
       {(workspaceConfig.sidebarVisible ?? true) && (
         <>
           <Sidebar
@@ -102,6 +97,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
             fileTree={fileTree}
             selectedFile={selectedFile}
             onFileSelect={handleFileSelect}
+            onOpenSettings={() => setIsSettingsOpen(true)}
           />
           <SidebarResizer onMouseDown={handleMouseDown} />
         </>
@@ -134,6 +130,11 @@ export const WorkspacePage = memo(function WorkspacePage() {
           workspaceConfig.workspace_path,
         ],
       )}
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   );
 });

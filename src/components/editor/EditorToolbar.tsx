@@ -12,7 +12,7 @@ export const EditorToolbar = memo(function EditorToolbar({
 }: EditorToolbarProps) {
   return (
     <div 
-      className="px-4 py-2 flex items-center gap-2"
+      className="px-4 py-2  flex items-center gap-2"
       style={{ 
         backgroundColor: 'var(--inkdown-editor-bg)'
       }}

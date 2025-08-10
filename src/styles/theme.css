@@ -567,7 +567,6 @@ body {
 .theme-editor {
   background-color: var(--theme-editor-background);
   color: var(--theme-editor-foreground);
-  border: 1px solid var(--theme-editor-border);
 }
 
 .theme-file-tree {
@@ -638,8 +637,8 @@ body {
 }
 
 .theme-scrollbar::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 2px;
+  height: 2px;
 }
 
 .theme-scrollbar::-webkit-scrollbar-track {
@@ -723,7 +722,7 @@ body {
 .editable-title {
   background: transparent !important;
   border: none !important;
-  margin: 0 !important;
+  margin: 16px 0 0 0 !important;
   padding: 4px 8px !important;
   border-radius: 4px !important;
   outline: none !important;
@@ -976,7 +975,7 @@ body {
 
 .preview-container li,
 .markdown-preview-content li {
-  margin: 4px 0;
+  margin: 4px 0 4px 20px;
 }
 
 .preview-container a,

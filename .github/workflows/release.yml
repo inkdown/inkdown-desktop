@@ -202,13 +202,33 @@ jobs:
           arch="${{ matrix.arch }}"
           bundle_dir="${{ steps.bundle_info.outputs.BUNDLE_DIR }}"
           
-          # Upload all bundle files to versioned directory
-          aws s3 cp "$bundle_dir/" \
-            "s3://${{ secrets.R2_BUCKET_NAME }}/releases/$version/$target/$arch/" \
-            --recursive \
-            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          # Upload only necessary installer files, excluding .so and other binaries
+          case "${{ runner.os }}" in
+            "Windows")
+              aws s3 cp "$bundle_dir/msi/" \
+                "s3://${{ secrets.R2_BUCKET_NAME }}/releases/$version/$target/$arch/" \
+                --recursive --exclude "*" --include "*.msi" --include "*.msi.sig" \
+                --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              ;;
+            "macOS")
+              aws s3 cp "$bundle_dir/dmg/" \
+                "s3://${{ secrets.R2_BUCKET_NAME }}/releases/$version/$target/$arch/" \
+                --recursive --exclude "*" --include "*.dmg" \
+                --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              aws s3 cp "$bundle_dir/macos/" \
+                "s3://${{ secrets.R2_BUCKET_NAME }}/releases/$version/$target/$arch/" \
+                --recursive --exclude "*" --include "*.app.tar.gz.sig" \
+                --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              ;;
+            "Linux")
+              aws s3 cp "$bundle_dir/appimage/" \
+                "s3://${{ secrets.R2_BUCKET_NAME }}/releases/$version/$target/$arch/" \
+                --recursive --exclude "*" --include "*.AppImage" --include "*.AppImage.sig" \
+                --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              ;;
+          esac
           
-          echo "Files uploaded to: releases/$version/$target/$arch/"
+          echo "✅ Installers uploaded to: releases/$version/$target/$arch/"
         shell: bash
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -263,12 +283,29 @@ jobs:
           arch="${{ matrix.arch }}"
           bundle_dir="${{ steps.bundle_info.outputs.BUNDLE_DIR }}"
           
-          aws s3 cp "$bundle_dir/" \
-            "s3://${{ secrets.R2_BUCKET_NAME }}/dev/$datetime/$target/$arch/" \
-            --recursive \
-            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          # Upload only necessary installer files for development builds
+          case "${{ runner.os }}" in
+            "Windows")
+              aws s3 cp "$bundle_dir/msi/" \
+                "s3://${{ secrets.R2_BUCKET_NAME }}/dev/$datetime/$target/$arch/" \
+                --recursive --exclude "*" --include "*.msi" \
+                --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              ;;
+            "macOS")
+              aws s3 cp "$bundle_dir/dmg/" \
+                "s3://${{ secrets.R2_BUCKET_NAME }}/dev/$datetime/$target/$arch/" \
+                --recursive --exclude "*" --include "*.dmg" \
+                --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              ;;
+            "Linux")
+              aws s3 cp "$bundle_dir/appimage/" \
+                "s3://${{ secrets.R2_BUCKET_NAME }}/dev/$datetime/$target/$arch/" \
+                --recursive --exclude "*" --include "*.AppImage" \
+                --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              ;;
+          esac
           
-          echo "Development build uploaded to: dev/$datetime/$target/$arch/"
+          echo "✅ Development build uploaded to: dev/$datetime/$target/$arch/"
         shell: bash
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}

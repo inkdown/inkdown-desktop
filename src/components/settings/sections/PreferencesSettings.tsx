@@ -1,5 +1,5 @@
 import { useConfigManager } from '../../../hooks/useConfigManager';
-import { Keyboard, Save, Sidebar, Search } from 'lucide-react';
+import { Keyboard, Save, Sidebar, Search, Settings } from 'lucide-react';
 
 export function PreferencesSettings() {
   const { workspaceConfig } = useConfigManager();
@@ -20,6 +20,11 @@ export function PreferencesSettings() {
       icon: Search,
       title: 'Paleta de Notas',
       description: 'Abre a paleta de busca rápida de notas'
+    },
+    openSettings: {
+      icon: Settings,
+      title: 'Abrir Configurações',
+      description: 'Abre o modal de configurações'
     }
   };
 
@@ -86,8 +91,8 @@ export function PreferencesSettings() {
                     }}
                   >
                     {isMac 
-                      ? shortcut.shortcut.replace('Ctrl', '⌘').replace('+', '')
-                      : shortcut.shortcut.replace('+', '')
+                      ? shortcut.shortcut.replace('Ctrl', '⌘').replace(/\+/g, '').replace('Shift', '⇧')
+                      : shortcut.shortcut.replace(/\+/g, ' ')
                     }
                   </div>
                 </div>

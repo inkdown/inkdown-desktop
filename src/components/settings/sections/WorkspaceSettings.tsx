@@ -15,13 +15,13 @@ export function WorkspaceSettings() {
     <div className="space-y-5">
       <div>
         <h3 
-          className="text-base font-medium mb-1"
+          className="text-lg font-medium mb-1"
           style={{ color: 'var(--text-primary)' }}
         >
           Workspace
         </h3>
         <p 
-          className="text-xs mb-4"
+          className="text-sm mb-4"
           style={{ color: 'var(--text-secondary)' }}
         >
           Gerencie seu workspace atual e navegue entre diferentes projetos
@@ -44,13 +44,13 @@ export function WorkspaceSettings() {
               />
               <div>
                 <h4 
-                  className="text-xs font-medium"
+                  className="text-sm font-medium"
                   style={{ color: 'var(--text-primary)' }}
                 >
                   Workspace Atual
                 </h4>
                 <p 
-                  className="text-xs mt-1 opacity-80"
+                  className="text-sm mt-1 opacity-80"
                   style={{ color: 'var(--text-secondary)' }}
                 >
                   {currentDirectory}
@@ -77,9 +77,9 @@ export function WorkspaceSettings() {
             >
               <LogOut size={14} />
               <div>
-                <div className="text-xs font-medium">Sair do Workspace</div>
+                <div className="text-sm font-medium">Sair do Workspace</div>
                 <div 
-                  className="text-xs opacity-70"
+                  className="text-sm opacity-70"
                   style={{ color: 'var(--text-secondary)' }}
                 >
                   Retorna para a tela inicial
@@ -96,10 +96,10 @@ export function WorkspaceSettings() {
           style={{ color: 'var(--text-secondary)' }}
         >
           <FolderOpen size={32} className="mx-auto mb-3" />
-          <p className="text-xs mb-3">Nenhum workspace aberto</p>
+          <p className="text-sm mb-3">Nenhum workspace aberto</p>
           <button
             onClick={() => navigate('/')}
-            className="px-3 py-1.5 rounded-md transition-colors text-xs"
+            className="px-3 py-1.5 rounded-md transition-colors text-sm"
             style={{
               backgroundColor: 'var(--text-accent)',
               color: 'var(--text-accent)'

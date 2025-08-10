@@ -1,7 +1,7 @@
 import { Extension, EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightActiveLine } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
-import { markdown } from '@codemirror/lang-markdown';
+import { markdown, markdownKeymap } from '@codemirror/lang-markdown';
 import { vim } from '@replit/codemirror-vim';
 import { createInkdownTheme } from './theme';
 
@@ -82,6 +82,10 @@ export class ExtensionsFactory {
     return markdown();
   }
 
+  static getMarkdownKeymap(): Extension {
+    return keymap.of(markdownKeymap);
+  }
+
   static getVimMode(): Extension {
     return vim();
   }
@@ -96,6 +100,7 @@ export class ExtensionsFactory {
 
   static buildExtensions(config: {
     markdown?: boolean;
+    markdownShortcuts?: boolean;
     vim?: boolean;
     showLineNumbers?: boolean;
     highlightCurrentLine?: boolean;
@@ -115,6 +120,10 @@ export class ExtensionsFactory {
     
     if (config.markdown !== false) {
       extensions.push(this.getMarkdown());
+    }
+
+    if (config.markdownShortcuts !== false) {
+      extensions.push(this.getMarkdownKeymap());
     }
     
     if (config.vim) {
@@ -139,6 +148,7 @@ export class ExtensionsFactory {
   static getDefaultConfig(): Extension[] {
     return this.buildExtensions({
       markdown: true,
+      markdownShortcuts: true,
     });
   }
 }

@@ -1,19 +1,18 @@
-import { memo, useState } from 'react';
+import { memo } from 'react';
 import { Folder, Settings } from 'lucide-react';
-import { SettingsModal } from '../settings';
 
 interface SidebarHeaderProps {
   projectName: string;
+  onOpenSettings: () => void;
 }
 
 export const SidebarHeader = memo(function SidebarHeader({
   projectName,
+  onOpenSettings,
 }: SidebarHeaderProps) {
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   return (
-    <>
-      <div className="px-3 py-2.5 sidebar-header">
+    <div className="px-3 py-2.5 sidebar-header">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -28,19 +27,13 @@ export const SidebarHeader = memo(function SidebarHeader({
           </div>
           
           <button
-            onClick={() => setIsSettingsOpen(true)}
+            onClick={onOpenSettings}
             className="p-1.5 rounded settings-button hover:bg-opacity-10 transition-colors"
             title="Configurações"
           >
             <Settings size={14} className="opacity-60 hover:opacity-100" />
           </button>
         </div>
-      </div>
-
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
-    </>
+    </div>
   );
 });

@@ -37,13 +37,13 @@ const sections = [
 export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSidebarProps) {
   return (
     <div 
-      className="w-40"
+      className="w-44"
       style={{ 
         borderRight: '1px solid var(--sidebar-border)',
         backgroundColor: 'var(--sidebar-background)'
       }}
     >
-      <nav className="p-1">
+      <nav className="p-2">
         {sections.map((section) => {
           const Icon = section.icon;
           const isActive = activeSection === section.id;
@@ -52,7 +52,7 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
             <button
               key={section.id}
               onClick={() => onSectionChange(section.id)}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm font-medium transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded text-sm font-medium transition-colors"
               style={{
                 backgroundColor: isActive ? 'var(--sidebar-active)' : 'transparent',
                 color: isActive ? 'var(--text-accent)' : 'var(--text-secondary)',
@@ -71,7 +71,7 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
                 }
               }}
             >
-              <Icon size={14} />
+              <Icon size={16} />
               {section.label}
             </button>
           );

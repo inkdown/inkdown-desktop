@@ -23,8 +23,6 @@ function NotePaletteComponent({
   onSelectNote,
   workspacePath,
 }: NotePaletteProps) {
-  if (!isOpen) return null;
-
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<NoteSearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -192,13 +190,16 @@ function NotePaletteComponent({
     [onClose],
   );
 
+  // Renderização condicional após todos os hooks
+  if (!isOpen) return null;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center shadow-md pt-20  bg-opacity-50"
       onClick={handleBackdropClick}
     >
       <div
-        className="w-full max-w-xl mx-4 rounded-lg overflow-hidden"
+        className="w-full max-w-lg mx-4 rounded-lg overflow-hidden"
         style={paletteStyle}
         onClick={(e) => e.stopPropagation()}
       >
@@ -220,7 +221,7 @@ function NotePaletteComponent({
           />
         </div>
 
-        <div className="max-h-96 overflow-y-auto">
+        <div className="max-h-80 overflow-y-auto">
           {isLoading ? (
             <div
               className="p-8 text-center"

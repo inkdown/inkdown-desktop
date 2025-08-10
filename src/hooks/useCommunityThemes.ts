@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { cacheUtils } from "../utils/localStorage";
 
@@ -35,10 +35,13 @@ export function useCommunityThemes(): UseCommunityThemesResult {
     return new Set(cached.map(theme => `${theme.author}-${theme.name}`));
   });
 
-  // Cache para evitar recalcular downloaded themes keys
+  // Cache otimizado com memoização
+  const downloadedKeysRef = useRef<Set<string>>(new Set());
   const getDownloadedKeys = useCallback(() => {
     const cached = cacheUtils.getCustomThemes() || [];
-    return new Set(cached.map(t => `${t.author}-${t.name}`));
+    const keys = new Set(cached.map(t => `${t.author}-${t.name}`));
+    downloadedKeysRef.current = keys;
+    return keys;
   }, []);
 
 
@@ -57,19 +60,26 @@ export function useCommunityThemes(): UseCommunityThemesResult {
           repoUrl: repoUrl.trim(),
         });
 
-        // Use cached downloaded keys para evitar recomputação
+        // Use cached downloaded keys com memoização otimizada
         const cachedThemeKeys = getDownloadedKeys();
 
-        // Mark already downloaded themes - otimizado para menos alocações
-        const alreadyDownloaded = new Set<string>();
-        for (const theme of result) {
+        // Atualizar state apenas se houver mudanças
+        const newDownloadedThemes = new Set<string>();
+        result.forEach(theme => {
           const themeKey = `${theme.author}-${theme.name}`;
           if (cachedThemeKeys.has(themeKey)) {
-            alreadyDownloaded.add(themeKey);
+            newDownloadedThemes.add(themeKey);
           }
-        }
+        });
 
-        setDownloadedThemes(alreadyDownloaded);
+        // Apenas atualizar se different do state atual
+        setDownloadedThemes(prev => {
+          if (prev.size === newDownloadedThemes.size && 
+              [...prev].every(key => newDownloadedThemes.has(key))) {
+            return prev; // Evitar re-render desnecessário
+          }
+          return newDownloadedThemes;
+        });
         setThemes(result);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -105,14 +115,21 @@ export function useCommunityThemes(): UseCommunityThemesResult {
           newSet.add(themeKey);
           return newSet;
         });
-        
-        // Persist downloaded theme in localStorage - otimizado
+
+        // Persist downloaded theme in localStorage sem screenshot_data
         const currentThemes = cacheUtils.getCustomThemes() || [];
-        // Evita duplicatas no cache
         const exists = currentThemes.some(t => `${t.author}-${t.name}` === themeKey);
         if (!exists) {
-          const updatedThemes = [...currentThemes, theme];
+          const { screenshot_data, ...themeWithoutScreenshot } = theme;
+          const updatedThemes = [...currentThemes, themeWithoutScreenshot];
           cacheUtils.setCustomThemes(updatedThemes);
+          
+          // Emitir evento para notificar AppearanceContext
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('inkdown-theme-downloaded', {
+              detail: { theme: themeWithoutScreenshot }
+            }));
+          }
         }
       } catch (err) {
         console.error("Erro ao baixar tema:", err);

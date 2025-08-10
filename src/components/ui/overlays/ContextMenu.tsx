@@ -1,5 +1,5 @@
 import { useEffect, useRef, useMemo, memo } from "react";
-import { FolderPlus, FileText, Edit, Trash2 } from "lucide-react";
+import { FolderPlus, FileText, Edit, Trash2, Calendar } from "lucide-react";
 
 interface ContextMenuProps {
   x: number;
@@ -7,6 +7,7 @@ interface ContextMenuProps {
   onClose: () => void;
   onCreateFolder: () => void;
   onCreateFile: () => void;
+  onCreateDailyNote?: () => void;
   onRename?: () => void;
   onDelete?: () => void;
   isDirectory: boolean;
@@ -19,6 +20,7 @@ export const ContextMenu = memo(function ContextMenu({
   onClose,
   onCreateFolder,
   onCreateFile,
+  onCreateDailyNote,
   onRename,
   onDelete,
   isDirectory,
@@ -63,6 +65,15 @@ export const ContextMenu = memo(function ContextMenu({
         label: "Nova Nota",
         onClick: onCreateFile,
       });
+      
+      // Add daily note option for all directories
+      if (onCreateDailyNote) {
+        items.push({
+          icon: <Calendar size={16} />,
+          label: "Nota Diária",
+          onClick: onCreateDailyNote,
+        });
+      }
     }
 
     // Add rename option (not for root directories)
@@ -90,6 +101,7 @@ export const ContextMenu = memo(function ContextMenu({
     isRootDirectory,
     onCreateFolder,
     onCreateFile,
+    onCreateDailyNote,
     onRename,
     onDelete,
   ]);
@@ -124,13 +136,13 @@ export const ContextMenu = memo(function ContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 rounded-lg shadow-lg py-1"
+      className="fixed z-50 rounded-lg shadow-lg py-1 px-2"
       style={{
         left: x,
         top: y,
         backgroundColor: "var(--theme-background)",
         border: "1px solid var(--theme-border)",
-        minWidth: "180px",
+        minWidth: "135px",
         width: "max-content",
       }}
     >
@@ -141,7 +153,7 @@ export const ContextMenu = memo(function ContextMenu({
             item.onClick();
             onClose();
           }}
-          className="w-full flex items-center px-4 py-2 text-sm text-left transition-colors whitespace-nowrap"
+          className="w-full rounded-lg flex items-center px-2 py-2 text-sm text-left transition-colors whitespace-nowrap"
           style={{
             color: (item as any).isDangerous
               ? "var(--theme-destructive)"
@@ -156,7 +168,7 @@ export const ContextMenu = memo(function ContextMenu({
             e.currentTarget.style.backgroundColor = "transparent";
           }}
         >
-          <span className="mr-3">{item.icon}</span>
+          <span className="mr-2">{item.icon}</span>
           {item.label}
         </button>
       ))}

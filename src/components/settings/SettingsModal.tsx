@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { SettingsSidebar } from './SettingsSidebar';
 import { WorkspaceSettings } from './sections/WorkspaceSettings';
@@ -17,6 +17,20 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }: SettingsModalProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => document.removeEventListener('keydown', handleKeyDown, { capture: true });
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -45,7 +59,7 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
       <div className="absolute inset-0" onClick={onClose} />
       
       <div 
-        className="relative rounded-lg shadow-xl w-[800px] h-[600px] max-w-[90vw] max-h-[85vh] flex overflow-hidden"
+        className="relative rounded-lg shadow-xl w-[900px] h-[650px] max-w-[90vw] max-h-[85vh] flex overflow-hidden"
         style={{ 
           backgroundColor: 'var(--modal-background)',
           border: '1px solid var(--modal-border)'
@@ -59,7 +73,7 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
           }}
         >
           <h2 
-            className="text-sm font-medium"
+            className="text-base font-medium"
             style={{ color: 'var(--text-primary)' }}
           >
             Configurações
@@ -73,7 +87,7 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
               border: 'none'
             }}
           >
-            <X size={16} />
+            <X size={18} />
           </button>
         </div>
 
@@ -83,7 +97,7 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
             onSectionChange={setActiveSection}
           />
           
-          <div className="flex-1 p-4 overflow-y-auto">
+          <div className="flex-1 p-5 overflow-y-auto text-sm">
             {renderSection()}
           </div>
         </div>

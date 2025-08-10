@@ -5,21 +5,22 @@ interface UseKeyboardShortcutsOptions {
   onSave?: () => void;
   onOpenNotePalette?: () => void;
   onTogglePreview?: () => void;
+  onOpenSettings?: () => void;
 }
 
-export function useKeyboardShortcuts({ onToggleSidebar, onSave, onOpenNotePalette, onTogglePreview }: UseKeyboardShortcutsOptions) {
-  const handlersRef = useRef({ onToggleSidebar, onSave, onOpenNotePalette, onTogglePreview });
-  handlersRef.current = { onToggleSidebar, onSave, onOpenNotePalette, onTogglePreview };
+export function useKeyboardShortcuts({ onToggleSidebar, onSave, onOpenNotePalette, onTogglePreview, onOpenSettings }: UseKeyboardShortcutsOptions) {
+  const handlersRef = useRef({ onToggleSidebar, onSave, onOpenNotePalette, onTogglePreview, onOpenSettings });
+  handlersRef.current = { onToggleSidebar, onSave, onOpenNotePalette, onTogglePreview, onOpenSettings };
 
   // Memoize platform check
   const isMac = useMemo(() => /Mac/.test(navigator.platform), []);
 
-  // Memoize key mapping for better performance
+  // Memoize key mapping for better performance (excluding toggleSidebar which has special handling)
   const keyMap = useMemo(() => new Map([
     ['s', 'onSave'],
-    ['b', 'onToggleSidebar'], 
     ['o', 'onOpenNotePalette'],
-    ['e', 'onTogglePreview']
+    ['e', 'onTogglePreview'],
+    ['p', 'onOpenSettings']
   ]), []);
 
   useEffect(() => {
@@ -28,17 +29,29 @@ export function useKeyboardShortcuts({ onToggleSidebar, onSave, onOpenNotePalett
       
       if (!isCtrlOrCmd) return;
 
-      const handlerName = keyMap.get(event.key);
+      const key = event.key.toLowerCase();
+
+      // Special case for toggleSidebar which now requires Shift
+      if (key === 'b' && event.shiftKey) {
+        handlersRef.current.onToggleSidebar?.();
+        event.preventDefault();
+        return;
+      }
+
+      // Regular shortcuts (without shift)
+      if (event.shiftKey) return;
+
+      const handlerName = keyMap.get(key);
       if (handlerName) {
         const handler = handlersRef.current[handlerName as keyof typeof handlersRef.current];
         if (handler) {
-          event.preventDefault();
           handler();
+          event.preventDefault();
         }
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown, true);
-    return () => document.removeEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('keydown', handleKeyDown, { passive: false });
+    return () => document.removeEventListener('keydown', handleKeyDown, { passive: false } as any);
   }, [isMac, keyMap]);
 }

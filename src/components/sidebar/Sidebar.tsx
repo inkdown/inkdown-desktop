@@ -8,6 +8,7 @@ interface SidebarProps {
   fileTree: FileNode;
   selectedFile: string | null;
   onFileSelect: (filePath: string) => void;
+  onOpenSettings: () => void;
 }
 
 export const Sidebar = memo(function Sidebar({
@@ -15,6 +16,7 @@ export const Sidebar = memo(function Sidebar({
   fileTree,
   selectedFile,
   onFileSelect,
+  onOpenSettings,
 }: SidebarProps) {
   
   return (
@@ -28,6 +30,7 @@ export const Sidebar = memo(function Sidebar({
     >
       <SidebarHeader
         projectName={fileTree.name}
+        onOpenSettings={onOpenSettings}
       />
       
       <SidebarContent

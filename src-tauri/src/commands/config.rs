@@ -144,7 +144,7 @@ fn create_default_workspace_config() -> serde_json::Value {
         "shortcuts": [
             {
                 "name": "toggleSidebar",
-                "shortcut": "Ctrl+B"
+                "shortcut": "Ctrl+Shift+B"
             },
             {
                 "name": "openNotePalette",
@@ -153,6 +153,10 @@ fn create_default_workspace_config() -> serde_json::Value {
             {
                 "name": "save",
                 "shortcut": "Ctrl+S"
+            },
+            {
+                "name": "openSettings",
+                "shortcut": "Ctrl+P"
             }
         ]
     })
