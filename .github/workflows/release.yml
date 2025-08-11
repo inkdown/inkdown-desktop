@@ -221,9 +221,20 @@ jobs:
                 --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
               ;;
             "Linux")
+              # Upload AppImage
               aws s3 cp "$bundle_dir/appimage/" \
                 "s3://${{ secrets.R2_BUCKET_NAME }}/releases/$version/$target/$arch/" \
                 --recursive --exclude "*" --include "*.AppImage" --include "*.AppImage.sig" \
+                --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              # Upload DEB
+              aws s3 cp "$bundle_dir/deb/" \
+                "s3://${{ secrets.R2_BUCKET_NAME }}/releases/$version/$target/$arch/" \
+                --recursive --exclude "*" --include "*.deb" --include "*.deb.sig" \
+                --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              # Upload RPM
+              aws s3 cp "$bundle_dir/rpm/" \
+                "s3://${{ secrets.R2_BUCKET_NAME }}/releases/$version/$target/$arch/" \
+                --recursive --exclude "*" --include "*.rpm" --include "*.rpm.sig" \
                 --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
               ;;
           esac
@@ -298,9 +309,20 @@ jobs:
                 --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
               ;;
             "Linux")
+              # Upload AppImage for dev
               aws s3 cp "$bundle_dir/appimage/" \
                 "s3://${{ secrets.R2_BUCKET_NAME }}/dev/$datetime/$target/$arch/" \
                 --recursive --exclude "*" --include "*.AppImage" \
+                --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              # Upload DEB for dev
+              aws s3 cp "$bundle_dir/deb/" \
+                "s3://${{ secrets.R2_BUCKET_NAME }}/dev/$datetime/$target/$arch/" \
+                --recursive --exclude "*" --include "*.deb" \
+                --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              # Upload RPM for dev
+              aws s3 cp "$bundle_dir/rpm/" \
+                "s3://${{ secrets.R2_BUCKET_NAME }}/dev/$datetime/$target/$arch/" \
+                --recursive --exclude "*" --include "*.rpm" \
                 --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
               ;;
           esac
