@@ -66,12 +66,12 @@ export const WorkspacePage = memo(function WorkspacePage() {
 
   if (!fileTree || !currentDirectory) {
     return (
-      <div className="h-screen flex items-center justify-center theme-card relative">
+      <div 
+        className="h-screen flex items-center justify-center relative"
+        style={{ backgroundColor: 'var(--theme-sidebar-background)' }}
+      >
         <div className="text-center">
-          <h2
-            className="text-xl font-semibold mb-2"
-            style={{ color: "var(--theme-foreground)" }}
-          >
+          <h2 className="text-xl font-semibold mb-2 theme-text-primary">
             Nenhum diretório selecionado
           </h2>
           <p className="theme-text-muted mb-4">

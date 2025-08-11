@@ -6,6 +6,7 @@ import {
 } from "../editor/EditorComponent";
 import { EditorToolbar } from "../editor/EditorToolbar";
 import { Title } from "../editor/Title";
+import { useError } from "../../contexts/ErrorContext";
 
 interface WindowContentProps {
   selectedFile: string;
@@ -27,16 +28,15 @@ export const WindowContent = memo(function WindowContent({
 }: WindowContentProps) {
   const [fileContent, setFileContent] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const editorRef = useRef<EditorComponentHandle>(null);
+  const { showError } = useError();
 
   const loadFileContent = useCallback(async (filePath: string) => {
     if (!filePath) return;
 
     setIsLoading(true);
-    setError(null);
     setIsModified(false);
 
     try {
@@ -44,7 +44,12 @@ export const WindowContent = memo(function WindowContent({
       setFileContent(content);
     } catch (err) {
       console.error("Error loading file:", err);
-      setError(err instanceof Error ? err.message : "Erro ao carregar arquivo");
+      showError({
+        title: "Não foi possível abrir o arquivo",
+        message: "Ocorreu um problema ao tentar abrir este arquivo. Verifique se o arquivo existe e se você tem permissão para acessá-lo.",
+        details: err instanceof Error ? err.message : "Erro desconhecido",
+        onRetry: () => loadFileContent(filePath)
+      });
       setFileContent("");
     } finally {
       setIsLoading(false);
@@ -58,7 +63,11 @@ export const WindowContent = memo(function WindowContent({
         return true;
       } catch (err) {
         console.error("Error saving file:", err);
-        setError(err instanceof Error ? err.message : "Erro ao salvar arquivo");
+        showError({
+          title: "Não foi possível salvar o arquivo",
+          message: "Ocorreu um problema ao tentar salvar suas alterações. Tente novamente ou verifique se você tem permissão para escrever neste local.",
+          details: err instanceof Error ? err.message : "Erro desconhecido"
+        });
         return false;
       }
     },
@@ -74,7 +83,6 @@ export const WindowContent = memo(function WindowContent({
   const handleContentChange = useCallback((content: string) => {
     setFileContent(content);
     setIsModified(true);
-    setError(null);
   }, []);
 
   const handleSave = useCallback(
@@ -86,7 +94,6 @@ export const WindowContent = memo(function WindowContent({
         if (success) {
           setFileContent(content);
           setIsModified(false);
-          setError(null);
         }
       } catch (error) {
         console.error("Error in handleSave:", error);
@@ -97,8 +104,12 @@ export const WindowContent = memo(function WindowContent({
 
   const handleError = useCallback((error: Error) => {
     console.error("Editor error:", error);
-    setError(error.message);
-  }, []);
+    showError({
+      title: "Erro no editor",
+      message: "Ocorreu um problema no editor de texto. Suas alterações podem não ter sido salvas.",
+      details: error.message
+    });
+  }, [showError]);
 
   const handleFilePathChange = useCallback(
     (newPath: string) => {
@@ -136,7 +147,10 @@ export const WindowContent = memo(function WindowContent({
 
   if (!selectedFile) {
     return (
-      <div className="flex-1 flex items-center justify-center theme-card">
+      <div 
+        className="flex-1 flex items-center justify-center"
+        style={{ backgroundColor: 'var(--theme-sidebar-background)' }}
+      >
         <div className="text-center">
           <h2 className="text-xl font-semibold theme-text-primary mb-2">
             Selecione um arquivo
@@ -161,7 +175,10 @@ export const WindowContent = memo(function WindowContent({
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center theme-card">
+      <div 
+        className="flex-1 flex items-center justify-center"
+        style={{ backgroundColor: 'var(--theme-sidebar-background)' }}
+      >
         <div className="text-center">
           <div
             className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4"
@@ -174,34 +191,6 @@ export const WindowContent = memo(function WindowContent({
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex-1 flex items-center justify-center theme-card">
-        <div className="text-center max-w-md">
-          <div
-            className="text-4xl mb-4"
-            style={{ color: "var(--theme-destructive)" }}
-          >
-            ⚠️
-          </div>
-          <h3
-            className="text-lg font-semibold mb-2"
-            style={{ color: "var(--theme-foreground)" }}
-          >
-            Erro ao carregar arquivo
-          </h3>
-          <p className="theme-text-muted mb-4">{error}</p>
-          <p className="text-xs theme-text-muted mb-4">{selectedFile}</p>
-          <button
-            onClick={() => loadFileContent(selectedFile)}
-            className="theme-button px-4 py-2 rounded-lg theme-transition"
-          >
-            Tentar novamente
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex-1 theme-card relative flex flex-col overflow-auto">

@@ -5,6 +5,8 @@ import { useDirectory } from "./contexts/DirectoryContext";
 import { cacheUtils } from "./utils/localStorage";
 import { UpdateNotification } from "./components/updater/UpdateNotification";
 import { useUpdater } from "./hooks/useUpdater";
+import { TitleBar } from "./components/ui/TitleBar";
+import { ErrorProvider } from "./contexts/ErrorContext";
 
 const HomePage = lazy(() => import("./pages/HomePage"));
 const EditorPage = lazy(() => import("./pages/EditorPage"));
@@ -73,10 +75,11 @@ function App() {
   }, [autoCheck]);
 
   return (
-    <>
+    <ErrorProvider>
+      <TitleBar />
       <AppRouter />
       <UpdateNotification />
-    </>
+    </ErrorProvider>
   );
 }
 

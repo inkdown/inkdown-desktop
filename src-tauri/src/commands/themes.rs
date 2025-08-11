@@ -119,18 +119,12 @@ pub fn get_theme_css(theme_id: String) -> Result<String, String> {
                 if let Some(variant) = theme.variants.iter().find(|v| v.id == theme_id) {
                     let css_file_path = theme_path.join(&variant.css_file);
 
-                    // Debug: Mostrar o que está sendo procurado
-                    println!("Looking for CSS file: {:?}", css_file_path);
-                    println!("Variant CSS file: {}", variant.css_file);
-
                     if css_file_path.exists() {
                         return fs::read_to_string(css_file_path).map_err(|e| {
                             format!("Failed to read CSS file '{}': {}", variant.css_file, e)
                         });
                     } else {
-                        // Debug: Listar arquivos no diretório do tema
                         if let Ok(entries) = fs::read_dir(&theme_path) {
-                            println!("Files in theme directory:");
                             for entry in entries {
                                 if let Ok(entry) = entry {
                                     println!("  - {:?}", entry.file_name());
@@ -228,41 +222,32 @@ pub async fn download_community_theme(theme: RepositoryTheme) -> Result<(), Stri
 
     let themes_dir = get_themes_directory()?;
 
-    // Sanitizar nome do tema para ser compatível com sistemas de arquivos
     let safe_theme_name = sanitize_filename(&theme.name);
     let theme_dir = themes_dir.join(safe_theme_name);
 
-    // Criar diretórios se não existirem
     std::fs::create_dir_all(&theme_dir)
         .map_err(|e| format!("Falha ao criar diretório do tema: {}", e))?;
 
-    // Buscar lista de arquivos CSS do repositório
     let css_files = fetch_css_files_from_repo(&client, &theme.repo).await?;
 
-    // Baixar e renomear arquivos CSS seguindo o padrão
     for css_file in &css_files {
         let css_content = fetch_file_content(&client, &theme.repo, &css_file).await?;
         let file_path = theme_dir.join(&css_file);
 
-        // Criar diretório pai se necessário
         if let Some(parent) = file_path.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("Falha ao criar diretório: {}", e))?;
         }
 
-        // Salvar arquivo CSS original
         std::fs::write(&file_path, &css_content)
             .map_err(|e| format!("Falha ao salvar arquivo CSS {}: {}", css_file, e))?;
     }
 
-    // Aplicar padrão: renomear/copiar arquivos para light.css e dark.css se necessário
     if theme.modes.len() > 1 {
-        // Múltiplos modos: criar light.css e dark.css
         for mode in &theme.modes {
             let target_file = format!("{}.css", mode.to_lowercase());
             let target_path = theme_dir.join(&target_file);
 
-            // Encontrar arquivo CSS correspondente ou usar o primeiro
             let source_css = css_files
                 .iter()
                 .find(|css| css.to_lowercase().contains(&mode.to_lowercase()))
@@ -270,18 +255,13 @@ pub async fn download_community_theme(theme: RepositoryTheme) -> Result<(), Stri
 
             let source_path = theme_dir.join(source_css);
 
-            // Copiar/renomear para o padrão
             if source_path != target_path {
                 std::fs::copy(&source_path, &target_path)
                     .map_err(|e| format!("Falha ao criar {}: {}", target_file, e))?;
             }
         }
     }
-    // Modo único: arquivos ficam com nomes originais
-
-    // Criar theme.json seguindo o padrão simples
     let variants = if theme.modes.len() > 1 {
-        // Múltiplos modos: usar light.css e dark.css
         theme
             .modes
             .iter()
@@ -295,7 +275,6 @@ pub async fn download_community_theme(theme: RepositoryTheme) -> Result<(), Stri
             })
             .collect::<Vec<_>>()
     } else {
-        // Modo único: usar o primeiro arquivo CSS
         let css_file = &css_files[0];
         theme
             .modes
@@ -334,7 +313,6 @@ async fn fetch_css_files_from_repo(
     client: &reqwest::Client,
     repo: &str,
 ) -> Result<Vec<String>, String> {
-    // Buscar conteúdo do diretório via GitHub API
     let api_url = format!("https://api.github.com/repos/{}/contents", repo);
 
     let response = client
@@ -405,8 +383,6 @@ async fn fetch_file_content(
 }
 
 fn sanitize_filename(name: &str) -> String {
-    // Caracteres inválidos no Windows: \ / : * ? " < > |
-    // Também remove espaços extras e caracteres de controle
     name.chars()
         .map(|c| match c {
             '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '-',
@@ -428,7 +404,6 @@ pub fn get_installed_theme_names() -> Result<Vec<String>, String> {
 
     let mut theme_names = Vec::new();
 
-    // Scan for .json theme files
     if let Ok(entries) = fs::read_dir(&themes_dir) {
         for entry in entries.flatten() {
             let path = entry.path();

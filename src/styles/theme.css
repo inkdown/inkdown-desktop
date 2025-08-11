@@ -586,8 +586,8 @@ body {
 }
 
 .theme-file-tree-item.selected {
-  background-color: var(--theme-primary);
-  color: var(--theme-primary-foreground);
+  background-color: var(--theme-sidebar-active);
+  color: var(--theme-sidebar-foreground);
 }
 
 .theme-file-tree-item.directory {
@@ -637,8 +637,8 @@ body {
 }
 
 .theme-scrollbar::-webkit-scrollbar {
-  width: 2px;
-  height: 2px;
+  width: 1px;
+  height: 1px;
 }
 
 .theme-scrollbar::-webkit-scrollbar-track {
@@ -786,8 +786,8 @@ body {
 }
 
 .file-tree-item.selected {
-  background-color: var(--theme-primary) !important;
-  color: var(--theme-primary-foreground) !important;
+  background-color: var(--theme-sidebar-active) !important;
+  color: var(--theme-sidebar-foreground) !important;
 }
 
 .file-tree-item .file-icon {
@@ -856,7 +856,7 @@ body {
   line-height: var(--inkdown-editor-line-height);
   background-color: var(--inkdown-editor-bg);
   color: var(--inkdown-editor-fg);
-  padding: 20px;
+  padding: 20px 20px 20px 32px;
   box-sizing: border-box;
   overflow: visible; /* Remove overflow from content */
 }
@@ -1029,6 +1029,115 @@ body {
 
 .preview-container::-webkit-scrollbar-thumb:hover {
   opacity: 0.8;
+}
+
+/* === TitleBar === */
+.titlebar {
+  height: 32px;
+  background-color: var(--theme-sidebar-background);
+  user-select: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+}
+
+.titlebar-drag-region {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+}
+
+.titlebar-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--theme-sidebar-foreground);
+  opacity: 0.8;
+}
+
+.titlebar-controls {
+  display: flex;
+  height: 100%;
+}
+
+.titlebar-button {
+  appearance: none;
+  padding: 0;
+  margin: 0;
+  border: none;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 46px;
+  height: 100%;
+  background-color: transparent;
+  color: var(--theme-sidebar-foreground);
+  opacity: 0.7;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.titlebar-button:hover {
+  opacity: 1;
+  background-color: var(--theme-sidebar-hover);
+}
+
+.titlebar-close:hover {
+  background-color: #e81123;
+  color: white;
+}
+
+.titlebar-maximize:hover,
+.titlebar-minimize:hover {
+  background-color: var(--theme-sidebar-active);
+}
+
+/* Body adjustment for titlebar */
+#root {
+  padding-top: 32px;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+/* === Error Modal === */
+.error-modal-icon-error {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+[data-theme="dark"] .error-modal-icon-error {
+  background-color: rgba(220, 38, 38, 0.1);
+  color: #fca5a5;
+}
+
+.error-modal-overlay {
+  animation: errorModalFadeIn 0.2s ease-out;
+}
+
+.error-modal {
+  animation: errorModalSlideIn 0.3s ease-out;
+}
+
+@keyframes errorModalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes errorModalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* === Markdown Preview Content Specific === */

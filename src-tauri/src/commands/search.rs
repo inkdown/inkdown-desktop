@@ -5,7 +5,6 @@ use std::path::{Path};
 #[cfg(target_os = "windows")]
 use std::os::windows::fs::MetadataExt;
 
-// Cross-platform path normalization
 fn normalize_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
@@ -31,18 +30,15 @@ pub struct NoteSearchResult {
 
 #[tauri::command]
 pub fn scan_directory(path: String) -> Result<FileNode, String> {
-    // Prevent path traversal attacks
     if path.contains("..") {
         return Err("Path traversal not allowed".to_string());
     }
 
     let path_obj = Path::new(&path);
 
-    // Try to canonicalize path to resolve symlinks and ensure it exists
     let canonical_path = match path_obj.canonicalize() {
         Ok(canonical) => canonical,
         Err(_) => {
-            // Fallback: check if path exists without canonicalization
             if !path_obj.exists() {
                 return Err("Directory does not exist".to_string());
             }
@@ -54,7 +50,6 @@ pub fn scan_directory(path: String) -> Result<FileNode, String> {
         return Err("Path is not a directory".to_string());
     }
 
-    // Check read permissions
     match std::fs::read_dir(&canonical_path) {
         Ok(_) => {}
         Err(e) => {
@@ -72,7 +67,6 @@ fn build_tree(path: &Path) -> Result<FileNode, String> {
         .to_string_lossy()
         .to_string();
 
-    // Use normalized cross-platform path representation
     let path_str = normalize_path(path);
 
     if path.is_dir() {
@@ -85,7 +79,6 @@ fn build_tree(path: &Path) -> Result<FileNode, String> {
                 Ok(entry) => {
                     let entry_path = entry.path();
 
-                    // Filter: only directories and markdown files
                     if entry_path.is_dir()
                         || (entry_path.is_file()
                             && entry_path.extension().map_or(false, |ext| {
@@ -103,7 +96,6 @@ fn build_tree(path: &Path) -> Result<FileNode, String> {
             }
         }
 
-        // Sort: directories first, then files, both alphabetically
         children.sort_by(|a, b| match (a.is_directory, b.is_directory) {
             (true, false) => std::cmp::Ordering::Less,
             (false, true) => std::cmp::Ordering::Greater,
@@ -117,7 +109,6 @@ fn build_tree(path: &Path) -> Result<FileNode, String> {
             children: Some(children),
         })
     } else {
-        // Only return file nodes for markdown files
         if let Some(extension) = path.extension() {
             let ext_str = extension.to_string_lossy().to_lowercase();
             if ["md", "markdown", "mdown", "mkd"].contains(&ext_str.as_str()) {
@@ -136,7 +127,6 @@ fn build_tree(path: &Path) -> Result<FileNode, String> {
     }
 }
 
-// Optimized search function with parallel processing and caching
 #[tauri::command]
 pub fn search_notes(
     workspace_path: String,
@@ -150,10 +140,8 @@ pub fn search_notes(
         return Ok(Vec::new());
     }
 
-    // Validate workspace path with better error handling
     let workspace = Path::new(&workspace_path);
 
-    // Normalize path for Windows compatibility
     let workspace = match workspace.canonicalize() {
         Ok(canonical) => canonical,
         Err(_) => {
@@ -173,17 +161,14 @@ pub fn search_notes(
         }
     };
 
-    // Check if we can read the directory
     if let Err(e) = fs::read_dir(&workspace) {
         return Err(format!("Cannot read workspace directory: {}", e));
     }
 
-    // Simple recursive search - more memory efficient
     let mut results = Vec::new();
     let workspace_str = normalize_path(&workspace);
     search_notes_simple(&workspace_str, &query, &mut results, limit)?;
 
-    // Sort by relevance score (higher is better) then by modification time (newer first)
     results.sort_by(|a, b| {
         let score_cmp = b
             .match_score
@@ -222,7 +207,6 @@ fn search_notes_simple(
             let entry_path = entry.path();
 
             if entry_path.is_dir() {
-                // Skip hidden and build directories
                 let dir_name = entry_path.file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("");
@@ -260,7 +244,6 @@ fn create_search_result_simple(
     let path = Path::new(file_path);
     let metadata = fs::metadata(path).map_err(|e| format!("Failed to get metadata: {}", e))?;
 
-    // Skip files larger than 1MB for memory efficiency
     if metadata.len() > 1024 * 1024 {
         return Err("File too large".to_string());
     }
@@ -272,7 +255,6 @@ fn create_search_result_simple(
 
     let mut match_score = 0.0f32;
 
-    // Simple filename matching
     let filename_lower = filename.to_lowercase();
     let query_lower = query.to_lowercase();
     
@@ -282,7 +264,6 @@ fn create_search_result_simple(
                       else { 20.0 };
     }
 
-    // Simple content preview - just first few lines for performance
     let content_preview = if match_score > 0.0 {
         fs::read_to_string(path)
             .unwrap_or_default()
@@ -313,7 +294,6 @@ fn create_search_result_simple(
     })
 }
 
-// Removed create_content_preview_optimized - using simpler approach
 
 #[tauri::command]
 pub fn rename_file(old_path: String, new_name: String) -> Result<String, String> {
@@ -327,7 +307,6 @@ pub fn rename_file(old_path: String, new_name: String) -> Result<String, String>
         .parent()
         .ok_or("Cannot determine parent directory".to_string())?;
 
-    // Preserve the original file extension if it's a file
     let new_path = if old_path_obj.is_file() {
         if let Some(extension) = old_path_obj.extension() {
             parent.join(format!("{}.{}", new_name, extension.to_string_lossy()))

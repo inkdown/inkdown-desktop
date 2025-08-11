@@ -12,7 +12,7 @@ export const SidebarResizer = memo(function SidebarResizer({ onMouseDown }: Side
       style={{
         backgroundColor: 'transparent',
         minHeight: '100vh',
-        minWidth: '4px'
+        minWidth: '2px'
       }}
       onMouseDown={onMouseDown}
       onMouseEnter={(e) => {
