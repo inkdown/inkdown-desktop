@@ -1,7 +1,7 @@
-import { Extension, EditorState } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightActiveLine } from '@codemirror/view';
+import { Extension, EditorState, EditorSelection } from '@codemirror/state';
+import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightActiveLine, KeyBinding } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
-import { markdown, markdownKeymap } from '@codemirror/lang-markdown';
+import { markdown } from '@codemirror/lang-markdown'; 
 import { vim } from '@replit/codemirror-vim';
 import { createInkdownTheme } from './theme';
 
@@ -82,10 +82,6 @@ export class ExtensionsFactory {
     return markdown();
   }
 
-  static getMarkdownKeymap(): Extension {
-    return keymap.of(markdownKeymap);
-  }
-
   static getVimMode(): Extension {
     return vim();
   }
@@ -98,9 +94,153 @@ export class ExtensionsFactory {
     return [highlightActiveLine(), highlightActiveLineGutter()];
   }
 
+  static getMarkdownShortcuts(): Extension {
+    const shortcuts: KeyBinding[] = [
+      {
+        key: 'Ctrl-b',
+        run: (view) => this.wrapSelection(view, '**', '**', ''),
+        preventDefault: true,
+      },
+      {
+        key: 'Ctrl-i',
+        run: (view) => this.wrapSelection(view, '*', '*', ''),
+        preventDefault: true,
+      },
+      {
+        key: 'Ctrl-Shift-s',
+        run: (view) => this.wrapSelection(view, '~~', '~~', ''),
+        preventDefault: true,
+      },
+      {
+        key: 'Ctrl-Shift-c',
+        run: (view) => this.wrapSelection(view, '`', '`', ''),
+        preventDefault: true,
+      },
+      {
+        key: 'Ctrl-k',
+        run: (view) => this.wrapSelection(view, '[', '](url)', 'texto do link'),
+        preventDefault: true,
+      },
+      {
+        key: 'Ctrl-1',
+        run: (view) => this.addHeading(view, 1),
+        preventDefault: true,
+      },
+      {
+        key: 'Ctrl-2',
+        run: (view) => this.addHeading(view, 2),
+        preventDefault: true,
+      },
+      {
+        key: 'Ctrl-3',
+        run: (view) => this.addHeading(view, 3),
+        preventDefault: true,
+      },
+      {
+        key: 'Ctrl-4',
+        run: (view) => this.addHeading(view, 4),
+        preventDefault: true,
+      },
+      {
+        key: 'Ctrl-5',
+        run: (view) => this.addHeading(view, 5),
+        preventDefault: true,
+      },
+      {
+        key: 'Ctrl-6',
+        run: (view) => this.addHeading(view, 6),
+        preventDefault: true,
+      },
+      {
+        key: 'Ctrl-Shift-t',
+        run: (view) => this.insertTable(view),
+        preventDefault: true,
+      },
+    ];
+
+    return keymap.of(shortcuts);
+  }
+
+  private static wrapSelection(view: EditorView, before: string, after: string, placeholder: string): boolean {
+    const state = view.state;
+    const selection = state.selection.main;
+    const selectedText = state.doc.sliceString(selection.from, selection.to);
+    
+    let newText: string;
+    let cursorPos: number;
+    
+    if (selectedText) {
+      newText = `${before}${selectedText}${after}`;
+      cursorPos = selection.from + newText.length;
+    } else {
+      newText = `${before}${placeholder}${after}`;
+      cursorPos = selection.from + before.length;
+    }
+    
+    view.dispatch({
+      changes: {
+        from: selection.from,
+        to: selection.to,
+        insert: newText,
+      },
+      selection: EditorSelection.cursor(cursorPos),
+    });
+    
+    return true;
+  }
+
+  private static addHeading(view: EditorView, level: number): boolean {
+    const state = view.state;
+    const selection = state.selection.main;
+    const line = state.doc.lineAt(selection.head);
+    const lineText = line.text;
+    
+    // Remove heading existente se houver
+    const cleanText = lineText.replace(/^#+\s*/, '');
+    const headingMarker = '#'.repeat(level) + ' ';
+    const newLineText = headingMarker + cleanText;
+    
+    view.dispatch({
+      changes: {
+        from: line.from,
+        to: line.to,
+        insert: newLineText,
+      },
+      selection: EditorSelection.cursor(line.from + newLineText.length),
+    });
+    
+    return true;
+  }
+
+  private static insertTable(view: EditorView): boolean {
+    const state = view.state;
+    const selection = state.selection.main;
+    const line = state.doc.lineAt(selection.head);
+    
+    const tableTemplate = `| Coluna 1 | Coluna 2 | Coluna 3 |
+|----------|----------|----------|
+|          |          |          |
+|          |          |          |`;
+    
+    // Se não estiver no início da linha, adiciona quebra de linha antes
+    const insertText = line.from === selection.from ? tableTemplate : `\n${tableTemplate}`;
+    
+    view.dispatch({
+      changes: {
+        from: selection.from,
+        to: selection.to,
+        insert: insertText,
+      },
+      selection: EditorSelection.cursor(selection.from + insertText.indexOf('|') + 1),
+    });
+    
+    return true;
+  }
+
   static buildExtensions(config: {
     markdown?: boolean;
     markdownShortcuts?: boolean;
+    githubMarkdown?: boolean;
     vim?: boolean;
     showLineNumbers?: boolean;
     highlightCurrentLine?: boolean;
@@ -118,12 +258,10 @@ export class ExtensionsFactory {
       extensions.push(createInkdownTheme(config.theme));
     }
     
-    if (config.markdown !== false) {
-      extensions.push(this.getMarkdown());
-    }
-
+    extensions.push(this.getMarkdown());
+    
     if (config.markdownShortcuts !== false) {
-      extensions.push(this.getMarkdownKeymap());
+      extensions.push(this.getMarkdownShortcuts());
     }
     
     if (config.vim) {
@@ -147,7 +285,6 @@ export class ExtensionsFactory {
 
   static getDefaultConfig(): Extension[] {
     return this.buildExtensions({
-      markdown: true,
       markdownShortcuts: true,
     });
   }

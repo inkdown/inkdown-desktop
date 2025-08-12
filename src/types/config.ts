@@ -83,8 +83,8 @@ export interface WorkspaceConfig {
   vimMode?: boolean;
   showLineNumbers: boolean;
   highlightCurrentLine?: boolean;
-  markdown: boolean;
   readOnly: boolean;
   sidebarVisible?: boolean;
+  githubMarkdown?: boolean;
   shortcuts: KeyboardShortcut[];
 }

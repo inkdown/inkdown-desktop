@@ -8,6 +8,7 @@ interface SidebarProps {
   fileTree: FileNode;
   selectedFile: string | null;
   onFileSelect: (filePath: string) => void;
+  onFileDeleted: (deletedPath: string) => void;
   onOpenSettings: () => void;
 }
 
@@ -16,6 +17,7 @@ export const Sidebar = memo(function Sidebar({
   fileTree,
   selectedFile,
   onFileSelect,
+  onFileDeleted,
   onOpenSettings,
 }: SidebarProps) {
   
@@ -37,6 +39,7 @@ export const Sidebar = memo(function Sidebar({
         fileTree={fileTree}
         selectedFile={selectedFile}
         onFileSelect={onFileSelect}
+        onFileDeleted={onFileDeleted}
       />
     </div>
   );

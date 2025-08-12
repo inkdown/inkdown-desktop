@@ -7,8 +7,8 @@ export interface EditorConfig {
   content?: string;
   readOnly?: boolean;
   theme?: 'light' | 'dark';
-  markdown?: boolean;
   markdownShortcuts?: boolean;
+  githubMarkdown?: boolean;
   vim?: boolean;
   showLineNumbers?: boolean;
   highlightCurrentLine?: boolean;
@@ -55,8 +55,8 @@ export class Editor {
     this.container.innerHTML = '';
     
     const extensions = ExtensionsFactory.buildExtensions({
-      markdown: this.config.markdown !== false,
-      markdownShortcuts: this.config.markdownShortcuts !== false,
+      markdownShortcuts: true,
+      githubMarkdown: this.config.githubMarkdown || false,
       vim: this.config.vim || false,
       showLineNumbers: this.config.showLineNumbers !== false,
       highlightCurrentLine: this.config.highlightCurrentLine !== false,
@@ -197,7 +197,6 @@ export class Editor {
     this.applyTheme();
     
     const extensions = ExtensionsFactory.buildExtensions({
-      markdown: this.config.markdown !== false,
       vim: this.config.vim || false,
       showLineNumbers: this.config.showLineNumbers !== false,
       highlightCurrentLine: this.config.highlightCurrentLine !== false,
@@ -225,8 +224,8 @@ export class Editor {
     }
     
     const extensions = ExtensionsFactory.buildExtensions({
-      markdown: this.config.markdown !== false,
       markdownShortcuts: this.config.markdownShortcuts !== false,
+      githubMarkdown: this.config.githubMarkdown || false,
       vim: this.config.vim || false,
       showLineNumbers: this.config.showLineNumbers !== false,
       highlightCurrentLine: this.config.highlightCurrentLine !== false,

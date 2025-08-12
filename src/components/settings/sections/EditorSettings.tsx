@@ -1,7 +1,7 @@
 import { useAppearance } from '../../../contexts/AppearanceContext';
 
 export function EditorSettings() {
-  const { vimMode, showLineNumbers, highlightCurrentLine, readOnly, updateWorkspace, isLoading } = useAppearance();
+  const { vimMode, showLineNumbers, highlightCurrentLine, readOnly, githubMarkdown, updateWorkspace, isLoading } = useAppearance();
 
   if (isLoading) {
     return (
@@ -14,7 +14,7 @@ export function EditorSettings() {
     );
   }
 
-  const handleToggle = (key: 'vimMode' | 'showLineNumbers' | 'highlightCurrentLine' | 'readOnly', value: boolean) => {
+  const handleToggle = (key: 'vimMode' | 'showLineNumbers' | 'highlightCurrentLine' | 'readOnly' | 'githubMarkdown', value: boolean) => {
     updateWorkspace({ [key]: value });
   };
 
@@ -151,7 +151,10 @@ export function EditorSettings() {
         </div>
 
         {/* Read Only */}
-        <div className="flex items-center justify-between px-3 py-2.5">
+        <div 
+          className="flex items-center justify-between px-3 py-2.5"
+          style={{ borderBottom: '1px solid var(--theme-border)' }}
+        >
           <div>
             <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
               Modo Somente Leitura
@@ -178,6 +181,41 @@ export function EditorSettings() {
                 className="absolute top-[1px] left-[1px] bg-white rounded-full h-3 w-3 transition-transform"
                 style={{
                   transform: readOnly ? 'translateX(16px)' : 'translateX(0)',
+                  backgroundColor: 'var(--theme-background)'
+                }}
+              />
+            </div>
+          </label>
+        </div>
+
+        {/* GitHub Flavored Markdown */}
+        <div className="flex items-center justify-between px-3 py-2.5">
+          <div>
+            <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+              GitHub Flavored Markdown
+            </div>
+            <div className="text-xs leading-tight" style={{ color: 'var(--text-secondary)' }}>
+              Habilita recursos GFM como tabelas, strikethrough e task lists
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={githubMarkdown}
+              onChange={(e) => handleToggle('githubMarkdown', e.target.checked)}
+              className="sr-only peer"
+            />
+            <div 
+              className="w-8 h-4 rounded-full peer-focus:outline-none peer-focus:ring-1 peer-focus:ring-opacity-50 peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:rounded-full after:h-3 after:w-3 after:transition-all"
+              style={{
+                backgroundColor: githubMarkdown ? 'var(--text-accent)' : 'var(--theme-muted)',
+                border: '1px solid var(--theme-border)',
+              }}
+            >
+              <div 
+                className="absolute top-[1px] left-[1px] bg-white rounded-full h-3 w-3 transition-transform"
+                style={{
+                  transform: githubMarkdown ? 'translateX(16px)' : 'translateX(0)',
                   backgroundColor: 'var(--theme-background)'
                 }}
               />

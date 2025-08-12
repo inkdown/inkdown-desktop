@@ -7,9 +7,15 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
-fn parse_markdown_to_html(markdown: String) -> Result<crate::markdown::parser::ParseResult, String> {
-    crate::markdown::parser::parse_markdown_to_html(&markdown)
-        .map_err(|e| format!("Failed to parse markdown: {}", e))
+fn parse_markdown_basic(markdown: String) -> Result<crate::markdown::parser::ParseResult, String> {
+    println!("📝 Usando Basic Parser");
+    crate::markdown::basic_parser::parse_basic_markdown_to_html(&markdown)
+}
+
+#[tauri::command]
+fn parse_markdown_gfm(markdown: String) -> Result<crate::markdown::parser::ParseResult, String> {
+    println!("🚀 Usando GFM Parser");
+    crate::markdown::gfm_parser::parse_gfm_markdown_to_html(&markdown)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -20,7 +26,8 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             greet,
-            parse_markdown_to_html,
+            parse_markdown_basic,
+            parse_markdown_gfm,
             // Config commands
             commands::config::get_app_config_dir,
             commands::config::save_appearance_config,

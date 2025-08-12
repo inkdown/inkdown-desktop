@@ -10,6 +10,7 @@ interface FileTreeItemProps {
   node: FileNode;
   level: number;
   onFileSelect: (path: string) => void;
+  onFileDeleted: (deletedPath: string) => void;
   selectedFile: string | null;
   onRefresh: () => void;
   isWorkspaceRoot?: boolean;
@@ -20,6 +21,7 @@ const FileTreeItem = memo(function FileTreeItem({
   node,
   level,
   onFileSelect,
+  onFileDeleted,
   selectedFile,
   onRefresh,
   isWorkspaceRoot = false,
@@ -85,7 +87,8 @@ const FileTreeItem = memo(function FileTreeItem({
 
     const newPath = await createDirectory(node.path);
     if (newPath) {
-      requestAnimationFrame(() => setEditingPath(newPath));
+      // Use setTimeout for Windows compatibility with focus issues
+      setTimeout(() => setEditingPath(newPath), 0);
     }
   }, [createDirectory, node.path, isExpanded, setEditingPath]);
 
@@ -94,7 +97,8 @@ const FileTreeItem = memo(function FileTreeItem({
 
     const newPath = await createFile(node.path);
     if (newPath) {
-      requestAnimationFrame(() => setEditingPath(newPath));
+      // Use setTimeout for Windows compatibility with focus issues
+      setTimeout(() => setEditingPath(newPath), 0);
     }
   }, [createFile, node.path, isExpanded, setEditingPath]);
 
@@ -119,10 +123,11 @@ const FileTreeItem = memo(function FileTreeItem({
       : node.name.replace(/\.md$/, "");
     setEditValue(nameWithoutExt);
     setEditingPath(node.path);
-    requestAnimationFrame(() => {
+    // Use setTimeout for Windows compatibility with focus issues
+    setTimeout(() => {
       inputRef.current?.focus();
       inputRef.current?.select();
-    });
+    }, 0);
   }, [node.name, node.is_directory, node.path, setEditingPath]);
 
   const handleDelete = useCallback(async () => {
@@ -136,12 +141,15 @@ const FileTreeItem = memo(function FileTreeItem({
       );
 
       if (shouldDelete) {
-        await deleteFileOrDirectory(node.path);
+        const success = await deleteFileOrDirectory(node.path);
+        if (success) {
+          onFileDeleted(node.path);
+        }
       }
     } catch (error) {
       console.error("Erro ao confirmar exclusão:", error);
     }
-  }, [node.name, node.path, deleteFileOrDirectory]);
+  }, [node.name, node.path, deleteFileOrDirectory, onFileDeleted]);
 
   const handleEditSubmit = useCallback(async () => {
     if (editValue.trim()) {
@@ -149,7 +157,7 @@ const FileTreeItem = memo(function FileTreeItem({
       const newPath = await renameFileOrDirectory(oldPath, editValue.trim());
       if (newPath && !node.is_directory) {
         // Auto-select the renamed file if it's not a directory
-        requestAnimationFrame(() => onFileSelect(newPath));
+        setTimeout(() => onFileSelect(newPath), 0);
       }
     }
     setEditingPath(null);
@@ -220,10 +228,11 @@ const FileTreeItem = memo(function FileTreeItem({
                   : node.name.replace(/\.md$/, "");
                 setEditValue(nameWithoutExt);
                 el.dataset.initialized = "true";
-                requestAnimationFrame(() => {
+                // Use setTimeout for Windows compatibility with focus issues
+                setTimeout(() => {
                   el.focus();
                   el.select();
-                });
+                }, 10);
               }
             }}
             type="text"
@@ -258,6 +267,7 @@ const FileTreeItem = memo(function FileTreeItem({
               node={child}
               level={level + 1}
               onFileSelect={onFileSelect}
+              onFileDeleted={onFileDeleted}
               selectedFile={selectedFile}
               onRefresh={onRefresh}
               isWorkspaceRoot={false}
@@ -287,6 +297,7 @@ const FileTreeItem = memo(function FileTreeItem({
 interface FileTreeProps {
   fileTree: FileNode;
   onFileSelect: (path: string) => void;
+  onFileDeleted: (deletedPath: string) => void;
   selectedFile: string | null;
   className?: string;
 }
@@ -294,6 +305,7 @@ interface FileTreeProps {
 export const FileTree = memo(function FileTree({
   fileTree,
   onFileSelect,
+  onFileDeleted,
   selectedFile,
   className = "",
 }: FileTreeProps) {
@@ -328,7 +340,8 @@ export const FileTree = memo(function FileTree({
   const handleCreateFolder = useCallback(async () => {
     const newPath = await createDirectory(fileTree.path);
     if (newPath) {
-      requestAnimationFrame(() => setEditingPath(newPath));
+      // Use setTimeout for Windows compatibility with focus issues
+      setTimeout(() => setEditingPath(newPath), 0);
     }
     closeContextMenu();
   }, [createDirectory, fileTree.path, setEditingPath, closeContextMenu]);
@@ -336,7 +349,8 @@ export const FileTree = memo(function FileTree({
   const handleCreateFile = useCallback(async () => {
     const newPath = await createFile(fileTree.path);
     if (newPath) {
-      requestAnimationFrame(() => setEditingPath(newPath));
+      // Use setTimeout for Windows compatibility with focus issues
+      setTimeout(() => setEditingPath(newPath), 0);
     }
     closeContextMenu();
   }, [createFile, fileTree.path, setEditingPath, closeContextMenu]);
@@ -370,6 +384,7 @@ export const FileTree = memo(function FileTree({
                 node={fileTree}
                 level={0}
                 onFileSelect={onFileSelect}
+                onFileDeleted={onFileDeleted}
                 selectedFile={selectedFile}
                 onRefresh={handleRefresh}
                 isWorkspaceRoot={true}
@@ -383,12 +398,13 @@ export const FileTree = memo(function FileTree({
               node={child}
               level={0}
               onFileSelect={onFileSelect}
+              onFileDeleted={onFileDeleted}
               selectedFile={selectedFile}
               onRefresh={handleRefresh}
               isWorkspaceRoot={false}
             />
           ));
-        }, [fileTree, onFileSelect, selectedFile, handleRefresh])}
+        }, [fileTree, onFileSelect, onFileDeleted, selectedFile, handleRefresh])}
       </div>
 
       {contextMenu && (

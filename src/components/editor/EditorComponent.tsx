@@ -52,7 +52,7 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
     vimMode: configVimMode, 
     showLineNumbers: configShowLineNumbers, 
     highlightCurrentLine: configHighlightCurrentLine, 
-    readOnly: configReadOnly, 
+    readOnly: configReadOnly,
     fontSize: configFontSize, 
     fontFamily: configFontFamily 
   } = useAppearance();
@@ -69,7 +69,7 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
         readOnly: configReadOnly ?? readOnly ?? false,
         theme: finalTheme,
         markdownShortcuts: true,
-        markdown: true,
+        githubMarkdown: false, // Config removida, GFM agora é controlado via cache
         vim: configVimMode ?? plugins.includes('vim'),
         showLineNumbers: configShowLineNumbers ?? showLineNumbers ?? true,
         highlightCurrentLine: configHighlightCurrentLine ?? highlightCurrentLine ?? true,
@@ -158,8 +158,14 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
       prevConfigRef.current = currentConfig;
     }
 
-    if (previewRef.current && prevConfigRef.current.theme !== finalTheme) {
-      previewRef.current.setTheme(finalTheme);
+    if (previewRef.current) {
+      const previewConfigChanged = prevConfigRef.current.theme !== finalTheme;
+      
+      if (previewConfigChanged) {
+        previewRef.current.updateConfig({
+          theme: finalTheme,
+        });
+      }
     }
   }, [finalTheme, initialContent, configVimMode, configShowLineNumbers, configHighlightCurrentLine, configReadOnly, configFontSize, configFontFamily]);
 

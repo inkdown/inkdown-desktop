@@ -127,6 +127,22 @@
   --inkdown-scrollbar-width: 8px;
   --inkdown-scrollbar-border-radius: 4px;
 
+  /* === Alert Colors === */
+  --alert-note-border: #3b82f6;
+  --alert-note-text: #1e40af;
+  
+  --alert-tip-border: #10b981;
+  --alert-tip-text: #047857;
+  
+  --alert-important-border: #f59e0b;
+  --alert-important-text: #92400e;
+  
+  --alert-warning-border: #ef4444;
+  --alert-warning-text: #dc2626;
+  
+  --alert-caution-border: #ec4899;
+  --alert-caution-text: #be185d;
+
   /* === Semantic Aliases for Components === */
   --modal-background: var(--theme-background);
   --modal-foreground: var(--theme-foreground);
@@ -160,6 +176,22 @@
 [data-theme="dark"],
 .theme-dark {
   color-scheme: dark;
+  
+  /* === Alert Colors Dark === */
+  --alert-note-border: #60a5fa;
+  --alert-note-text: #93c5fd;
+  
+  --alert-tip-border: #34d399;
+  --alert-tip-text: #6ee7b7;
+  
+  --alert-important-border: #fbbf24;
+  --alert-important-text: #fcd34d;
+  
+  --alert-warning-border: #f87171;
+  --alert-warning-text: #fca5a5;
+  
+  --alert-caution-border: #f472b6;
+  --alert-caution-text: #f9a8d4;
   
   /* === UI Base === */
   --theme-primary: #6366f1;
@@ -953,7 +985,7 @@ body {
 .preview-container ol,
 .markdown-preview-content ul,
 .markdown-preview-content ol {
-  padding-left: 24px;
+  padding-left: 20px;
   margin: 16px 0;
 }
 
@@ -975,7 +1007,7 @@ body {
 
 .preview-container li,
 .markdown-preview-content li {
-  margin: 4px 0 4px 20px;
+  margin: 4px 0;
 }
 
 .preview-container a,
@@ -1167,4 +1199,62 @@ body {
 .markdown-preview-content th {
   background: var(--inkdown-syntax-monospace-bg);
   font-weight: 600;
+}
+/* === Alert Styles === */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  margin: 16px 0;
+  border-radius: 8px;
+  border-left: 4px solid;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.alert-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.alert-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.alert-content p {
+  margin: 0;
+}
+
+.alert-note {
+  border-left-color: var(--alert-note-border);
+  color: var(--alert-note-text);
+}
+
+.alert-tip {
+  border-left-color: var(--alert-tip-border);
+  color: var(--alert-tip-text);
+}
+
+.alert-important {
+  border-left-color: var(--alert-important-border);
+  color: var(--alert-important-text);
+}
+
+.alert-warning {
+  border-left-color: var(--alert-warning-border);
+  color: var(--alert-warning-text);
+}
+
+.alert-caution {
+  border-left-color: var(--alert-caution-border);
+  color: var(--alert-caution-text);
 }

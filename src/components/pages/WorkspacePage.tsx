@@ -56,6 +56,12 @@ export const WorkspacePage = memo(function WorkspacePage() {
     togglePreviewRef.current?.();
   }, []);
 
+  const handleFileDeleted = useCallback((deletedPath: string) => {
+    if (selectedFile === deletedPath) {
+      setSelectedFile(null);
+    }
+  }, [selectedFile]);
+
   useKeyboardShortcuts({
     onToggleSidebar: toggleSidebar,
     onSave: handleSave,
@@ -97,6 +103,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
             fileTree={fileTree}
             selectedFile={selectedFile}
             onFileSelect={handleFileSelect}
+            onFileDeleted={handleFileDeleted}
             onOpenSettings={() => setIsSettingsOpen(true)}
           />
           <SidebarResizer onMouseDown={handleMouseDown} />

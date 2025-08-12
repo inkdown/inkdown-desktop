@@ -21,6 +21,7 @@ interface AppearanceState {
   showLineNumbers: boolean;
   highlightCurrentLine: boolean;
   readOnly: boolean;
+  githubMarkdown: boolean;
   effectiveTheme: "light" | "dark";
   customThemes: CustomTheme[];
   currentCustomThemeId: string | null;
@@ -35,6 +36,7 @@ type AppearanceAction =
   | { type: "SET_LINE_NUMBERS"; payload: boolean }
   | { type: "SET_HIGHLIGHT_LINE"; payload: boolean }
   | { type: "SET_READ_ONLY"; payload: boolean }
+  | { type: "SET_GITHUB_MARKDOWN"; payload: boolean }
   | { type: "SET_EFFECTIVE_THEME"; payload: "light" | "dark" }
   | { type: "SET_CUSTOM_THEMES"; payload: CustomTheme[] }
   | { type: "SET_CUSTOM_THEME_LOADING"; payload: boolean }
@@ -49,6 +51,7 @@ const initialState: AppearanceState = {
   showLineNumbers: true,
   highlightCurrentLine: true,
   readOnly: false,
+  githubMarkdown: false,
   effectiveTheme: "light",
   customThemes: [],
   currentCustomThemeId: null,
@@ -74,6 +77,8 @@ function appearanceReducer(
       return { ...state, highlightCurrentLine: action.payload };
     case "SET_READ_ONLY":
       return { ...state, readOnly: action.payload };
+    case "SET_GITHUB_MARKDOWN":
+      return { ...state, githubMarkdown: action.payload };
     case "SET_EFFECTIVE_THEME":
       return { ...state, effectiveTheme: action.payload };
     case "SET_CUSTOM_THEMES":
@@ -101,6 +106,7 @@ interface AppearanceContextType extends AppearanceState {
     showLineNumbers?: boolean;
     highlightCurrentLine?: boolean;
     readOnly?: boolean;
+    githubMarkdown?: boolean;
   }) => Promise<void>;
   refreshCustomThemes: () => Promise<void>;
   applyCustomTheme: (themeId: string) => Promise<void>;
@@ -167,6 +173,7 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
         showLineNumbers: workspaceConfig?.showLineNumbers !== false,
         highlightCurrentLine: workspaceConfig?.highlightCurrentLine !== false,
         readOnly: workspaceConfig?.readOnly || false,
+        githubMarkdown: workspaceConfig?.githubMarkdown || false,
       };
 
       dispatch({
@@ -358,6 +365,7 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
       showLineNumbers?: boolean;
       highlightCurrentLine?: boolean;
       readOnly?: boolean;
+      githubMarkdown?: boolean;
     }) => {
       if (updates.vimMode !== undefined)
         dispatch({ type: "SET_VIM_MODE", payload: updates.vimMode });
@@ -373,6 +381,8 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
         });
       if (updates.readOnly !== undefined)
         dispatch({ type: "SET_READ_ONLY", payload: updates.readOnly });
+      if (updates.githubMarkdown !== undefined)
+        dispatch({ type: "SET_GITHUB_MARKDOWN", payload: updates.githubMarkdown });
 
       try {
         await updateWorkspaceConfig(updates);

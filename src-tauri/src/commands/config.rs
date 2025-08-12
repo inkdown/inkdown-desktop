@@ -138,9 +138,9 @@ fn create_default_workspace_config() -> serde_json::Value {
         "vimMode": false,
         "showLineNumbers": false,
         "highlightCurrentLine": true,
-        "markdown": true,
         "readOnly": false,
         "sidebarVisible": true,
+        "githubMarkdown": false,
         "shortcuts": [
             {
                 "name": "toggleSidebar",
