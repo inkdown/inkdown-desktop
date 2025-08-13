@@ -1,6 +1,7 @@
 import { useState, useCallback, memo, useMemo, useRef } from "react";
 import { Folder, FolderOpen, FileText } from "lucide-react";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import { platform } from "@tauri-apps/plugin-os";
 import { FileNode, useDirectory } from "../../contexts/DirectoryContext";
 import { ContextMenu } from "../ui/overlays/ContextMenu";
 import { useFileOperations } from "../../hooks/useFileOperations";
@@ -47,6 +48,7 @@ const FileTreeItem = memo(function FileTreeItem({
     isValid: boolean;
     message: string;
   }>({ isValid: true, message: "" });
+  const [isWindowsPlatform, setIsWindowsPlatform] = useState<boolean | null>(null);
   const isInitializedRef = useRef(false);
 
   const {
@@ -62,11 +64,66 @@ const FileTreeItem = memo(function FileTreeItem({
   const isDraggedOver = dragHandlers.isDraggedOver(node.path);
   const isDragging = dragHandlers.isDragging(node.path);
 
-  // Memoize displayName to avoid regex on every render
   const displayName = useMemo(() => 
     node.is_directory ? node.name : node.name.replace(/\.md$/, ""),
     [node.is_directory, node.name]
   );
+
+  useMemo(() => {
+    if (isWindowsPlatform === null) {
+      try {
+        const currentPlatform = platform();
+        setIsWindowsPlatform(currentPlatform === 'windows');
+      } catch (error) {
+        setIsWindowsPlatform(false);
+      }
+    }
+  }, [isWindowsPlatform]);
+
+  const handleInputRef = useCallback((el: HTMLInputElement | null) => {
+    if (el && !isInitializedRef.current) {
+      if (!editValue) {
+        setEditValue(displayName);
+      }
+      
+      const focusInput = () => {
+        if (!el.isConnected) return;
+        
+        if (isWindowsPlatform) {
+          // Windows WebView2 specific handling
+          el.focus();
+          el.select();
+          
+          setTimeout(() => {
+            if (document.activeElement !== el) {
+              el.focus();
+            }
+            el.setSelectionRange(0, el.value.length);
+          }, 0);
+          
+          setTimeout(() => {
+            if (document.activeElement !== el) {
+              el.click();
+              el.focus();
+              el.select();
+            }
+          }, 10);
+        } else {
+          // Standard focus for other platforms
+          el.focus();
+          el.select();
+        }
+      };
+      
+      if (isWindowsPlatform) {
+        requestAnimationFrame(() => setTimeout(focusInput, 50));
+      } else {
+        setTimeout(focusInput, 50);
+      }
+      
+      isInitializedRef.current = true;
+    }
+  }, [editValue, displayName, isWindowsPlatform]);
 
 
   const validatePath = useCallback((pathInput: string) => {
@@ -130,7 +187,6 @@ const FileTreeItem = memo(function FileTreeItem({
     setPathValidation({ isValid: true, message: "" });
   }, []);
 
-  // Memoize styles to avoid recreation on every render
   const containerStyle = useMemo(() => ({
     paddingLeft: `${level * 14 + 8}px`,
   }), [level]);
@@ -203,7 +259,6 @@ const FileTreeItem = memo(function FileTreeItem({
     
     const newPath = await createFile(node.path, dailyNoteName);
     if (newPath) {
-      // Auto-open the daily note
       onFileSelect(newPath);
     }
   }, [createFile, node.path, isExpanded, onFileSelect]);
@@ -239,12 +294,12 @@ const FileTreeItem = memo(function FileTreeItem({
     if (editValue.trim() && pathValidation.isValid && editValue.trim() !== displayName) {
       const oldPath = node.path;
       const newPath = await renameFileOrDirectory(oldPath, editValue.trim());
+      
       if (newPath && !node.is_directory) {
-        // Auto-select the file after successful rename/creation
-        setTimeout(() => onFileSelect(newPath), 0);
+        onFileSelect(newPath);
       }
+    
     }
-    // Always reset state after submit attempt
     setEditingPath(null);
     setEditValue("");
     setPathValidation({ isValid: true, message: "" });
@@ -315,22 +370,7 @@ const FileTreeItem = memo(function FileTreeItem({
         {isCurrentlyEditing ? (
           <div className="flex-1">
             <input
-              ref={(el) => {
-                if (el && !isInitializedRef.current) {
-                  // Initialize value if empty (for new files/folders)
-                  if (!editValue) {
-                    setEditValue(displayName);
-                  }
-                  // Always focus and select when input mounts
-                  setTimeout(() => {
-                    if (el.isConnected) { 
-                      el.focus();
-                      el.select();
-                    }
-                  }, 50);
-                  isInitializedRef.current = true;
-                }
-              }}
+              ref={handleInputRef}
               type="text"
               value={editValue}
               onChange={(e) => {
