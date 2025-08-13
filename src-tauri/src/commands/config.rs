@@ -90,6 +90,10 @@ pub fn load_appearance_config() -> Result<String, String> {
 
 #[tauri::command]
 pub fn clear_workspace_config() -> Result<(), String> {
+    let cache = CONFIG_CACHE.get_or_init(|| Mutex::new(None));
+    if let Ok(mut cached_config) = cache.lock() {
+        *cached_config = None;
+    }
     let config_dir = get_or_create_config_dir()?;
     let config_file = config_dir.join("workspace.json");
 
@@ -138,9 +142,11 @@ fn create_default_workspace_config() -> serde_json::Value {
         "vimMode": false,
         "showLineNumbers": false,
         "highlightCurrentLine": true,
-        "markdown": true,
         "readOnly": false,
         "sidebarVisible": true,
+        "githubMarkdown": false,
+        "pasteUrlsAsLinks": true,
+        "devMode": false,
         "shortcuts": [
             {
                 "name": "toggleSidebar",
@@ -164,6 +170,10 @@ fn create_default_workspace_config() -> serde_json::Value {
 
 #[tauri::command]
 pub fn save_workspace_config(workspace_path: String) -> Result<(), String> {
+    let cache = CONFIG_CACHE.get_or_init(|| Mutex::new(None));
+    if let Ok(mut cached_config) = cache.lock() {
+        *cached_config = None;
+    }
     let config_dir = get_or_create_config_dir()?;
     let config_file = config_dir.join("workspace.json");
 
@@ -199,6 +209,10 @@ pub fn save_workspace_config(workspace_path: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn update_workspace_config(config: serde_json::Value) -> Result<(), String> {
+    let cache = CONFIG_CACHE.get_or_init(|| Mutex::new(None));
+    if let Ok(mut cached_config) = cache.lock() {
+        *cached_config = None;
+    }
     let config_dir = get_or_create_config_dir()?;
     let config_file = config_dir.join("workspace.json");
 
@@ -243,12 +257,25 @@ pub fn update_workspace_config(config: serde_json::Value) -> Result<(), String> 
     Ok(())
 }
 
+use std::sync::{Mutex, OnceLock};
+
+static CONFIG_CACHE: OnceLock<Mutex<Option<serde_json::Value>>> = OnceLock::new();
+
 #[tauri::command]
 pub fn load_workspace_config() -> Result<String, String> {
+    let cache = CONFIG_CACHE.get_or_init(|| Mutex::new(None));
+    
+    if let Ok(cached_config) = cache.lock() {
+        if let Some(config) = &*cached_config {
+            return serde_json::to_string_pretty(config)
+                .map_err(|e| format!("Failed to serialize cached config: {}", e));
+        }
+    }
+    
     let config_dir = get_or_create_config_dir()?;
     let config_file = config_dir.join("workspace.json");
 
-    if !config_file.exists() {
+    let config = if !config_file.exists() {
         let default_config = create_default_workspace_config();
         let config_string = serde_json::to_string_pretty(&default_config)
             .map_err(|e| format!("Failed to serialize default config: {}", e))?;
@@ -256,22 +283,23 @@ pub fn load_workspace_config() -> Result<String, String> {
         fs::write(&config_file, &config_string)
             .map_err(|e| format!("Failed to create default workspace config: {}", e))?;
 
-        return Ok(config_string);
-    }
+        default_config
+    } else {
+        let config_content = fs::read_to_string(&config_file)
+            .map_err(|e| format!("Failed to load workspace config: {}", e))?;
 
-    let config_content = fs::read_to_string(&config_file)
-        .map_err(|e| format!("Failed to load workspace config: {}", e))?;
-
-    // Try to parse the existing config, but don't overwrite on failure
-    match serde_json::from_str::<serde_json::Value>(&config_content) {
-        Ok(config) => {
-            // Successfully parsed - return as is
-            serde_json::to_string_pretty(&config).map_err(|e| format!("Failed to serialize config: {}", e))
+        match serde_json::from_str::<serde_json::Value>(&config_content) {
+            Ok(config) => config,
+            Err(_) => {
+                return Ok(config_content);
+            }
         }
-        Err(_parse_error) => {
-            // If parsing fails, return the raw content to avoid data loss
-            // The frontend should handle this gracefully
-            Ok(config_content)
-        }
+    };
+    
+    if let Ok(mut cached_config) = cache.lock() {
+        *cached_config = Some(config.clone());
     }
+    
+    serde_json::to_string_pretty(&config)
+        .map_err(|e| format!("Failed to serialize config: {}", e))
 }

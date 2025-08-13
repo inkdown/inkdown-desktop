@@ -5,7 +5,6 @@ export const WelcomeScreen = memo(function WelcomeScreen() {
   return (
     <div 
       className="flex-1 flex items-center justify-center"
-      style={{ backgroundColor: 'var(--theme-sidebar-background)' }}
     >
       <div className="text-center">
         <Edit3 size={64} className="mx-auto mb-4 theme-text-muted" />

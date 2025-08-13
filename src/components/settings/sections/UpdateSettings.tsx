@@ -51,12 +51,12 @@ export function UpdateSettings() {
             {updateAvailable ? (
               <AlertCircle 
                 size={16}
-                style={{ color: '#f59e0b' }}
+                className="text-amber-500"
               />
             ) : (
               <CheckCircle 
                 size={16}
-                style={{ color: '#10b981' }}
+                className="text-emerald-500"
               />
             )}
             <span 
@@ -93,7 +93,7 @@ export function UpdateSettings() {
             <div 
               className="text-xs p-2 mb-2 rounded"
               style={{
-                color: '#ef4444',
+                color: 'var(--theme-destructive)',
                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
               }}
             >

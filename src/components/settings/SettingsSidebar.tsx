@@ -1,4 +1,5 @@
-import { Palette, FileText, Settings, FolderOpen, RefreshCw } from 'lucide-react';
+import { memo } from 'react';
+import { Palette, FileText, Keyboard, FolderOpen, RefreshCw, Package, Info } from 'lucide-react';
 import { SettingsSection } from './SettingsModal';
 
 interface SettingsSidebarProps {
@@ -24,17 +25,27 @@ const sections = [
   },
   {
     id: 'preferences' as const,
-    label: 'Preferências',
-    icon: Settings,
+    label: 'Atalhos',
+    icon: Keyboard,
+  },
+  {
+    id: 'plugins' as const,
+    label: 'Plugins & Temas',
+    icon: Package,
   },
   {
     id: 'updates' as const,
     label: 'Atualizações',
     icon: RefreshCw,
   },
+  {
+    id: 'app' as const,
+    label: 'Sobre o App',
+    icon: Info,
+  },
 ];
 
-export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSidebarProps) {
+const SettingsSidebar = memo<SettingsSidebarProps>(({ activeSection, onSectionChange }) => {
   return (
     <div 
       className="w-44"
@@ -79,4 +90,8 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
       </nav>
     </div>
   );
-}
+});
+
+SettingsSidebar.displayName = 'SettingsSidebar';
+
+export { SettingsSidebar };

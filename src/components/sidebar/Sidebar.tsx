@@ -1,5 +1,4 @@
 import { memo } from 'react';
-import { SidebarHeader } from './SidebarHeader';
 import { SidebarContent } from './SidebarContent';
 import { FileNode } from '../../contexts/DirectoryContext';
 
@@ -8,7 +7,7 @@ interface SidebarProps {
   fileTree: FileNode;
   selectedFile: string | null;
   onFileSelect: (filePath: string) => void;
-  onOpenSettings: () => void;
+  onFileDeleted: (deletedPath: string) => void;
 }
 
 export const Sidebar = memo(function Sidebar({
@@ -16,27 +15,23 @@ export const Sidebar = memo(function Sidebar({
   fileTree,
   selectedFile,
   onFileSelect,
-  onOpenSettings,
+  onFileDeleted,
 }: SidebarProps) {
   
   return (
     <div 
-      className="theme-sidebar flex flex-col"
-      style={{
+      className="flex flex-col h-screen pt-12"
+      style={{ 
         width,
         backgroundColor: 'var(--theme-sidebar-background)',
         borderRight: '1px solid var(--theme-sidebar-border)'
       }}
     >
-      <SidebarHeader
-        projectName={fileTree.name}
-        onOpenSettings={onOpenSettings}
-      />
-      
       <SidebarContent
         fileTree={fileTree}
         selectedFile={selectedFile}
         onFileSelect={onFileSelect}
+        onFileDeleted={onFileDeleted}
       />
     </div>
   );

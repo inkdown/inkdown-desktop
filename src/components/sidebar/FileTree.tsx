@@ -1,28 +1,41 @@
-import { useState, useCallback, useRef, memo, useMemo } from "react";
+import { useState, useCallback, memo, useMemo, useRef } from "react";
 import { Folder, FolderOpen, FileText } from "lucide-react";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { FileNode, useDirectory } from "../../contexts/DirectoryContext";
 import { ContextMenu } from "../ui/overlays/ContextMenu";
 import { useFileOperations } from "../../hooks/useFileOperations";
 import { useEditing } from "../../contexts/EditingContext";
+import { useDragAndDrop } from "../../hooks/useDragAndDrop";
+
+// Constants moved outside component for better performance
+const WINDOWS_INVALID_CHARS = ['<', '>', ':', '"', '|', '?', '*'] as const;
+const RESERVED_NAMES = [
+  'CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 
+  'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4', 
+  'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
+] as const;
 
 interface FileTreeItemProps {
   node: FileNode;
   level: number;
   onFileSelect: (path: string) => void;
+  onFileDeleted: (deletedPath: string) => void;
   selectedFile: string | null;
   onRefresh: () => void;
   isWorkspaceRoot?: boolean;
   isNewlyCreated?: boolean;
+  dragHandlers: ReturnType<typeof useDragAndDrop>;
 }
 
 const FileTreeItem = memo(function FileTreeItem({
   node,
   level,
   onFileSelect,
+  onFileDeleted,
   selectedFile,
   onRefresh,
   isWorkspaceRoot = false,
+  dragHandlers,
 }: FileTreeItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
@@ -30,7 +43,11 @@ const FileTreeItem = memo(function FileTreeItem({
     y: number;
   } | null>(null);
   const [editValue, setEditValue] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [pathValidation, setPathValidation] = useState<{
+    isValid: boolean;
+    message: string;
+  }>({ isValid: true, message: "" });
+  const isInitializedRef = useRef(false);
 
   const {
     createDirectory,
@@ -41,18 +58,92 @@ const FileTreeItem = memo(function FileTreeItem({
   const { setEditingPath, isEditing } = useEditing();
 
   const isSelected = selectedFile === node.path;
-  const isRootDirectory = isWorkspaceRoot;
   const isCurrentlyEditing = isEditing(node.path);
+  const isDraggedOver = dragHandlers.isDraggedOver(node.path);
+  const isDragging = dragHandlers.isDragging(node.path);
 
-  const displayName = node.is_directory
-    ? node.name
-    : node.name.replace(/\.md$/, "");
+  // Memoize displayName to avoid regex on every render
+  const displayName = useMemo(() => 
+    node.is_directory ? node.name : node.name.replace(/\.md$/, ""),
+    [node.is_directory, node.name]
+  );
 
-  const containerStyle = {
+
+  const validatePath = useCallback((pathInput: string) => {
+    if (!pathInput.trim()) {
+      setPathValidation({ isValid: true, message: "" });
+      return;
+    }
+
+    const cleanPath = pathInput.trim();
+
+    if (cleanPath.includes('..')) {
+      setPathValidation({
+        isValid: false,
+        message: "Path traversal não é permitido"
+      });
+      return;
+    }
+
+    if (cleanPath.includes('/')) {
+      setPathValidation({
+        isValid: false,
+        message: "Não é possível usar '/' no nome"
+      });
+      return;
+    }
+
+    if (cleanPath.length > 100) {
+      setPathValidation({
+        isValid: false,
+        message: "Nome muito longo (máximo 100 caracteres)"
+      });
+      return;
+    }
+
+    const invalidChar = WINDOWS_INVALID_CHARS.find(char => cleanPath.includes(char));
+    if (invalidChar) {
+      setPathValidation({
+        isValid: false,
+        message: `Caractere inválido "${invalidChar}"`
+      });
+      return;
+    }
+
+    const namePart = cleanPath.split('.')[0].toUpperCase();
+    if (RESERVED_NAMES.includes(namePart as any)) {
+      setPathValidation({
+        isValid: false,
+        message: `Nome reservado "${cleanPath}"`
+      });
+      return;
+    }
+
+    if (cleanPath.endsWith('.') || cleanPath.endsWith(' ')) {
+      setPathValidation({
+        isValid: false,
+        message: `"${cleanPath}" não pode terminar com ponto ou espaço`
+      });
+      return;
+    }
+
+    setPathValidation({ isValid: true, message: "" });
+  }, []);
+
+  // Memoize styles to avoid recreation on every render
+  const containerStyle = useMemo(() => ({
     paddingLeft: `${level * 14 + 8}px`,
-  };
+  }), [level]);
 
-  const itemClasses = `file-tree-item flex items-center py-1 px-2 cursor-pointer rounded text-sm theme-transition ${isSelected ? "selected" : ""} ${node.is_directory ? "directory" : "file"}`;
+  const itemClasses = useMemo(() => {
+    const baseClasses = "file-tree-item flex items-center py-1 px-2 cursor-pointer rounded text-sm theme-transition";
+    const selectedClass = isSelected ? "selected" : "";
+    const typeClass = node.is_directory ? "directory" : "file";
+    const dragOverClass = isDraggedOver ? "drag-over" : "";
+    const draggingClass = isDragging ? "dragging" : "";
+    
+    return `${baseClasses} ${selectedClass} ${typeClass} ${dragOverClass} ${draggingClass}`.trim();
+  }, [isSelected, node.is_directory, isDraggedOver, isDragging]);
 
   const handleToggle = useCallback(
     (e: React.MouseEvent) => {
@@ -85,7 +176,9 @@ const FileTreeItem = memo(function FileTreeItem({
 
     const newPath = await createDirectory(node.path);
     if (newPath) {
-      requestAnimationFrame(() => setEditingPath(newPath));
+      setEditValue("");
+      isInitializedRef.current = false;
+      setTimeout(() => setEditingPath(newPath), 50);
     }
   }, [createDirectory, node.path, isExpanded, setEditingPath]);
 
@@ -94,7 +187,9 @@ const FileTreeItem = memo(function FileTreeItem({
 
     const newPath = await createFile(node.path);
     if (newPath) {
-      requestAnimationFrame(() => setEditingPath(newPath));
+      setEditValue("");
+      isInitializedRef.current = false;
+      setTimeout(() => setEditingPath(newPath), 50);
     }
   }, [createFile, node.path, isExpanded, setEditingPath]);
 
@@ -114,16 +209,10 @@ const FileTreeItem = memo(function FileTreeItem({
   }, [createFile, node.path, isExpanded, onFileSelect]);
 
   const handleRename = useCallback(() => {
-    const nameWithoutExt = node.is_directory
-      ? node.name
-      : node.name.replace(/\.md$/, "");
-    setEditValue(nameWithoutExt);
+    setEditValue(displayName);
+    isInitializedRef.current = false; // Allow ref callback to run for focus/select
     setEditingPath(node.path);
-    requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    });
-  }, [node.name, node.is_directory, node.path, setEditingPath]);
+  }, [node.path, setEditingPath, displayName]);
 
   const handleDelete = useCallback(async () => {
     try {
@@ -136,30 +225,34 @@ const FileTreeItem = memo(function FileTreeItem({
       );
 
       if (shouldDelete) {
-        await deleteFileOrDirectory(node.path);
+        const success = await deleteFileOrDirectory(node.path);
+        if (success) {
+          onFileDeleted(node.path);
+        }
       }
     } catch (error) {
       console.error("Erro ao confirmar exclusão:", error);
     }
-  }, [node.name, node.path, deleteFileOrDirectory]);
+  }, [node.name, node.path, deleteFileOrDirectory, onFileDeleted]);
 
   const handleEditSubmit = useCallback(async () => {
-    if (editValue.trim()) {
+    if (editValue.trim() && pathValidation.isValid && editValue.trim() !== displayName) {
       const oldPath = node.path;
       const newPath = await renameFileOrDirectory(oldPath, editValue.trim());
       if (newPath && !node.is_directory) {
-        // Auto-select the renamed file if it's not a directory
-        requestAnimationFrame(() => onFileSelect(newPath));
+        // Auto-select the file after successful rename/creation
+        setTimeout(() => onFileSelect(newPath), 0);
       }
     }
+    // Always reset state after submit attempt
     setEditingPath(null);
     setEditValue("");
-    // Clear initialization flag
-    if (inputRef.current) {
-      delete inputRef.current.dataset.initialized;
-    }
+    setPathValidation({ isValid: true, message: "" });
+    isInitializedRef.current = false;
   }, [
     editValue,
+    pathValidation.isValid,
+    displayName,
     node.path,
     node.is_directory,
     renameFileOrDirectory,
@@ -170,10 +263,8 @@ const FileTreeItem = memo(function FileTreeItem({
   const handleEditCancel = useCallback(() => {
     setEditingPath(null);
     setEditValue("");
-    // Clear initialization flag
-    if (inputRef.current) {
-      delete inputRef.current.dataset.initialized;
-    }
+    setPathValidation({ isValid: true, message: "" });
+    isInitializedRef.current = false;
   }, [setEditingPath]);
 
   const handleEditKeyDown = useCallback(
@@ -189,14 +280,18 @@ const FileTreeItem = memo(function FileTreeItem({
     [handleEditSubmit, handleEditCancel],
   );
 
-  const icon = node.is_directory ? (
-    isExpanded ? (
-      <FolderOpen size={16} className="folder-icon opacity-70" />
+  // Memoize icon to avoid recreation
+  const icon = useMemo(() => 
+    node.is_directory ? (
+      isExpanded ? (
+        <FolderOpen size={16} className="folder-icon opacity-70" />
+      ) : (
+        <Folder size={16} className="folder-icon opacity-70" />
+      )
     ) : (
-      <Folder size={16} className="folder-icon opacity-70" />
-    )
-  ) : (
-    <FileText size={16} className="file-icon opacity-60" />
+      <FileText size={16} className="file-icon opacity-60" />
+    ),
+    [node.is_directory, isExpanded]
   );
 
   return (
@@ -204,46 +299,71 @@ const FileTreeItem = memo(function FileTreeItem({
       <div
         className={itemClasses}
         style={containerStyle}
+        draggable={!isWorkspaceRoot && !isCurrentlyEditing}
         onClick={node.is_directory ? handleToggle : handleSelect}
         onContextMenu={handleContextMenu}
+        onDragStart={(e) => dragHandlers.handleDragStart(e, node.path, node.is_directory, node.name)}
+        onDragEnd={dragHandlers.handleDragEnd}
+        onDragEnter={(e) => dragHandlers.handleDragEnter(e, node.path, node.is_directory)}
+        onDragLeave={dragHandlers.handleDragLeave}
+        onDragOver={(e) => dragHandlers.handleDragOver(e, node.path, node.is_directory)}
+        onDrop={(e) => dragHandlers.handleDrop(e, node.path, node.is_directory)}
       >
 
         <span className="mr-2">{icon}</span>
 
         {isCurrentlyEditing ? (
-          <input
-            ref={(el) => {
-              if (el && !editValue && !el.dataset.initialized) {
-                // Initialize value and focus when input is first rendered
-                const nameWithoutExt = node.is_directory
-                  ? node.name
-                  : node.name.replace(/\.md$/, "");
-                setEditValue(nameWithoutExt);
-                el.dataset.initialized = "true";
-                requestAnimationFrame(() => {
-                  el.focus();
-                  el.select();
-                });
-              }
-            }}
-            type="text"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onKeyDown={handleEditKeyDown}
-            onBlur={handleEditSubmit}
-            className="flex-1 text-sm theme-input rounded px-1 py-0.5 theme-focus-ring"
-            onClick={(e) => e.stopPropagation()}
-          />
+          <div className="flex-1">
+            <input
+              ref={(el) => {
+                if (el && !isInitializedRef.current) {
+                  // Initialize value if empty (for new files/folders)
+                  if (!editValue) {
+                    setEditValue(displayName);
+                  }
+                  // Always focus and select when input mounts
+                  setTimeout(() => {
+                    if (el.isConnected) { 
+                      el.focus();
+                      el.select();
+                    }
+                  }, 50);
+                  isInitializedRef.current = true;
+                }
+              }}
+              type="text"
+              value={editValue}
+              onChange={(e) => {
+                setEditValue(e.target.value);
+                validatePath(e.target.value);
+              }}
+              onKeyDown={handleEditKeyDown}
+              onBlur={handleEditSubmit}
+              className="w-full text-sm theme-input rounded px-1 py-0.5 theme-focus-ring"
+              style={{
+                borderColor: !pathValidation.isValid && editValue.trim() ? "var(--theme-destructive)" : undefined,
+                opacity: !pathValidation.isValid && editValue.trim() ? 0.7 : 1,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+            {!pathValidation.isValid && editValue.trim() && (
+              <div 
+                className="mt-1 text-xs px-1 py-0.5 rounded border opacity-80"
+                style={{
+                  backgroundColor: "var(--theme-destructive)",
+                  color: "var(--theme-destructive-foreground)",
+                  borderColor: "var(--theme-destructive)",
+                  fontSize: "10px",
+                }}
+              >
+                {pathValidation.message}
+              </div>
+            )}
+          </div>
         ) : (
           <span
             className={`text-sm truncate flex-1 filename ${isSelected ? "font-medium" : "font-normal"}`}
             title={displayName}
-            ref={() => {
-              // Clear edit value when not editing to ensure fresh state next time
-              if (editValue && !isCurrentlyEditing) {
-                setEditValue("");
-              }
-            }}
           >
             {displayName}
           </span>
@@ -258,9 +378,11 @@ const FileTreeItem = memo(function FileTreeItem({
               node={child}
               level={level + 1}
               onFileSelect={onFileSelect}
+              onFileDeleted={onFileDeleted}
               selectedFile={selectedFile}
               onRefresh={onRefresh}
               isWorkspaceRoot={false}
+              dragHandlers={dragHandlers}
             />
           ))}
         </div>
@@ -274,10 +396,10 @@ const FileTreeItem = memo(function FileTreeItem({
           onCreateFolder={handleCreateFolder}
           onCreateFile={handleCreateFile}
           onCreateDailyNote={handleCreateDailyNote}
-          onRename={!isRootDirectory ? handleRename : undefined}
-          onDelete={!isRootDirectory ? handleDelete : undefined}
+          onRename={!isWorkspaceRoot ? handleRename : undefined}
+          onDelete={!isWorkspaceRoot ? handleDelete : undefined}
           isDirectory={node.is_directory}
-          isRootDirectory={isRootDirectory}
+          isRootDirectory={isWorkspaceRoot}
         />
       )}
     </div>
@@ -287,6 +409,7 @@ const FileTreeItem = memo(function FileTreeItem({
 interface FileTreeProps {
   fileTree: FileNode;
   onFileSelect: (path: string) => void;
+  onFileDeleted: (deletedPath: string) => void;
   selectedFile: string | null;
   className?: string;
 }
@@ -294,6 +417,7 @@ interface FileTreeProps {
 export const FileTree = memo(function FileTree({
   fileTree,
   onFileSelect,
+  onFileDeleted,
   selectedFile,
   className = "",
 }: FileTreeProps) {
@@ -304,6 +428,7 @@ export const FileTree = memo(function FileTree({
   const { createDirectory, createFile } = useFileOperations();
   const { setEditingPath } = useEditing();
   const { refreshFileTree } = useDirectory();
+  const dragHandlers = useDragAndDrop(onFileSelect);
 
   const handleRefresh = useCallback(() => {
     refreshFileTree(); // Force refresh when manually triggered
@@ -321,6 +446,47 @@ export const FileTree = memo(function FileTree({
     }
   }, []);
 
+  const handleEmptyAreaDragOver = useCallback((e: React.DragEvent) => {
+    const target = e.target as HTMLElement;
+    const isFileTreeItem = target.closest(".file-tree-item");
+    
+    if (!isFileTreeItem && dragHandlers.draggedItem) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      dragHandlers.handleDragOver(e, fileTree.path, true);
+    }
+  }, [dragHandlers, fileTree.path]);
+
+  const handleEmptyAreaDrop = useCallback((e: React.DragEvent) => {
+    const target = e.target as HTMLElement;
+    const isFileTreeItem = target.closest(".file-tree-item");
+    
+    if (!isFileTreeItem && dragHandlers.draggedItem) {
+      e.preventDefault();
+      dragHandlers.handleDrop(e, fileTree.path, true);
+    }
+  }, [dragHandlers, fileTree.path]);
+
+  const handleEmptyAreaDragEnter = useCallback((e: React.DragEvent) => {
+    const target = e.target as HTMLElement;
+    const isFileTreeItem = target.closest(".file-tree-item");
+    
+    if (!isFileTreeItem && dragHandlers.draggedItem) {
+      e.preventDefault();
+      dragHandlers.handleDragEnter(e, fileTree.path, true);
+    }
+  }, [dragHandlers, fileTree.path]);
+
+  const handleEmptyAreaDragLeave = useCallback((e: React.DragEvent) => {
+    const target = e.target as HTMLElement;
+    const isFileTreeItem = target.closest(".file-tree-item");
+    
+    if (!isFileTreeItem && dragHandlers.draggedItem) {
+      e.preventDefault();
+      dragHandlers.handleDragLeave(e);
+    }
+  }, [dragHandlers]);
+
   const closeContextMenu = useCallback(() => {
     setContextMenu(null);
   }, []);
@@ -328,7 +494,8 @@ export const FileTree = memo(function FileTree({
   const handleCreateFolder = useCallback(async () => {
     const newPath = await createDirectory(fileTree.path);
     if (newPath) {
-      requestAnimationFrame(() => setEditingPath(newPath));
+      // Use longer setTimeout for Windows compatibility with focus issues
+      setTimeout(() => setEditingPath(newPath), 50);
     }
     closeContextMenu();
   }, [createDirectory, fileTree.path, setEditingPath, closeContextMenu]);
@@ -336,7 +503,7 @@ export const FileTree = memo(function FileTree({
   const handleCreateFile = useCallback(async () => {
     const newPath = await createFile(fileTree.path);
     if (newPath) {
-      requestAnimationFrame(() => setEditingPath(newPath));
+      setTimeout(() => setEditingPath(newPath), 50);
     }
     closeContextMenu();
   }, [createFile, fileTree.path, setEditingPath, closeContextMenu]);
@@ -353,42 +520,53 @@ export const FileTree = memo(function FileTree({
     closeContextMenu();
   }, [createFile, fileTree.path, onFileSelect, closeContextMenu]);
 
+  // Memoize workspace drop classes
+  const workspaceDropClasses = useMemo(() => {
+    const baseClasses = `h-full overflow-auto theme-scrollbar ${className}`;
+    const dragOverClass = dragHandlers.isDraggedOver(fileTree.path) ? "workspace-drag-over" : "";
+    return `${baseClasses} ${dragOverClass}`.trim();
+  }, [className, dragHandlers, fileTree.path]);
+
   return (
     <div
-      className={`h-full overflow-auto theme-scrollbar ${className}`}
+      className={workspaceDropClasses}
       onContextMenu={handleEmptyAreaContextMenu}
+      onDragOver={handleEmptyAreaDragOver}
+      onDrop={handleEmptyAreaDrop}
+      onDragEnter={handleEmptyAreaDragEnter}
+      onDragLeave={handleEmptyAreaDragLeave}
     >
       <div className="p-2 pb-20">
         <div className="explorer-label text-xs font-medium uppercase tracking-wide mb-2 px-2 opacity-70">
           Explorer
         </div>
-        {useMemo(() => {
-          if (!fileTree.children) {
-            return (
-              <FileTreeItem
-                key={fileTree.path}
-                node={fileTree}
-                level={0}
-                onFileSelect={onFileSelect}
-                selectedFile={selectedFile}
-                onRefresh={handleRefresh}
-                isWorkspaceRoot={true}
-              />
-            );
-          }
-
-          return fileTree.children.map((child) => (
+        {!fileTree.children ? (
+          <FileTreeItem
+            key={fileTree.path}
+            node={fileTree}
+            level={0}
+            onFileSelect={onFileSelect}
+            onFileDeleted={onFileDeleted}
+            selectedFile={selectedFile}
+            onRefresh={handleRefresh}
+            isWorkspaceRoot={true}
+            dragHandlers={dragHandlers}
+          />
+        ) : (
+          fileTree.children.map((child) => (
             <FileTreeItem
               key={child.path}
               node={child}
               level={0}
               onFileSelect={onFileSelect}
+              onFileDeleted={onFileDeleted}
               selectedFile={selectedFile}
               onRefresh={handleRefresh}
               isWorkspaceRoot={false}
+              dragHandlers={dragHandlers}
             />
-          ));
-        }, [fileTree, onFileSelect, selectedFile, handleRefresh])}
+          ))
+        )}
       </div>
 
       {contextMenu && (

@@ -1,4 +1,4 @@
-import { useRef, forwardRef, useImperativeHandle, useEffect } from 'react';
+import { useRef, forwardRef, useImperativeHandle, useEffect, useMemo, useCallback } from 'react';
 import { Editor, EditorConfig, EditorStateInfo } from './core/Editor';
 import { MarkdownPreview } from './preview/MarkdownPreview';
 import { useAppearance } from '../../contexts/AppearanceContext';
@@ -52,36 +52,57 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
     vimMode: configVimMode, 
     showLineNumbers: configShowLineNumbers, 
     highlightCurrentLine: configHighlightCurrentLine, 
-    readOnly: configReadOnly, 
+    readOnly: configReadOnly,
     fontSize: configFontSize, 
-    fontFamily: configFontFamily 
+    fontFamily: configFontFamily,
+    pasteUrlsAsLinks: configPasteUrlsAsLinks 
   } = useAppearance();
   
   const finalTheme: 'light' | 'dark' = themeName || effectiveTheme;
 
-  const initializeEditor = () => {
+  // Memoize config to prevent unnecessary recreations
+  const editorConfig = useMemo((): EditorConfig => ({
+    container: editorContainerRef.current!,
+    content: initialContent,
+    readOnly: configReadOnly ?? readOnly ?? false,
+    theme: finalTheme,
+    markdownShortcuts: true,
+    githubMarkdown: false,
+    vim: configVimMode ?? plugins.includes('vim'),
+    showLineNumbers: configShowLineNumbers ?? showLineNumbers ?? true,
+    highlightCurrentLine: configHighlightCurrentLine ?? highlightCurrentLine ?? true,
+    fontSize: configFontSize ?? fontSize ?? 14,
+    fontFamily: configFontFamily ?? fontFamily ?? 'Inter, system-ui, sans-serif',
+    pasteUrlsAsLinks: configPasteUrlsAsLinks,
+  }), [
+    initialContent,
+    configReadOnly, readOnly,
+    finalTheme,
+    configVimMode, plugins,
+    configShowLineNumbers, showLineNumbers,
+    configHighlightCurrentLine, highlightCurrentLine,
+    configFontSize, fontSize,
+    configFontFamily, fontFamily,
+    configPasteUrlsAsLinks
+  ]);
+
+  // Memoize handlers to prevent recreations
+  const handleStateChange = useCallback((state: EditorStateInfo) => {
+    onStateChange?.(state);
+    onContentChange?.(state.content);
+    if (previewRef.current) {
+      previewRef.current.updateFromContent(state.content);
+    }
+  }, [onStateChange, onContentChange]);
+
+  const initializeEditor = useCallback(() => {
     if (!editorContainerRef.current || isInitialized.current) return;
 
     try {
       const config: EditorConfig = {
+        ...editorConfig,
         container: editorContainerRef.current,
-        content: initialContent,
-        readOnly: configReadOnly ?? readOnly ?? false,
-        theme: finalTheme,
-        markdownShortcuts: true,
-        markdown: true,
-        vim: configVimMode ?? plugins.includes('vim'),
-        showLineNumbers: configShowLineNumbers ?? showLineNumbers ?? true,
-        highlightCurrentLine: configHighlightCurrentLine ?? highlightCurrentLine ?? true,
-        fontSize: configFontSize ?? fontSize ?? 14,
-        fontFamily: configFontFamily ?? fontFamily ?? 'Inter, system-ui, sans-serif',
-        onChange: (state) => {
-          onStateChange?.(state);
-          onContentChange?.(state.content);
-          if (previewRef.current) {
-            previewRef.current.updateFromContent(state.content);
-          }
-        },
+        onChange: handleStateChange,
       };
 
       editorRef.current = new Editor(config);
@@ -100,7 +121,7 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
     } catch (error) {
       onError?.(error as Error);
     }
-  };
+  }, [editorConfig, handleStateChange, showPreview, finalTheme, initialContent, onError]);
 
   useEffect(() => {
     initializeEditor();
@@ -118,21 +139,11 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
     };
   }, []);
 
-  // Otimização: usar refs para evitar re-execuções desnecessárias
-  const prevConfigRef = useRef({
-    theme: finalTheme,
-    vim: configVimMode,
-    showLineNumbers: configShowLineNumbers,
-    highlightCurrentLine: configHighlightCurrentLine,
-    readOnly: configReadOnly,
-    fontSize: configFontSize,
-    fontFamily: configFontFamily,
-  });
-
-  useEffect(() => {
-    if (!editorRef.current || !isInitialized.current) return;
-
-    const currentConfig = {
+  // Memoized config comparison for better performance
+  const configUpdateNeeded = useMemo(() => {
+    if (!isInitialized.current) return false;
+    
+    return {
       theme: finalTheme,
       vim: configVimMode,
       showLineNumbers: configShowLineNumbers,
@@ -140,12 +151,12 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
       readOnly: configReadOnly,
       fontSize: configFontSize,
       fontFamily: configFontFamily,
+      pasteUrlsAsLinks: configPasteUrlsAsLinks,
     };
+  }, [finalTheme, configVimMode, configShowLineNumbers, configHighlightCurrentLine, configReadOnly, configFontSize, configFontFamily, configPasteUrlsAsLinks]);
 
-    // Verificar se realmente mudou algo importante
-    const hasConfigChanged = Object.keys(currentConfig).some(
-      key => prevConfigRef.current[key as keyof typeof currentConfig] !== currentConfig[key as keyof typeof currentConfig]
-    );
+  useEffect(() => {
+    if (!editorRef.current || !isInitialized.current || !configUpdateNeeded) return;
 
     const hasContentChanged = initialContent !== editorRef.current.getContent();
     
@@ -153,18 +164,17 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
       editorRef.current.setContent(initialContent);
     }
 
-    if (hasConfigChanged) {
-      editorRef.current.updateConfig(currentConfig);
-      prevConfigRef.current = currentConfig;
-    }
+    editorRef.current.updateConfig(configUpdateNeeded);
 
-    if (previewRef.current && prevConfigRef.current.theme !== finalTheme) {
-      previewRef.current.setTheme(finalTheme);
+    if (previewRef.current) {
+      previewRef.current.updateConfig({
+        theme: finalTheme,
+      });
     }
-  }, [finalTheme, initialContent, configVimMode, configShowLineNumbers, configHighlightCurrentLine, configReadOnly, configFontSize, configFontFamily]);
+  }, [configUpdateNeeded, initialContent, finalTheme]);
 
-  // Effect to handle showPreview changes
-  useEffect(() => {
+  // Memoized preview effect handler
+  const handlePreviewToggle = useCallback(() => {
     if (!isInitialized.current) return;
 
     if (showPreview && !previewRef.current && previewContainerRef.current) {
@@ -205,7 +215,11 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
         });
       }
     }
-  }, [showPreview, finalTheme]);
+  }, [showPreview, finalTheme, initialContent]);
+
+  useEffect(() => {
+    handlePreviewToggle();
+  }, [handlePreviewToggle]);
 
 
   useImperativeHandle(ref, () => ({
@@ -214,40 +228,20 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
     focus: () => editorRef.current?.focus(),
   }), []);
 
-  const layoutStyle = {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    height: '100%',
-    position: 'relative' as const,
-  };
 
 
   return (
     <div className={`editor-wrapper ${className}`}>      
-      <div style={layoutStyle}>
+      <div className="flex flex-col h-full relative">
         <div
           ref={editorContainerRef}
-          className={`editor-container inkdown-editor cm-theme-${finalTheme}`}
-          style={{ 
-            backgroundColor: 'var(--inkdown-editor-bg)',
-            flex: 1,
-            display: showPreview ? 'none' : 'block'
-          }}
+          className={`editor-container inkdown-editor cm-theme-${finalTheme} flex-1 ${showPreview ? 'hidden' : 'block'}`}
+          style={{ backgroundColor: 'var(--inkdown-editor-bg)' }}
         />
         <div
           ref={previewContainerRef}
-          className="preview-container"
-          style={{ 
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 10,
-            display: showPreview ? 'block' : 'none',
-            backgroundColor: 'var(--inkdown-editor-bg)',
-            overflow: 'auto'
-          }}
+          className={`preview-container absolute inset-0 z-10 overflow-auto ${showPreview ? 'block' : 'hidden'}`}
+          style={{ backgroundColor: 'var(--inkdown-editor-bg)' }}
         />
       </div>
     </div>

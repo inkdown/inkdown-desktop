@@ -2,7 +2,15 @@ import { memo, useEffect } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, Square, X } from 'lucide-react';
 
-export const TitleBar = memo(function TitleBar() {
+interface TitleBarProps {
+  sidebarWidth?: number;
+  sidebarVisible?: boolean;
+}
+
+export const TitleBar = memo(function TitleBar({ 
+  sidebarWidth = 0, 
+  sidebarVisible = true 
+}: TitleBarProps) {
   useEffect(() => {
     const appWindow = getCurrentWindow();
 
@@ -25,10 +33,14 @@ export const TitleBar = memo(function TitleBar() {
     };
   }, []);
 
+  const titleBarStyle = {
+    left: sidebarVisible ? `${sidebarWidth}px` : '0',
+    width: sidebarVisible ? `calc(100% - ${sidebarWidth}px)` : '100%',
+  };
+
   return (
-    <div className="titlebar">
+    <div className="titlebar" style={titleBarStyle}>
       <div data-tauri-drag-region className="titlebar-drag-region">
-        <span className="titlebar-title">inkdown</span>
       </div>
       <div className="titlebar-controls">
         <button 

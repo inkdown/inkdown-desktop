@@ -56,12 +56,12 @@ export const ContextMenu = memo(function ContextMenu({
     // Add folder/file creation options for directories
     if (isDirectory) {
       items.push({
-        icon: <FolderPlus size={16} />,
+        icon: <FolderPlus size={15} />,
         label: "Nova Pasta",
         onClick: onCreateFolder,
       });
       items.push({
-        icon: <FileText size={16} />,
+        icon: <FileText size={15} />,
         label: "Nova Nota",
         onClick: onCreateFile,
       });
@@ -69,7 +69,7 @@ export const ContextMenu = memo(function ContextMenu({
       // Add daily note option for all directories
       if (onCreateDailyNote) {
         items.push({
-          icon: <Calendar size={16} />,
+          icon: <Calendar size={15} />,
           label: "Nota Diária",
           onClick: onCreateDailyNote,
         });
@@ -79,7 +79,7 @@ export const ContextMenu = memo(function ContextMenu({
     // Add rename option (not for root directories)
     if (onRename && !isRootDirectory) {
       items.push({
-        icon: <Edit size={16} />,
+        icon: <Edit size={15} />,
         label: "Renomear",
         onClick: onRename,
       });
@@ -88,7 +88,7 @@ export const ContextMenu = memo(function ContextMenu({
     // Add delete option (not for root directories)
     if (onDelete && !isRootDirectory) {
       items.push({
-        icon: <Trash2 size={16} />,
+        icon: <Trash2 size={15} />,
         label: "Excluir",
         onClick: onDelete,
         isDangerous: true,
@@ -136,7 +136,7 @@ export const ContextMenu = memo(function ContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 rounded-lg shadow-lg py-1 px-2"
+      className="fixed z-50 rounded-lg shadow-lg py-2 px-2"
       style={{
         left: x,
         top: y,
@@ -153,16 +153,14 @@ export const ContextMenu = memo(function ContextMenu({
             item.onClick();
             onClose();
           }}
-          className="w-full rounded-lg flex items-center px-2 py-2 text-sm text-left transition-colors whitespace-nowrap"
+          className="w-full text-xs hover:cursor-pointer rounded-lg flex items-center px-2 py-2 text-left transition-colors whitespace-nowrap"
           style={{
             color: (item as any).isDangerous
               ? "var(--theme-destructive)"
               : "var(--theme-foreground)",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = (item as any).isDangerous
-              ? "var(--theme-destructive-foreground)20"
-              : "var(--theme-muted)";
+            e.currentTarget.style.backgroundColor = "var(--theme-muted)"
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = "transparent";

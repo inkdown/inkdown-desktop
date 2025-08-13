@@ -424,6 +424,153 @@ pub fn rename_file_or_directory(old_path: String, new_name: String) -> Result<St
 }
 
 #[tauri::command]
+pub fn create_nested_path(workspace_path: String, path_input: String) -> Result<String, String> {
+    let workspace = windows_utils::validate_parent_path(&workspace_path)?;
+    
+    let sanitized_path = path_input.trim().replace("\\", "/");
+    
+    if sanitized_path.is_empty() {
+        return Err("Path cannot be empty".to_string());
+    }
+    
+    if sanitized_path.contains("..") {
+        return Err("Path traversal not allowed".to_string());
+    }
+    
+    let path_parts: Vec<&str> = sanitized_path.split('/').collect();
+    let mut current_path = workspace.clone();
+    
+    let is_directory = sanitized_path.ends_with('/');
+    let (dir_parts, file_name) = if is_directory {
+        (path_parts.as_slice(), None)
+    } else {
+        if let Some((file, dirs)) = path_parts.split_last() {
+            (dirs, Some(*file))
+        } else {
+            (path_parts.as_slice(), None)
+        }
+    };
+    
+    for part in dir_parts {
+        if !part.is_empty() {
+            let sanitized_part = windows_utils::sanitize_filename(part)?;
+            current_path = current_path.join(sanitized_part);
+            
+            if !current_path.exists() {
+                fs::create_dir_all(&current_path)
+                    .map_err(|e| format!("Failed to create directory {}: {}", current_path.display(), e))?;
+            }
+        }
+    }
+    
+    if let Some(file_name) = file_name {
+        if !file_name.is_empty() {
+            let sanitized_file = windows_utils::sanitize_filename(file_name)?;
+            let file_path = if sanitized_file.ends_with(".md") {
+                current_path.join(sanitized_file)
+            } else {
+                current_path.join(format!("{}.md", sanitized_file))
+            };
+            
+            windows_utils::validate_path_length(&file_path)?;
+            
+            let file_stem = file_path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("Nova Nota");
+            let template_content = format!("# {}\n\n", file_stem);
+            
+            fs::write(&file_path, &template_content)
+                .map_err(|e| format!("Failed to create file: {}", e))?;
+            
+            return match file_path.to_str() {
+                Some(path_str) => Ok(path_str.to_string()),
+                None => Ok(file_path.to_string_lossy().to_string()),
+            };
+        }
+    }
+    
+    match current_path.to_str() {
+        Some(path_str) => Ok(path_str.to_string()),
+        None => Ok(current_path.to_string_lossy().to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn move_file_or_directory(source_path: String, target_parent_path: String) -> Result<String, String> {
+    if source_path.contains("..") || target_parent_path.contains("..") {
+        return Err("Path traversal not allowed".to_string());
+    }
+
+    let source_path_obj = Path::new(&source_path);
+    let target_parent_obj = Path::new(&target_parent_path);
+
+    let canonical_source = source_path_obj
+        .canonicalize()
+        .map_err(|e| format!("Invalid source path or path does not exist: {}", e))?;
+
+    let canonical_target_parent = target_parent_obj
+        .canonicalize()
+        .map_err(|e| format!("Invalid target parent path or path does not exist: {}", e))?;
+
+    if !canonical_target_parent.is_dir() {
+        return Err("Target parent must be a directory".to_string());
+    }
+
+    // Prevent moving to itself or its subdirectory
+    if canonical_source == canonical_target_parent {
+        return Err("Cannot move to the same location".to_string());
+    }
+
+    // Check if trying to move a directory into itself or its subdirectory
+    if canonical_source.is_dir() && canonical_target_parent.starts_with(&canonical_source) {
+        return Err("Cannot move directory into itself or its subdirectory".to_string());
+    }
+
+    let file_name = canonical_source
+        .file_name()
+        .ok_or("Cannot determine file name".to_string())?;
+
+    let target_path = canonical_target_parent.join(file_name);
+
+    if target_path.exists() {
+        return Err("A file or directory with this name already exists in the target location".to_string());
+    }
+
+    windows_utils::validate_path_length(&target_path)?;
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(metadata) = canonical_source.metadata() {
+            if metadata.permissions().readonly() {
+                let mut perms = metadata.permissions();
+                perms.set_readonly(false);
+                let _ = fs::set_permissions(&canonical_source, perms);
+            }
+        }
+    }
+
+    fs::rename(&canonical_source, &target_path).map_err(|e| {
+        #[cfg(target_os = "windows")]
+        {
+            if let Ok(metadata) = canonical_source.metadata() {
+                if !metadata.permissions().readonly() {
+                    let mut perms = metadata.permissions();
+                    perms.set_readonly(true);
+                    let _ = fs::set_permissions(&canonical_source, perms);
+                }
+            }
+        }
+        format!("Failed to move: {}", e)
+    })?;
+
+    match target_path.to_str() {
+        Some(path_str) => Ok(path_str.to_string()),
+        None => Ok(target_path.to_string_lossy().to_string()),
+    }
+}
+
+#[tauri::command]
 pub fn get_file_metadata(file_path: String) -> Result<serde_json::Value, String> {
     let path = Path::new(&file_path);
 

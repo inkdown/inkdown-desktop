@@ -149,7 +149,6 @@ export const WindowContent = memo(function WindowContent({
     return (
       <div 
         className="flex-1 flex items-center justify-center"
-        style={{ backgroundColor: 'var(--theme-sidebar-background)' }}
       >
         <div className="text-center">
           <h2 className="text-xl font-semibold theme-text-primary mb-2">
@@ -177,7 +176,6 @@ export const WindowContent = memo(function WindowContent({
     return (
       <div 
         className="flex-1 flex items-center justify-center"
-        style={{ backgroundColor: 'var(--theme-sidebar-background)' }}
       >
         <div className="text-center">
           <div
@@ -193,7 +191,7 @@ export const WindowContent = memo(function WindowContent({
 
 
   return (
-    <div className="flex-1 theme-card relative flex flex-col overflow-auto">
+    <div className="flex-1 relative flex flex-col overflow-auto">
       {isModified && (
         <div className="absolute top-2 right-2 z-10">
           <div
@@ -210,9 +208,6 @@ export const WindowContent = memo(function WindowContent({
 
       <div
         className="px-4 py-3 flex items-center justify-between"
-        style={{
-          backgroundColor: "var(--inkdown-editor-bg)",
-        }}
       >
         <Title
           filePath={selectedFile}

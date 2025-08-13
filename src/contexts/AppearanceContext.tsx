@@ -21,6 +21,8 @@ interface AppearanceState {
   showLineNumbers: boolean;
   highlightCurrentLine: boolean;
   readOnly: boolean;
+  githubMarkdown: boolean;
+  pasteUrlsAsLinks: boolean;
   effectiveTheme: "light" | "dark";
   customThemes: CustomTheme[];
   currentCustomThemeId: string | null;
@@ -35,6 +37,8 @@ type AppearanceAction =
   | { type: "SET_LINE_NUMBERS"; payload: boolean }
   | { type: "SET_HIGHLIGHT_LINE"; payload: boolean }
   | { type: "SET_READ_ONLY"; payload: boolean }
+  | { type: "SET_GITHUB_MARKDOWN"; payload: boolean }
+  | { type: "SET_PASTE_URLS_AS_LINKS"; payload: boolean }
   | { type: "SET_EFFECTIVE_THEME"; payload: "light" | "dark" }
   | { type: "SET_CUSTOM_THEMES"; payload: CustomTheme[] }
   | { type: "SET_CUSTOM_THEME_LOADING"; payload: boolean }
@@ -49,6 +53,8 @@ const initialState: AppearanceState = {
   showLineNumbers: true,
   highlightCurrentLine: true,
   readOnly: false,
+  githubMarkdown: false,
+  pasteUrlsAsLinks: true,
   effectiveTheme: "light",
   customThemes: [],
   currentCustomThemeId: null,
@@ -74,6 +80,10 @@ function appearanceReducer(
       return { ...state, highlightCurrentLine: action.payload };
     case "SET_READ_ONLY":
       return { ...state, readOnly: action.payload };
+    case "SET_GITHUB_MARKDOWN":
+      return { ...state, githubMarkdown: action.payload };
+    case "SET_PASTE_URLS_AS_LINKS":
+      return { ...state, pasteUrlsAsLinks: action.payload };
     case "SET_EFFECTIVE_THEME":
       return { ...state, effectiveTheme: action.payload };
     case "SET_CUSTOM_THEMES":
@@ -101,6 +111,8 @@ interface AppearanceContextType extends AppearanceState {
     showLineNumbers?: boolean;
     highlightCurrentLine?: boolean;
     readOnly?: boolean;
+    githubMarkdown?: boolean;
+    pasteUrlsAsLinks?: boolean;
   }) => Promise<void>;
   refreshCustomThemes: () => Promise<void>;
   applyCustomTheme: (themeId: string) => Promise<void>;
@@ -127,14 +139,12 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
   const [state, dispatch] = useReducer(appearanceReducer, initialState);
   const themeAppliedRef = useRef<string | null>(null);
 
-  // Apply theme to DOM
   const applyThemeToDOM = useCallback(
     (themeId: string, isCustom: boolean = false) => {
       if (typeof document === "undefined") return;
 
       const root = document.documentElement;
 
-      // Clean existing
       root.className = root.className.replace(/theme-\w+/g, "");
       const existingStyle = document.getElementById("custom-theme-style");
       if (existingStyle) existingStyle.remove();
@@ -155,7 +165,6 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     [],
   );
 
-  // Sync from config
   useEffect(() => {
     if (appearanceConfig || workspaceConfig) {
       const combinedConfig = {
@@ -167,6 +176,8 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
         showLineNumbers: workspaceConfig?.showLineNumbers !== false,
         highlightCurrentLine: workspaceConfig?.highlightCurrentLine !== false,
         readOnly: workspaceConfig?.readOnly || false,
+        githubMarkdown: workspaceConfig?.githubMarkdown || false,
+        pasteUrlsAsLinks: workspaceConfig?.pasteUrlsAsLinks !== false,
       };
 
       dispatch({
@@ -183,7 +194,6 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     }
   }, [appearanceConfig, workspaceConfig]);
 
-  // Calculate effective theme
   useEffect(() => {
     const calculateTheme = () => {
       if (state.themeMode === "auto") {
@@ -215,45 +225,60 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     }
   }, [state.themeMode, state.effectiveTheme]);
 
-  // Apply theme styles with debouncing
   const applyStylesRef = useRef<number>();
+
+  const previousStylesRef = useRef({
+    fontSize: state.fontSize,
+    fontFamily: state.fontFamily,
+    effectiveTheme: state.effectiveTheme,
+    customThemeId: state.currentCustomThemeId,
+  });
+  
   useEffect(() => {
     if (typeof document === "undefined") return;
+    
+    const current = {
+      fontSize: state.fontSize,
+      fontFamily: state.fontFamily,
+      effectiveTheme: state.effectiveTheme,
+      customThemeId: state.currentCustomThemeId,
+    };
+    
+    const hasChanged = Object.keys(current).some(
+      key => current[key as keyof typeof current] !== previousStylesRef.current[key as keyof typeof current]
+    );
+    
+    if (!hasChanged) return;
 
-    // Debounce style applications to avoid too many DOM updates
-    clearTimeout(applyStylesRef.current);
-    applyStylesRef.current = setTimeout(() => {
+    if (applyStylesRef.current) {
+      cancelAnimationFrame(applyStylesRef.current);
+    }
+    
+    applyStylesRef.current = requestAnimationFrame(() => {
       const root = document.documentElement;
-      root.style.setProperty(
-        "--inkdown-editor-font-size",
-        `${state.fontSize}px`,
-      );
-      root.style.setProperty("--inkdown-editor-font-family", state.fontFamily);
-
-      if (
-        state.fontFamily.includes("Mono") ||
-        state.fontFamily.includes("monospace")
-      ) {
-        root.style.setProperty(
-          "--inkdown-editor-mono-font-family",
-          state.fontFamily,
-        );
+      
+      if (previousStylesRef.current.fontSize !== current.fontSize) {
+        root.style.setProperty("--inkdown-editor-font-size", `${current.fontSize}px`);
+      }
+      
+      if (previousStylesRef.current.fontFamily !== current.fontFamily) {
+        root.style.setProperty("--inkdown-editor-font-family", current.fontFamily);
+        
+        if (current.fontFamily.includes("Mono") || current.fontFamily.includes("monospace")) {
+          root.style.setProperty("--inkdown-editor-mono-font-family", current.fontFamily);
+        }
       }
 
-      // Only apply default theme if no custom theme
-      if (!state.currentCustomThemeId) {
-        applyThemeToDOM(state.effectiveTheme);
+      if (!current.customThemeId && 
+          (previousStylesRef.current.effectiveTheme !== current.effectiveTheme || 
+           previousStylesRef.current.customThemeId !== current.customThemeId)) {
+        applyThemeToDOM(current.effectiveTheme);
       }
-    }, 16); // Debounce to next frame
-  }, [
-    state.effectiveTheme,
-    state.fontSize,
-    state.fontFamily,
-    state.currentCustomThemeId,
-    applyThemeToDOM,
-  ]);
+      
+      previousStylesRef.current = current;
+    });
+  }, [state.effectiveTheme, state.fontSize, state.fontFamily, state.currentCustomThemeId, applyThemeToDOM]);
 
-  // Config change event
   useEffect(() => {
     if (typeof window === "undefined" || isLoading) return;
     window.dispatchEvent(
@@ -263,21 +288,15 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     );
   }, [appearanceConfig, workspaceConfig, isLoading]);
 
-  // Ref para manter referência atual dos temas
   const customThemesRef = useRef(state.customThemes);
-  useEffect(() => {
-    customThemesRef.current = state.customThemes;
-  }, [state.customThemes]);
+  customThemesRef.current = state.customThemes; 
 
-  // Função estável para converter tema
   const handleThemeDownloaded = useCallback((event: CustomEvent) => {
     const { theme } = event.detail;
     
-    // Verificar se tema já existe para evitar duplicatas
     const exists = customThemesRef.current.some(t => t.name === theme.name && t.author === theme.author);
     if (exists) return;
     
-    // Converter tema
     const convertedTheme: CustomTheme = {
       name: theme.name,
       author: theme.author,
@@ -296,16 +315,45 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     dispatch({ type: "SET_CUSTOM_THEMES", payload: updatedThemes });
   }, []);
 
-  // Listen for new theme downloads com dependência estável
+  const removeCustomTheme = useCallback(() => {
+    dispatch({ type: "SET_CURRENT_CUSTOM_THEME", payload: null });
+    applyThemeToDOM(state.effectiveTheme);
+
+    localStorage.removeItem("custom-theme-id");
+    updateAppearanceConfig({ "custom-theme": undefined }).catch(console.error);
+  }, [state.effectiveTheme, applyThemeToDOM, updateAppearanceConfig]);
+
+  const handleThemeDeleted = useCallback((event: CustomEvent) => {
+    const { theme } = event.detail;
+    const themeKey = `${theme.author}-${theme.name}`;
+    
+    const updatedThemes = customThemesRef.current.filter(t => 
+      `${t.author}-${t.name}` !== themeKey
+    );
+    dispatch({ type: "SET_CUSTOM_THEMES", payload: updatedThemes });
+    
+    if (state.currentCustomThemeId && 
+        updatedThemes.every(theme => 
+          !theme.variants.some(variant => variant.id === state.currentCustomThemeId)
+        )) {
+      removeCustomTheme();
+    }
+  }, [state.currentCustomThemeId, removeCustomTheme]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    window.addEventListener('inkdown-theme-downloaded', handleThemeDownloaded as EventListener);
+    const downloadListener = (event: Event) => handleThemeDownloaded(event as CustomEvent);
+    const deleteListener = (event: Event) => handleThemeDeleted(event as CustomEvent);
+    
+    window.addEventListener('inkdown-theme-downloaded', downloadListener);
+    window.addEventListener('inkdown-theme-deleted', deleteListener);
     
     return () => {
-      window.removeEventListener('inkdown-theme-downloaded', handleThemeDownloaded as EventListener);
+      window.removeEventListener('inkdown-theme-downloaded', downloadListener);
+      window.removeEventListener('inkdown-theme-deleted', deleteListener);
     };
-  }, [handleThemeDownloaded]);
+  }, [handleThemeDownloaded, handleThemeDeleted]); 
 
 
   const updateAppearance = useCallback(
@@ -314,7 +362,6 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
       fontSize?: number;
       fontFamily?: string;
     }) => {
-      // Update state
       if (updates.theme !== undefined) {
         dispatch({ type: "SET_THEME_MODE", payload: updates.theme });
         dispatch({ type: "SET_CURRENT_CUSTOM_THEME", payload: null });
@@ -325,7 +372,6 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
       if (updates.fontFamily !== undefined)
         dispatch({ type: "SET_FONT_FAMILY", payload: updates.fontFamily });
 
-      // Save config
       const configUpdates: any = {};
       if (updates.theme !== undefined) configUpdates.theme = updates.theme;
       if (updates.fontSize !== undefined)
@@ -341,7 +387,6 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
         }
       }
 
-      // Clear custom theme
       if (updates.theme !== undefined) {
         localStorage.removeItem("custom-theme-id");
         updateAppearanceConfig({ "custom-theme": undefined }).catch(
@@ -358,6 +403,8 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
       showLineNumbers?: boolean;
       highlightCurrentLine?: boolean;
       readOnly?: boolean;
+      githubMarkdown?: boolean;
+      pasteUrlsAsLinks?: boolean;
     }) => {
       if (updates.vimMode !== undefined)
         dispatch({ type: "SET_VIM_MODE", payload: updates.vimMode });
@@ -373,6 +420,10 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
         });
       if (updates.readOnly !== undefined)
         dispatch({ type: "SET_READ_ONLY", payload: updates.readOnly });
+      if (updates.githubMarkdown !== undefined)
+        dispatch({ type: "SET_GITHUB_MARKDOWN", payload: updates.githubMarkdown });
+      if (updates.pasteUrlsAsLinks !== undefined)
+        dispatch({ type: "SET_PASTE_URLS_AS_LINKS", payload: updates.pasteUrlsAsLinks });
 
       try {
         await updateWorkspaceConfig(updates);
@@ -406,14 +457,12 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
       let customThemes: CustomTheme[] = [];
       const cachedThemes = cacheUtils.getCustomThemes() || [];
       
-      // Sempre carregar do cache primeiro para performance
       if (cachedThemes.length > 0) {
         customThemes = cachedThemes.map(theme => 
           theme.variants ? theme : convertCommunityThemeToCustomTheme(theme)
         );
       }
       
-      // Carregar do Rust apenas se forçado ou cache vazio
       if (forceRefresh || customThemes.length === 0) {
         try {
           const rustThemes = await invoke<CustomTheme[]>("get_custom_themes");
@@ -423,7 +472,6 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
           customThemes = [...rustThemes, ...convertedCommunityThemes];
         } catch (err) {
           console.warn("Failed to load themes from Rust:", err);
-          // Se falhar, usar apenas temas do cache
           if (cachedThemes.length > 0) {
             customThemes = cachedThemes.map(theme => 
               theme.variants ? theme : convertCommunityThemeToCustomTheme(theme)
@@ -475,14 +523,6 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     },
     [state.currentCustomThemeId, applyThemeToDOM, updateAppearanceConfig, updateAppearance],
   );
-
-  const removeCustomTheme = useCallback(() => {
-    dispatch({ type: "SET_CURRENT_CUSTOM_THEME", payload: null });
-    applyThemeToDOM(state.effectiveTheme);
-
-    localStorage.removeItem("custom-theme-id");
-    updateAppearanceConfig({ "custom-theme": undefined }).catch(console.error);
-  }, [state.effectiveTheme, applyThemeToDOM, updateAppearanceConfig]);
 
   const applyTheme = useCallback(
     async (themeId: string) => {

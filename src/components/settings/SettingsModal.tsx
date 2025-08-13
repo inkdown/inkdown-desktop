@@ -1,13 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { X } from 'lucide-react';
 import { SettingsSidebar } from './SettingsSidebar';
 import { WorkspaceSettings } from './sections/WorkspaceSettings';
 import { AppearanceSettings } from './sections/AppearanceSettings';
 import { EditorSettings } from './sections/EditorSettings';
-import { PreferencesSettings } from './sections/PreferencesSettings';
-import { UpdateSettings } from './sections/UpdateSettings';
 
-export type SettingsSection = 'workspace' | 'appearance' | 'editor' | 'preferences' | 'updates';
+// Lazy load heavy components
+const PluginsSettings = lazy(() => import('./sections/PluginsSettings').then(m => ({ default: m.PluginsSettings })));
+const ShortcutsSettings = lazy(() => import('./sections/ShortcutsSettings').then(m => ({ default: m.ShortcutsSettings })));
+const UpdateSettings = lazy(() => import('./sections/UpdateSettings').then(m => ({ default: m.UpdateSettings })));
+const AppSettings = lazy(() => import('./sections/AppSettings').then(m => ({ default: m.AppSettings })));
+
+export type SettingsSection = 'workspace' | 'appearance' | 'editor' | 'preferences' | 'plugins' | 'updates' | 'app';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -18,23 +22,48 @@ interface SettingsModalProps {
 export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }: SettingsModalProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
 
+  // Memoize event handlers
+  const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  const handleSectionChange = useCallback((section: SettingsSection) => {
+    setActiveSection(section);
+  }, []);
+
+  const handleBackdropClick = useCallback((event: React.MouseEvent) => {
+    if (event.target === event.currentTarget) {
+      handleClose();
+    }
+  }, [handleClose]);
+
+  // Memoize key handler
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      handleClose();
+    }
+  }, [handleClose]);
+
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        onClose();
-      }
-    };
-
     document.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => document.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, [isOpen, onClose]);
+  }, [isOpen, handleKeyDown]);
 
-  if (!isOpen) return null;
+  // Loading component for Suspense
+  const LoadingFallback = useMemo(() => (
+    <div className="flex items-center justify-center py-8">
+      <div 
+        className="animate-spin rounded-full h-6 w-6 border-b-2"
+        style={{ borderColor: 'var(--text-accent)' }}
+      />
+    </div>
+  ), []);
 
-  const renderSection = () => {
+  // Memoize section rendering with lazy loading
+  const renderSection = useMemo(() => {
     switch (activeSection) {
       case 'workspace':
         return <WorkspaceSettings />;
@@ -43,20 +72,42 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
       case 'editor':
         return <EditorSettings />;
       case 'preferences':
-        return <PreferencesSettings />;
+        return (
+          <Suspense fallback={LoadingFallback}>
+            <ShortcutsSettings />
+          </Suspense>
+        );
+      case 'plugins':
+        return (
+          <Suspense fallback={LoadingFallback}>
+            <PluginsSettings />
+          </Suspense>
+        );
       case 'updates':
-        return <UpdateSettings />;
+        return (
+          <Suspense fallback={LoadingFallback}>
+            <UpdateSettings />
+          </Suspense>
+        );
+      case 'app':
+        return (
+          <Suspense fallback={LoadingFallback}>
+            <AppSettings />
+          </Suspense>
+        );
       default:
         return <WorkspaceSettings />;
     }
-  };
+  }, [activeSection, LoadingFallback]);
+
+  if (!isOpen) return null;
 
   return (
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ backgroundColor: 'var(--modal-overlay)' }}
     >
-      <div className="absolute inset-0" onClick={onClose} />
+      <div className="absolute inset-0" onClick={handleBackdropClick} />
       
       <div 
         className="relative rounded-lg shadow-xl w-[900px] h-[650px] max-w-[90vw] max-h-[85vh] flex overflow-hidden"
@@ -79,7 +130,7 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
             Configurações
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 rounded transition-colors hover:opacity-70"
             style={{ 
               color: 'var(--text-secondary)',
@@ -94,14 +145,16 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
         <div className="flex w-full pt-12">
           <SettingsSidebar
             activeSection={activeSection}
-            onSectionChange={setActiveSection}
+            onSectionChange={handleSectionChange}
           />
           
           <div className="flex-1 p-5 overflow-y-auto text-sm">
-            {renderSection()}
+            {renderSection}
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+export default SettingsModal;

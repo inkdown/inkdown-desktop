@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { cacheUtils } from '../../../utils/localStorage';
 
 interface ParseResult {
   html: string;
@@ -17,7 +18,7 @@ export class MarkdownPreview {
   private config: PreviewConfig;
   private updateTimeout?: number;
   private lastContent: string = '';
-  private lastHtml: string = '';
+  private lastHtml: string = '';  
 
   constructor(config: PreviewConfig) {
     this.config = config;
@@ -65,9 +66,17 @@ export class MarkdownPreview {
         return;
       }
 
-      const result: ParseResult = await invoke('parse_markdown_to_html', { 
-        markdown: content 
-      });
+      // Buscar configuração GFM do cache
+      const workspaceConfig = cacheUtils.getWorkspaceConfig();
+      const gfmEnabled = workspaceConfig?.githubMarkdown ?? false;
+      
+      console.log('🔍 Cache workspaceConfig:', workspaceConfig);
+      console.log('🔍 GFM Enabled from cache:', gfmEnabled);
+
+      // Chamar parser correto baseado na configuração do cache
+      const result: ParseResult = gfmEnabled 
+        ? await invoke('parse_markdown_gfm', { markdown: content })
+        : await invoke('parse_markdown_basic', { markdown: content });
 
       if (result.error) {
         console.error('Markdown parsing error:', result.error);
@@ -106,6 +115,14 @@ export class MarkdownPreview {
     this.config.theme = theme;
     // O tema agora é controlado através de CSS custom properties
     // Não precisamos alterar as classes
+  }
+
+  public updateConfig(config: Partial<PreviewConfig>): void {
+    Object.assign(this.config, config);
+    // Re-render current content with new config
+    if (this.lastContent) {
+      this.updateContent(this.lastContent);
+    }
   }
 
   public destroy(): void {

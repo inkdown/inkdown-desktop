@@ -2,7 +2,7 @@ name: Build and Release
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches:
       - main
 
@@ -160,6 +160,7 @@ jobs:
           case "${{ runner.os }}" in
             "Windows")
               bundle_dir="src-tauri/target/x86_64-pc-windows-msvc/release/bundle"
+              # For Windows, Tauri updater expects the .msi file in the URL, not .msi.sig
               installer_file=$(ls $bundle_dir/msi/*.msi 2>/dev/null | head -1)
               updater_file=$(ls $bundle_dir/msi/*.msi.sig 2>/dev/null | head -1)
               installer_name=$(basename "$installer_file" 2>/dev/null || echo "")
@@ -170,12 +171,14 @@ jobs:
               else
                 bundle_dir="src-tauri/target/x86_64-apple-darwin/release/bundle"
               fi
-              installer_file=$(ls $bundle_dir/dmg/*.dmg 2>/dev/null | head -1)
+              # For macOS, Tauri updater expects the .app.tar.gz file (not .dmg)
+              installer_file=$(ls $bundle_dir/macos/*.app.tar.gz 2>/dev/null | head -1)
               updater_file=$(ls $bundle_dir/macos/*.app.tar.gz.sig 2>/dev/null | head -1)
               installer_name=$(basename "$installer_file" 2>/dev/null || echo "")
               ;;
             "Linux")
               bundle_dir="src-tauri/target/release/bundle"
+              # For Linux, Tauri updater expects the .AppImage file
               installer_file=$(ls $bundle_dir/appimage/*.AppImage 2>/dev/null | head -1)
               updater_file=$(ls $bundle_dir/appimage/*.AppImage.sig 2>/dev/null | head -1)
               installer_name=$(basename "$installer_file" 2>/dev/null || echo "")
@@ -211,13 +214,15 @@ jobs:
                 --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
               ;;
             "macOS")
+              # Upload .dmg for manual installation
               aws s3 cp "$bundle_dir/dmg/" \
                 "s3://${{ secrets.R2_BUCKET_NAME }}/releases/$version/$target/$arch/" \
                 --recursive --exclude "*" --include "*.dmg" \
                 --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              # Upload .app.tar.gz and .app.tar.gz.sig for updater
               aws s3 cp "$bundle_dir/macos/" \
                 "s3://${{ secrets.R2_BUCKET_NAME }}/releases/$version/$target/$arch/" \
-                --recursive --exclude "*" --include "*.app.tar.gz.sig" \
+                --recursive --exclude "*" --include "*.app.tar.gz" --include "*.app.tar.gz.sig" \
                 --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
               ;;
             "Linux")
@@ -239,7 +244,7 @@ jobs:
               ;;
           esac
           
-          echo "✅ Installers uploaded to: releases/$version/$target/$arch/"
+          echo "Installers uploaded to: releases/$version/$target/$arch/"
         shell: bash
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -280,8 +285,79 @@ jobs:
             "s3://${{ secrets.R2_BUCKET_NAME }}/$target/$arch/latest.json" \
             --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
           
-          echo "✅ Updater manifest uploaded to: $target/$arch/latest.json"
-          echo "✅ Public URL: ${{ secrets.R2_PUBLIC_URL }}/$target/$arch/latest.json"
+          echo "Updater manifest uploaded to: $target/$arch/latest.json"
+          echo "Public URL: ${{ secrets.R2_PUBLIC_URL }}/$target/$arch/latest.json"
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      - name: Clean old releases
+        run: |
+          version="${{ steps.version.outputs.VERSION }}"
+          target="${{ matrix.target }}"
+          arch="${{ matrix.arch }}"
+          
+          echo "=== CLEANING OLD RELEASES ==="
+          echo "Current version: $version"
+          echo "Target: $target"
+          echo "Arch: $arch"
+          
+          # List all releases to see what we're working with
+          echo "=== EXISTING RELEASES ==="
+          aws s3 ls "s3://${{ secrets.R2_BUCKET_NAME }}/releases/" \
+            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com" \
+            --recursive || echo "No existing releases found"
+          
+          # Get list of all version directories (excluding current version and 0.1.0)
+          versions_to_delete=$(aws s3 ls "s3://${{ secrets.R2_BUCKET_NAME }}/releases/" \
+            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com" \
+            | grep "PRE " | awk '{print $2}' | sed 's/\///g' \
+            | grep -v "^$version$" | grep -v "^0\.1\.0$" || echo "")
+          
+          if [[ -n "$versions_to_delete" ]]; then
+            echo "=== VERSIONS TO DELETE ==="
+            echo "$versions_to_delete"
+            
+            # Delete old versions
+            for old_version in $versions_to_delete; do
+              echo "Deleting version: $old_version"
+              aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/releases/$old_version/" \
+                --recursive \
+                --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+            done
+            echo "Cleaned old releases"
+          else
+            echo "No old releases to clean"
+          fi
+          
+          # Clean old dev builds (keep only last 5 builds)
+          echo "=== CLEANING OLD DEV BUILDS ==="
+          dev_builds=$(aws s3 ls "s3://${{ secrets.R2_BUCKET_NAME }}/dev/" \
+            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com" \
+            | grep "PRE " | awk '{print $2}' | sed 's/\///g' | sort -r)
+          
+          if [[ -n "$dev_builds" ]]; then
+            # Keep only the 5 most recent dev builds
+            old_dev_builds=$(echo "$dev_builds" | tail -n +6)
+            
+            if [[ -n "$old_dev_builds" ]]; then
+              echo "=== OLD DEV BUILDS TO DELETE ==="
+              echo "$old_dev_builds"
+              
+              for old_build in $old_dev_builds; do
+                echo "Deleting dev build: $old_build"
+                aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/dev/$old_build/" \
+                  --recursive \
+                  --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              done
+              echo "Cleaned old dev builds"
+            else
+              echo "No old dev builds to clean (less than 5 builds)"
+            fi
+          else
+            echo "No dev builds found"
+          fi
         shell: bash
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -327,7 +403,7 @@ jobs:
               ;;
           esac
           
-          echo "✅ Development build uploaded to: dev/$datetime/$target/$arch/"
+          echo "Development build uploaded to: dev/$datetime/$target/$arch/"
         shell: bash
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
