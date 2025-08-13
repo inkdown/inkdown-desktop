@@ -26,7 +26,7 @@ interface DirectoryContextType {
   setDirectory: (path: string) => Promise<void>;
   clearDirectory: () => void;
   initializeWorkspace: () => Promise<void>;
-  refreshFileTree: () => Promise<void>;
+  refreshFileTree: (forceRefresh?: boolean, deletedPath?: string) => Promise<void>;
 }
 
 const DirectoryContext = createContext<DirectoryContextType | undefined>(
@@ -54,10 +54,8 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
     setError(null);
 
     try {
-      // Try to get workspace path from cache first
       let workspacePath = cacheUtils.getWorkspacePath();
 
-      // If not in cache, load from Rust config
       if (!workspacePath) {
         try {
           const configStr = await invoke<string>("load_workspace_config");
@@ -68,7 +66,6 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
             cacheUtils.setWorkspacePath(workspacePath);
           }
         } catch (error) {
-          // Fallback to old localStorage method
           const savedDirectory = localStorage.getItem("inkdown-directory");
           if (savedDirectory) {
             workspacePath = savedDirectory;
@@ -78,11 +75,12 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
       }
 
       if (workspacePath) {
+        setCurrentDirectory(workspacePath);
+        
         try {
           const result = await invoke<FileNode>("scan_directory", {
             path: workspacePath,
           });
-          setCurrentDirectory(workspacePath);
           setFileTree(result);
         } catch (err) {
           const errorMessage =
@@ -106,14 +104,17 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
       setCurrentDirectory(path);
       setFileTree(result);
 
-      // Save to Tauri config
       try {
         await invoke("save_workspace_config", { workspacePath: path });
+        // Atualizar cache local para manter sincronização
+        cacheUtils.setWorkspacePath(path);
         // Remove localStorage fallback if Tauri save was successful
         localStorage.removeItem("inkdown-directory");
       } catch (saveError) {
         console.warn("Failed to save workspace config to Tauri, using localStorage fallback:", saveError);
         localStorage.setItem("inkdown-directory", path);
+        // Ainda assim atualizar cache se possível
+        cacheUtils.setWorkspacePath(path);
       }
     } catch (err) {
       setError(
@@ -124,14 +125,23 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
     }
   }, []);
 
-  const refreshFileTree = useCallback(async (forceRefresh = false) => {
+  const refreshFileTree = useCallback(async (forceRefresh = false, deletedPath?: string) => {
     if (!currentDirectory) return;
+
+    // Se um arquivo foi deletado, limpar cache relacionado
+    if (deletedPath) {
+      const parentDir = deletedPath.substring(0, deletedPath.lastIndexOf('/'));
+      fileTreeCacheRef.current.delete(parentDir);
+      fileTreeCacheRef.current.delete(currentDirectory);
+      lastRefreshRef.current.delete(parentDir);
+      lastRefreshRef.current.delete(currentDirectory);
+    }
 
     // Cache with 1 second debounce to avoid excessive refreshes
     const lastRefresh = lastRefreshRef.current.get(currentDirectory) || 0;
     const now = Date.now();
     
-    if (!forceRefresh && now - lastRefresh < 1000) {
+    if (!forceRefresh && !deletedPath && now - lastRefresh < 1000) {
       const cached = fileTreeCacheRef.current.get(currentDirectory);
       if (cached) {
         setFileTree(cached);
@@ -144,7 +154,12 @@ export function DirectoryProvider({ children }: DirectoryProviderProps) {
         path: currentDirectory,
       });
       
-      // Update cache
+      if (fileTreeCacheRef.current.size > 5) {
+        const oldestKey = Array.from(fileTreeCacheRef.current.keys())[0];
+        fileTreeCacheRef.current.delete(oldestKey);
+        lastRefreshRef.current.delete(oldestKey);
+      }
+      
       fileTreeCacheRef.current.set(currentDirectory, result);
       lastRefreshRef.current.set(currentDirectory, now);
       

@@ -42,8 +42,10 @@ pub fn run() {
             commands::files::write_file,
             commands::files::create_file,
             commands::files::create_directory,
+            commands::files::create_nested_path,
             commands::files::delete_file_or_directory,
             commands::files::rename_file_or_directory,
+            commands::files::move_file_or_directory,
             commands::files::get_file_metadata,
             // Search commands
             commands::search::scan_directory,
@@ -54,7 +56,8 @@ pub fn run() {
             commands::themes::get_theme_css,
             commands::themes::search_community_themes,
             commands::themes::download_community_theme,
-            commands::themes::get_installed_theme_names
+            commands::themes::get_installed_theme_names,
+            commands::themes::delete_community_theme
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

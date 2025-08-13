@@ -68,8 +68,13 @@ impl BasicMarkdownParser {
             return Vec::new();
         }
 
-        if self.html_cache.len() > 64 {
-            self.html_cache.clear();
+        // More intelligent cache management
+        if self.html_cache.len() > 128 {
+            let target_size = self.html_cache.len() / 2;
+            let keys_to_remove: Vec<_> = self.html_cache.keys().take(target_size).copied().collect();
+            for key in keys_to_remove {
+                self.html_cache.remove(&key);
+            }
         }
 
         let mut tokens = Vec::with_capacity(markdown.len() / 80);
@@ -136,15 +141,21 @@ impl BasicMarkdownParser {
     fn is_list_line(&self, line: &str) -> bool {
         let trimmed = line.trim_start();
         
-        // Unordered lists
-        if trimmed.starts_with("- ") || trimmed.starts_with("* ") || trimmed.starts_with("+ ") {
+        // Quick check for minimum length
+        if trimmed.len() < 2 {
+            return false;
+        }
+        
+        // Unordered lists - use bytes for faster comparison
+        let first_two = trimmed.as_bytes();
+        if (first_two[0] == b'-' || first_two[0] == b'*' || first_two[0] == b'+') && first_two[1] == b' ' {
             return true;
         }
         
-        // Ordered lists
-        if let Some(pos) = trimmed.find(". ") {
-            if pos > 0 && pos <= 3 {
-                return trimmed[..pos].chars().all(|c| c.is_ascii_digit());
+        // Ordered lists - optimized for common case
+        if let Some(dot_pos) = trimmed.find(". ") {
+            if dot_pos > 0 && dot_pos <= 3 {
+                return trimmed.as_bytes()[..dot_pos].iter().all(|&b| b.is_ascii_digit());
             }
         }
         
@@ -286,8 +297,14 @@ impl BasicMarkdownParser {
             return false;
         }
 
-        let chars: Vec<char> = trimmed.chars().collect();
-        (chars.iter().all(|&c| c == '-') || chars.iter().all(|&c| c == '*')) && chars.len() >= 3
+        // Use bytes for faster comparison
+        let bytes = trimmed.as_bytes();
+        let first_char = bytes[0];
+        if !matches!(first_char, b'-' | b'*') {
+            return false;
+        }
+        
+        bytes.iter().all(|&b| b == first_char)
     }
 
     fn process_inline_formatting(&mut self, text: &str) -> String {
@@ -300,14 +317,17 @@ impl BasicMarkdownParser {
             return cached.clone();
         }
 
-        if !text.contains(&['*', '`', '[', '!'][..]) {
+        // Fast path for text without markdown formatting
+        if !text.as_bytes().iter().any(|&b| matches!(b, b'*' | b'`' | b'[' | b'!')) {
             let result = text.to_string();
-            self.html_cache.insert(hash, result.clone());
+            if self.html_cache.len() < 64 {
+                self.html_cache.insert(hash, result.clone());
+            }
             return result;
         }
 
         let mut result = self.get_buffer();
-        result.reserve(text.len() + (text.len() >> 3));
+        result.reserve(text.len() + (text.len() >> 2));
         let mut chars = text.chars().peekable();
         
         while let Some(ch) = chars.next() {
@@ -551,35 +571,44 @@ fn render_basic_list_items(items: &[BasicListItem], html: &mut String, word_coun
         return;
     }
     
-    let mut current_level = items[0].level;
-    let mut level_stack = Vec::with_capacity(8);
+    let mut current_level = 0u8;
+    let mut stack = Vec::with_capacity(8);
     
-    for item in items {
+    for (i, item) in items.iter().enumerate() {
         *word_count += count_words(&item.content);
         
-        // Handle nesting - open nested lists
-        while current_level < item.level {
-            html.push_str("<ul>");
-            level_stack.push(current_level);
-            current_level += 1;
-        }
-        
-        // Handle unnesting - close nested lists
-        while current_level > item.level {
-            if level_stack.pop().is_some() {
-                html.push_str("</ul>");
-                current_level -= 1;
-            } else {
-                break;
+        // Adjust nesting level
+        if item.level > current_level {
+            // Going deeper - open new nested lists
+            for _ in current_level..item.level {
+                html.push_str("<ul>");
+                stack.push("</ul>");
             }
+        } else if item.level < current_level {
+            // Going shallower - close nested lists
+            for _ in item.level..current_level {
+                html.push_str("</li>");
+                if let Some(close_tag) = stack.pop() {
+                    html.push_str(close_tag);
+                }
+            }
+        } else if i > 0 {
+            // Same level as previous - close previous list item
+            html.push_str("</li>");
         }
         
-        html.push_str(&format!("<li>{}</li>", item.content));
+        current_level = item.level;
+        
+        // Open new list item
+        html.push_str(&format!("<li>{}", item.content));
     }
     
-    // Close remaining lists
-    while level_stack.pop().is_some() {
-        html.push_str("</ul>");
+    // Close the final list item
+    html.push_str("</li>");
+    
+    // Close all remaining nested lists
+    while let Some(close_tag) = stack.pop() {
+        html.push_str(close_tag);
     }
 }
 
@@ -592,8 +621,8 @@ fn count_words(text: &str) -> usize {
     let mut count = 0;
     let mut in_word = false;
     
-    for ch in text.chars() {
-        if ch.is_whitespace() {
+    for byte in text.bytes() {
+        if byte.is_ascii_whitespace() {
             in_word = false;
         } else if !in_word {
             in_word = true;

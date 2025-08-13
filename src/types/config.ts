@@ -86,5 +86,7 @@ export interface WorkspaceConfig {
   readOnly: boolean;
   sidebarVisible?: boolean;
   githubMarkdown?: boolean;
+  pasteUrlsAsLinks?: boolean;
+  devMode?: boolean;
   shortcuts: KeyboardShortcut[];
 }

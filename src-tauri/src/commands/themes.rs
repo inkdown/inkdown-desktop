@@ -422,3 +422,74 @@ pub fn get_installed_theme_names() -> Result<Vec<String>, String> {
     theme_names.sort();
     Ok(theme_names)
 }
+
+#[tauri::command]
+pub fn delete_community_theme(theme_name: String, theme_author: String) -> Result<(), String> {
+    // Validate input parameters
+    if theme_name.trim().is_empty() || theme_author.trim().is_empty() {
+        return Err("Nome do tema e autor são obrigatórios".to_string());
+    }
+
+    // Sanitize inputs for security
+    let safe_theme_name = sanitize_filename(&theme_name);
+    let safe_author = sanitize_filename(&theme_author);
+    
+    // Prevent path traversal attacks
+    if safe_theme_name.contains("..") || safe_author.contains("..") {
+        return Err("Nomes de tema inválidos detectados".to_string());
+    }
+
+    let themes_dir = get_themes_directory()?;
+    
+    if !themes_dir.exists() {
+        return Err("Diretório de temas não encontrado".to_string());
+    }
+
+    // Find theme directory by matching theme.json content
+    let entries = fs::read_dir(&themes_dir)
+        .map_err(|e| format!("Falha ao ler diretório de temas: {}", e))?;
+
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let theme_path = entry.path();
+            if theme_path.is_dir() {
+                let theme_json_path = theme_path.join("theme.json");
+                
+                if theme_json_path.exists() {
+                    // Read and parse theme.json to match name and author
+                    match fs::read_to_string(&theme_json_path) {
+                        Ok(content) => {
+                            match serde_json::from_str::<CustomTheme>(&content) {
+                                Ok(theme) => {
+                                    // Match both name and author for security
+                                    if theme.name == theme_name && theme.author == theme_author {
+                                        // Perform atomic deletion with error recovery
+                                        match fs::remove_dir_all(&theme_path) {
+                                            Ok(()) => {
+                                                println!("Tema '{}' por '{}' removido com sucesso", theme_name, theme_author);
+                                                return Ok(());
+                                            }
+                                            Err(e) => {
+                                                return Err(format!(
+                                                    "Falha ao remover tema '{}': {}. Verifique permissões.", 
+                                                    theme_name, e
+                                                ));
+                                            }
+                                        }
+                                    }
+                                }
+                                Err(_) => continue, // Skip malformed theme.json files
+                            }
+                        }
+                        Err(_) => continue, // Skip unreadable files
+                    }
+                }
+            }
+        }
+    }
+
+    Err(format!(
+        "Tema '{}' por '{}' não foi encontrado nos temas instalados", 
+        theme_name, theme_author
+    ))
+}

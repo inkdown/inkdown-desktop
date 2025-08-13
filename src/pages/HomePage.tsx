@@ -62,8 +62,7 @@ export default function HomePage() {
         <button
           onClick={handleSelectDirectory}
           disabled={isLoading}
-          className="theme-button px-6 py-3 rounded-lg font-medium theme-transition flex items-center justify-center"
-          style={{ opacity: isLoading ? 0.6 : 1 }}
+          className={`theme-button px-6 py-3 rounded-lg font-medium theme-transition flex items-center justify-center ${isLoading ? "opacity-60" : "opacity-100"}`}
         >
           {isLoading ? (
             <>

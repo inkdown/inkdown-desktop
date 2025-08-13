@@ -30,32 +30,16 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="error-boundary" style={{
-          padding: '20px',
-          margin: '20px',
-          border: '1px solid #dc2626',
-          borderRadius: '8px',
-          backgroundColor: '#fef2f2',
-          color: '#dc2626',
-          fontFamily: 'monospace'
-        }}>
+        <div className="error-boundary p-5 m-5 border border-red-600 rounded-lg bg-red-50 text-red-600 font-mono">
           <h2>Something went wrong.</h2>
-          <details style={{ whiteSpace: 'pre-wrap' }}>
+          <details className="whitespace-pre-wrap">
             <summary>Error details</summary>
             {this.state.error?.message}
             {this.state.error?.stack}
           </details>
           <button 
             onClick={() => this.setState({ hasError: false, error: undefined })}
-            style={{
-              marginTop: '10px',
-              padding: '8px 16px',
-              backgroundColor: '#dc2626',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
+            className="mt-2.5 px-4 py-2 bg-red-600 text-white border-0 rounded cursor-pointer"
           >
             Try again
           </button>

@@ -19,6 +19,8 @@ const DEFAULT_WORKSPACE: WorkspaceConfig = {
   readOnly: false,
   sidebarVisible: true,
   githubMarkdown: false,
+  pasteUrlsAsLinks: true,
+  devMode: false,
   shortcuts: [
     { name: "toggleSidebar", shortcut: "Ctrl+Shift+B" },
     { name: "save", shortcut: "Ctrl+S" },

@@ -3,14 +3,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { useDirectory } from "../contexts/DirectoryContext";
 
 export function useFileOperations() {
-  const { setDirectory, currentDirectory } = useDirectory();
   const errorRef = useRef<string | null>(null);
 
-  const refreshFileTree = useCallback(async () => {
-    if (currentDirectory) {
-      await setDirectory(currentDirectory).catch(() => {});
-    }
-  }, [currentDirectory, setDirectory]);
+  const { refreshFileTree: refreshTree } = useDirectory();
 
   const createDirectory = useCallback(
     async (parentPath: string, name?: string): Promise<string | null> => {
@@ -20,14 +15,14 @@ export function useFileOperations() {
           name: name || null,
         });
 
-        await refreshFileTree(); // Force refresh after operations
+        await refreshTree(true); // Force refresh after operations
         return newPath;
       } catch (err) {
         errorRef.current = err instanceof Error ? err.message : String(err);
         return null;
       }
     },
-    [refreshFileTree],
+    [refreshTree],
   );
 
   const createFile = useCallback(
@@ -38,28 +33,28 @@ export function useFileOperations() {
           name: name || null,
         });
 
-        await refreshFileTree(); // Force refresh after operations
+        await refreshTree(true); // Force refresh after operations
         return newPath;
       } catch (err) {
         errorRef.current = err instanceof Error ? err.message : String(err);
         return null;
       }
     },
-    [refreshFileTree],
+    [refreshTree],
   );
 
   const deleteFileOrDirectory = useCallback(
     async (path: string): Promise<boolean> => {
       try {
         await invoke("delete_file_or_directory", { path });
-        await refreshFileTree(); // Force refresh after operations
+        await refreshTree(true, path); // Force refresh with deleted path for cache cleanup
         return true;
       } catch (err) {
         errorRef.current = err instanceof Error ? err.message : String(err);
         return false;
       }
     },
-    [refreshFileTree],
+    [refreshTree],
   );
 
   const renameFileOrDirectory = useCallback(
@@ -70,14 +65,50 @@ export function useFileOperations() {
           newName,
         });
 
-        await refreshFileTree(); // Force refresh after operations
+        await refreshTree(true); // Force refresh after operations
         return newPath;
       } catch (err) {
         errorRef.current = err instanceof Error ? err.message : String(err);
         return null;
       }
     },
-    [refreshFileTree],
+    [refreshTree],
+  );
+
+  const createNestedPath = useCallback(
+    async (workspacePath: string, pathInput: string): Promise<string | null> => {
+      try {
+        const newPath = await invoke<string>("create_nested_path", {
+          workspacePath,
+          pathInput,
+        });
+
+        await refreshTree(true);
+        return newPath;
+      } catch (err) {
+        errorRef.current = err instanceof Error ? err.message : String(err);
+        return null;
+      }
+    },
+    [refreshTree],
+  );
+
+  const moveFileOrDirectory = useCallback(
+    async (sourcePath: string, targetParentPath: string): Promise<string | null> => {
+      try {
+        const newPath = await invoke<string>("move_file_or_directory", {
+          sourcePath,
+          targetParentPath,
+        });
+
+        await refreshTree(true);
+        return newPath;
+      } catch (err) {
+        errorRef.current = err instanceof Error ? err.message : String(err);
+        return null;
+      }
+    },
+    [refreshTree],
   );
 
   const getLastError = useCallback(() => errorRef.current, []);
@@ -88,8 +119,10 @@ export function useFileOperations() {
   return {
     createDirectory,
     createFile,
+    createNestedPath,
     deleteFileOrDirectory,
     renameFileOrDirectory,
+    moveFileOrDirectory,
     getLastError,
     clearError,
   };

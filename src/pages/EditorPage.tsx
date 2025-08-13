@@ -1,6 +1,14 @@
+import { lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDirectory } from "../contexts/DirectoryContext";
-import { WorkspacePage } from "../components/pages/WorkspacePage";
+
+const WorkspacePage = lazy(() => import("../components/pages/WorkspacePage"));
+
+const LoadingSpinner = () => (
+  <div className="h-screen flex items-center justify-center" style={{ backgroundColor: "var(--theme-background)" }}>
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: "var(--theme-primary)" }} />
+  </div>
+);
 
 export default function EditorPage() {
   const { currentDirectory } = useDirectory();
@@ -11,5 +19,9 @@ export default function EditorPage() {
     return null;
   }
 
-  return <WorkspacePage />;
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <WorkspacePage />
+    </Suspense>
+  );
 }

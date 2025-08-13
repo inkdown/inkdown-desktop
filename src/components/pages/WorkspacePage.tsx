@@ -1,4 +1,4 @@
-import { useState, useCallback, memo, useRef, useMemo } from "react";
+import { useState, useCallback, memo, useRef, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDirectory } from "../../contexts/DirectoryContext";
 import { useSidebarResize } from "../../hooks/useSidebarResize";
@@ -6,9 +6,13 @@ import { useConfigManager } from "../../hooks/useConfigManager";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useAppearance } from "../../contexts/AppearanceContext";
 import { Sidebar, SidebarResizer } from "../sidebar";
+import { SidebarHeader } from "../sidebar/SidebarHeader";
 import { MainWindow } from "../window";
 import { NotePalette } from "../palette";
-import { SettingsModal } from "../settings";
+import { FpsIndicator } from "../dev/FpsIndicator";
+import { TitleBar } from "../ui/TitleBar";
+
+const SettingsModal = lazy(() => import("../settings/SettingsModal"));
 
 export const WorkspacePage = memo(function WorkspacePage() {
   const { fileTree, currentDirectory } = useDirectory();
@@ -94,17 +98,30 @@ export const WorkspacePage = memo(function WorkspacePage() {
     );
   }
 
+  const sidebarVisible = workspaceConfig.sidebarVisible ?? true;
+
   return (
-    <div className="h-screen flex relative">
-      {(workspaceConfig.sidebarVisible ?? true) && (
-        <>
-          <Sidebar
+    <>
+      <TitleBar 
+        sidebarWidth={sidebarWidth}
+        sidebarVisible={sidebarVisible}
+      />
+      {sidebarVisible && (
+        <SidebarHeader
+          projectName={fileTree.name}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          width={sidebarWidth}
+        />
+      )}
+      <div className="h-screen flex relative">
+        {sidebarVisible && (
+          <>
+            <Sidebar
             width={sidebarWidth}
             fileTree={fileTree}
             selectedFile={selectedFile}
             onFileSelect={handleFileSelect}
             onFileDeleted={handleFileDeleted}
-            onOpenSettings={() => setIsSettingsOpen(true)}
           />
           <SidebarResizer onMouseDown={handleMouseDown} />
         </>
@@ -127,21 +144,33 @@ export const WorkspacePage = memo(function WorkspacePage() {
             isOpen={isPaletteOpen}
             onClose={handleClosePalette}
             onSelectNote={handleSelectNote}
-            workspacePath={workspaceConfig.workspace_path}
+            workspacePath={currentDirectory}
           />
         ),
         [
           isPaletteOpen,
           handleClosePalette,
           handleSelectNote,
-          workspaceConfig.workspace_path,
+          currentDirectory,
         ],
       )}
 
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
-    </div>
+      {isSettingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+          />
+        </Suspense>
+      )}
+
+        {/* Dev Mode Features */}
+        <FpsIndicator 
+          isVisible={workspaceConfig?.devMode ?? false}
+        />
+      </div>
+    </>
   );
 });
+
+export default WorkspacePage;

@@ -17,8 +17,10 @@ export interface UseCommunityThemesResult {
   error: string | null;
   downloadingThemes: Set<string>;
   downloadedThemes: Set<string>;
+  deletingThemes: Set<string>;
   searchThemes: (repoUrl: string) => Promise<void>;
   downloadTheme: (theme: CommunityTheme) => Promise<void>;
+  deleteTheme: (theme: CommunityTheme) => Promise<void>;
   clearThemes: () => void;
 }
 
@@ -27,6 +29,10 @@ export function useCommunityThemes(): UseCommunityThemesResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadingThemes, setDownloadingThemes] = useState<Set<string>>(
+    new Set(),
+  );
+  
+  const [deletingThemes, setDeletingThemes] = useState<Set<string>>(
     new Set(),
   );
   
@@ -145,6 +151,52 @@ export function useCommunityThemes(): UseCommunityThemesResult {
     [],
   );
 
+  const deleteTheme = useCallback(
+    async (theme: CommunityTheme) => {
+      const themeKey = `${theme.author}-${theme.name}`;
+
+      setDeletingThemes((prev) => new Set(prev.add(themeKey)));
+
+      try {
+        await invoke("delete_community_theme", {
+          themeName: theme.name,
+          themeAuthor: theme.author,
+        });
+
+        // Update download state de forma otimizada
+        setDownloadedThemes((prev) => {
+          if (!prev.has(themeKey)) return prev; // Evita recriação desnecessária
+          const newSet = new Set(prev);
+          newSet.delete(themeKey);
+          return newSet;
+        });
+
+        // Remove from localStorage cache
+        const currentThemes = cacheUtils.getCustomThemes() || [];
+        const updatedThemes = currentThemes.filter(t => `${t.author}-${t.name}` !== themeKey);
+        cacheUtils.setCustomThemes(updatedThemes);
+        
+        // Emitir evento para notificar AppearanceContext
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('inkdown-theme-deleted', {
+            detail: { theme: { name: theme.name, author: theme.author } }
+          }));
+        }
+      } catch (err) {
+        console.error("Erro ao deletar tema:", err);
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setDeletingThemes((prev) => {
+          if (!prev.has(themeKey)) return prev; // Evita recriação desnecessária
+          const newSet = new Set(prev);
+          newSet.delete(themeKey);
+          return newSet;
+        });
+      }
+    },
+    [],
+  );
+
   const clearThemes = useCallback(() => {
     setThemes([]);
     setError(null);
@@ -156,8 +208,10 @@ export function useCommunityThemes(): UseCommunityThemesResult {
     error,
     downloadingThemes,
     downloadedThemes,
+    deletingThemes,
     searchThemes,
     downloadTheme,
+    deleteTheme,
     clearThemes,
   }), [
     themes,
@@ -165,8 +219,10 @@ export function useCommunityThemes(): UseCommunityThemesResult {
     error,
     downloadingThemes,
     downloadedThemes,
+    deletingThemes,
     searchThemes,
     downloadTheme,
+    deleteTheme,
     clearThemes
   ]);
 }

@@ -51,15 +51,15 @@ impl Default for GfmMarkdownParser {
 
 impl GfmMarkdownParser {
     pub fn new() -> Self {
-        let mut buffer_pool = VecDeque::with_capacity(12);
+        let mut buffer_pool = VecDeque::with_capacity(8);
         
-        for _ in 0..8 {
-            buffer_pool.push_back(String::with_capacity(2048));
+        for _ in 0..6 {
+            buffer_pool.push_back(String::with_capacity(1024));
         }
         
         Self { 
             buffer_pool,
-            html_cache: HashMap::with_capacity(128),
+            html_cache: HashMap::with_capacity(64),
         }
     }
 
@@ -70,7 +70,7 @@ impl GfmMarkdownParser {
 
     #[inline]
     fn return_buffer(&mut self, mut buffer: String) {
-        if buffer.capacity() <= 8192 && self.buffer_pool.len() < 12 {
+        if buffer.capacity() <= 4096 && self.buffer_pool.len() < 8 {
             buffer.clear();
             self.buffer_pool.push_back(buffer);
         }
@@ -89,13 +89,11 @@ impl GfmMarkdownParser {
             return Vec::new();
         }
 
-        if self.html_cache.len() > 256 {
-            let target_size = self.html_cache.len() / 2;
-            let mut to_remove = Vec::new();
-            for (key, _) in self.html_cache.iter().take(target_size) {
-                to_remove.push(*key);
-            }
-            for key in to_remove {
+        // Optimized cache management
+        if self.html_cache.len() > 512 {
+            let target_size = self.html_cache.len() / 3;
+            let keys_to_remove: Vec<_> = self.html_cache.keys().take(target_size).copied().collect();
+            for key in keys_to_remove {
                 self.html_cache.remove(&key);
             }
         }
@@ -172,13 +170,21 @@ impl GfmMarkdownParser {
     fn is_list_line(&self, line: &str) -> bool {
         let trimmed = line.trim_start();
         
-        if trimmed.starts_with("- ") || trimmed.starts_with("* ") || trimmed.starts_with("+ ") {
+        // Quick length check
+        if trimmed.len() < 2 {
+            return false;
+        }
+        
+        // Unordered lists - direct byte comparison
+        let bytes = trimmed.as_bytes();
+        if matches!(bytes[0], b'-' | b'*' | b'+') && bytes[1] == b' ' {
             return true;
         }
         
+        // Ordered lists - optimized
         if let Some(dot_pos) = trimmed.find(". ") {
             if dot_pos > 0 && dot_pos <= 4 {
-                return trimmed.bytes().take(dot_pos).all(|b| b.is_ascii_digit());
+                return bytes[..dot_pos].iter().all(|&b| b.is_ascii_digit());
             }
         }
         
@@ -234,12 +240,16 @@ impl GfmMarkdownParser {
                 &trimmed[2..]
             };
             
-            let (checked, final_content) = if content.len() >= 3 && content.starts_with('[') {
-                let second_char = content.bytes().nth(1).unwrap_or(b'?');
-                match second_char {
-                    b' ' if content.bytes().nth(2) == Some(b']') => (Some(false), &content[3..]),
-                    b'x' | b'X' if content.bytes().nth(2) == Some(b']') => (Some(true), &content[3..]),
-                    _ => (None, content),
+            let (checked, final_content) = if content.len() >= 3 {
+                let bytes = content.as_bytes();
+                if bytes[0] == b'[' && bytes[2] == b']' {
+                    match bytes[1] {
+                        b' ' => (Some(false), &content[3..]),
+                        b'x' | b'X' => (Some(true), &content[3..]),
+                        _ => (None, content),
+                    }
+                } else {
+                    (None, content)
                 }
             } else {
                 (None, content)
@@ -262,7 +272,7 @@ impl GfmMarkdownParser {
 
     #[inline]
     fn is_potential_table_line(&self, line: &str) -> bool {
-        line.len() > 2 && line.contains('|')
+        line.len() > 2 && line.as_bytes().iter().any(|&b| b == b'|')
     }
 
     fn parse_table(&mut self, lines: &[&str], start: usize) -> Option<(GfmToken, usize)> {
@@ -542,12 +552,13 @@ impl GfmMarkdownParser {
 
         let hash = self.hash_string(text);
         if let Some(cached) = self.html_cache.get(&hash) {
-            return cached.to_owned();
+            return cached.clone();
         }
 
+        // Fast path for text without markdown formatting
         if !text.as_bytes().iter().any(|&b| matches!(b, b'*' | b'`' | b'[' | b'!' | b'~' | b'_')) {
             let result = text.to_string();
-            if self.html_cache.len() < 256 {
+            if self.html_cache.len() < 512 {
                 self.html_cache.insert(hash, result.clone());
             }
             return result;
@@ -945,41 +956,62 @@ fn render_gfm_list_items(items: &[GfmListItem], html: &mut String, word_count: &
         return;
     }
     
-    let mut current_level = items[0].level;
-    let mut level_stack = Vec::with_capacity(8);
+    let mut current_level = 0u8;
+    let mut stack = Vec::with_capacity(8);
     
-    for item in items {
+    for (i, item) in items.iter().enumerate() {
         *word_count += count_words(&item.content);
         
-        while current_level < item.level {
-            html.push_str("<ul>");
-            level_stack.push(current_level);
-            current_level += 1;
-        }
-        
-        while current_level > item.level {
-            if level_stack.pop().is_some() {
-                html.push_str("</ul>");
-                current_level -= 1;
-            } else {
-                break;
+        // Adjust nesting level
+        if item.level > current_level {
+            // Going deeper - open new nested lists
+            for _ in current_level..item.level {
+                html.push_str("<ul>");
+                stack.push("</ul>");
             }
+        } else if item.level < current_level {
+            // Going shallower - close nested lists
+            for _ in item.level..current_level {
+                html.push_str("</li>");
+                if let Some(close_tag) = stack.pop() {
+                    html.push_str(close_tag);
+                }
+            }
+        } else if i > 0 {
+            // Same level as previous - close previous list item
+            html.push_str("</li>");
         }
         
+        current_level = item.level;
+        
+        // Add the list item with checkbox support
         if let Some(checked) = item.checked {
             let checkbox = if checked {
-                "<input type=\"checkbox\" checked disabled> "
+                r#"<span class="task-list-item-checkbox checked">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <rect x="1" y="1" width="14" height="14" rx="3" fill="var(--theme-accent)" stroke="var(--theme-accent)" stroke-width="2"/>
+                        <path d="M4 8l2.5 2.5L12 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </span> "#
             } else {
-                "<input type=\"checkbox\" disabled> "
+                r#"<span class="task-list-item-checkbox unchecked">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <rect x="1" y="1" width="14" height="14" rx="3" fill="transparent" stroke="var(--theme-muted-foreground)" stroke-width="2"/>
+                    </svg>
+                  </span> "#
             };
-            html.push_str(&format!("<li>{}{}</li>", checkbox, item.content));
+            html.push_str(&format!("<li class=\"task-list-item\">{}{}", checkbox, item.content));
         } else {
-            html.push_str(&format!("<li>{}</li>", item.content));
+            html.push_str(&format!("<li>{}", item.content));
         }
     }
     
-    while level_stack.pop().is_some() {
-        html.push_str("</ul>");
+    // Close the final list item
+    html.push_str("</li>");
+    
+    // Close all remaining nested lists
+    while let Some(close_tag) = stack.pop() {
+        html.push_str(close_tag);
     }
 }
 

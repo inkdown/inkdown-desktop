@@ -4,15 +4,24 @@ import { Folder, Settings } from 'lucide-react';
 interface SidebarHeaderProps {
   projectName: string;
   onOpenSettings: () => void;
+  width?: number;
 }
 
 export const SidebarHeader = memo(function SidebarHeader({
   projectName,
   onOpenSettings,
+  width = 280,
 }: SidebarHeaderProps) {
   
   return (
-    <div className="px-3 py-2.5 sidebar-header">
+    <div 
+      className="px-3 py-3 fixed top-0 left-0 h-12 sidebar-header z-20"
+      style={{ 
+        width: `${width}px`,
+        backgroundColor: 'var(--theme-sidebar-background)',
+        borderBottom: '1px solid var(--theme-sidebar-border)'
+      }}
+    >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">

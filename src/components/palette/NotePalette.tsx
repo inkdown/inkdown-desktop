@@ -1,5 +1,6 @@
 import { memo, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useFileOperations } from "../../hooks/useFileOperations";
 
 interface NoteSearchResult {
   name: string;
@@ -27,8 +28,77 @@ function NotePaletteComponent({
   const [searchResults, setSearchResults] = useState<NoteSearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [pathValidation, setPathValidation] = useState<{
+    isValid: boolean;
+    message: string;
+  }>({ isValid: true, message: "" });
   const inputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<number>();
+  const { createNestedPath } = useFileOperations();
+
+  const validatePath = useCallback((pathInput: string) => {
+    if (!pathInput.trim()) {
+      setPathValidation({ isValid: true, message: "" });
+      return;
+    }
+
+    const cleanPath = pathInput.trim();
+    
+    const windowsInvalidChars = ['<', '>', ':', '"', '|', '?', '*'];
+    const reservedNames = [
+      'CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 
+      'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4', 
+      'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
+    ];
+
+    if (cleanPath.includes('..')) {
+      setPathValidation({
+        isValid: false,
+        message: "Path traversal não é permitido"
+      });
+      return;
+    }
+
+    if (cleanPath.length > 200) {
+      setPathValidation({
+        isValid: false,
+        message: "Caminho muito longo (máximo 200 caracteres)"
+      });
+      return;
+    }
+
+    const invalidChar = windowsInvalidChars.find(char => cleanPath.includes(char));
+    if (invalidChar) {
+      setPathValidation({
+        isValid: false,
+        message: `Caractere inválido "${invalidChar}"`
+      });
+      return;
+    }
+
+    const pathParts = cleanPath.split('/').filter(part => part.length > 0);
+    for (const part of pathParts) {
+      const namePart = part.split('.')[0].toUpperCase();
+      if (reservedNames.includes(namePart)) {
+        setPathValidation({
+          isValid: false,
+          message: `Nome reservado "${part}"`
+        });
+        return;
+      }
+
+      if (part.endsWith('.') || part.endsWith(' ')) {
+        setPathValidation({
+          isValid: false,
+          message: `"${part}" não pode terminar com ponto ou espaço`
+        });
+        return;
+      }
+    }
+
+    setPathValidation({ isValid: true, message: "" });
+  }, []);
 
   const debouncedSearch = useCallback(
     async (query: string) => {
@@ -56,6 +126,32 @@ function NotePaletteComponent({
     [workspacePath],
   );
 
+  const createNewNote = useCallback(
+    async (pathInput: string) => {
+      if (!workspacePath || !pathInput.trim() || !pathValidation.isValid) return;
+
+      const cleanPath = pathInput.trim();
+
+      setIsCreating(true);
+      try {
+        const newFilePath = await createNestedPath(workspacePath, cleanPath);
+        
+        if (newFilePath) {
+          const isDirectory = cleanPath.endsWith('/');
+          if (!isDirectory) {
+            onSelectNote(newFilePath);
+          }
+          onClose();
+        }
+      } catch (error) {
+        console.error("Erro ao criar nova nota/diretório:", error);
+      } finally {
+        setIsCreating(false);
+      }
+    },
+    [workspacePath, createNestedPath, onSelectNote, onClose, pathValidation.isValid],
+  );
+
   useEffect(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -64,25 +160,26 @@ function NotePaletteComponent({
     if (searchQuery.trim()) {
       searchTimeoutRef.current = setTimeout(() => {
         debouncedSearch(searchQuery);
-      }, 300);
+      }, 20);
     } else {
       setSearchResults([]);
     }
+
+    validatePath(searchQuery);
 
     return () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery, debouncedSearch]);
+  }, [searchQuery, debouncedSearch, validatePath]);
 
   useEffect(() => {
     if (isOpen) {
-      // Reset search state when opening
       setSearchQuery("");
       setSearchResults([]);
       setSelectedIndex(0);
-      // Focus input after a tick to ensure it's rendered
+      setPathValidation({ isValid: true, message: "" });
       setTimeout(() => {
         if (inputRef.current) {
           inputRef.current.focus();
@@ -110,14 +207,16 @@ function NotePaletteComponent({
           break;
         case "Enter":
           event.preventDefault();
-          if (searchResults[selectedIndex]) {
+          if (event.shiftKey && searchQuery.trim()) {
+            createNewNote(searchQuery);
+          } else if (searchResults[selectedIndex]) {
             onSelectNote(searchResults[selectedIndex].path);
             onClose();
           }
           break;
       }
     },
-    [searchResults, selectedIndex, onClose, onSelectNote],
+    [searchResults, selectedIndex, onClose, onSelectNote, searchQuery, createNewNote],
   );
 
   const formatDate = useCallback((timestamp: number) => {
@@ -190,7 +289,6 @@ function NotePaletteComponent({
     [onClose],
   );
 
-  // Renderização condicional após todos os hooks
   if (!isOpen) return null;
 
   return (
@@ -199,7 +297,7 @@ function NotePaletteComponent({
       onClick={handleBackdropClick}
     >
       <div
-        className="w-full max-w-lg mx-4 rounded-lg overflow-hidden"
+        className="w-full max-w-2xl mx-4 rounded-lg overflow-hidden"
         style={paletteStyle}
         onClick={(e) => e.stopPropagation()}
       >
@@ -217,18 +315,32 @@ function NotePaletteComponent({
             className="w-full bg-transparent!  px-1s py-1s border-none! focus:outline-none text-base"
             style={{
               ...inputStyle,
+              borderColor: !pathValidation.isValid && searchQuery.trim() ? "var(--theme-destructive)" : "var(--theme-border)",
+              opacity: !pathValidation.isValid && searchQuery.trim() ? 0.7 : 1,
             }}
           />
+          {!pathValidation.isValid && searchQuery.trim() && (
+            <div 
+              className="mt-2 text-xs px-2 py-1 rounded border opacity-80"
+              style={{
+                backgroundColor: "var(--theme-destructive)",
+                color: "var(--theme-destructive-foreground)",
+                borderColor: "var(--theme-destructive)",
+              }}
+            >
+              {pathValidation.message}
+            </div>
+          )}
         </div>
 
         <div className="max-h-80 overflow-y-auto">
-          {isLoading ? (
+          {isLoading || isCreating ? (
             <div
               className="p-8 text-center"
               style={{ color: "var(--theme-muted-foreground)" }}
             >
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              Buscando...
+              {isCreating ? "Criando..." : "Buscando..."}
             </div>
           ) : searchResults.length > 0 ? (
             searchResults.map((note, index) => (
@@ -286,11 +398,97 @@ function NotePaletteComponent({
               className="p-8 text-center"
               style={{ color: "var(--theme-muted-foreground)" }}
             >
-              Nenhuma nota encontrada para "{searchQuery}"
+              <p className="mb-2">
+                Nenhuma nota encontrada para "{searchQuery}"
+              </p>
+              <div className="text-sm space-y-1" style={{ color: "var(--theme-muted-foreground)" }}>
+                <p>
+                  <kbd style={{ 
+                    backgroundColor: "var(--theme-muted)", 
+                    padding: "2px 6px", 
+                    borderRadius: "4px",
+                    fontFamily: "monospace"
+                  }}>Shift+Enter</kbd> para criar nota ou diretório
+                </p>
+                <p className="text-xs opacity-75">
+                  Exemplos: "nota.md", "pasta/nota", "projeto/"
+                </p>
+              </div>
             </div>
           ) : (
-            <></>
+            <div
+              className="p-8 text-center"
+              style={{ color: "var(--theme-muted-foreground)" }}
+            >
+              <div className="text-sm space-y-1">
+                <p>
+                  Digite para buscar notas ou pressione <kbd style={{ 
+                    backgroundColor: "var(--theme-muted)", 
+                    padding: "2px 6px", 
+                    borderRadius: "4px",
+                    fontFamily: "monospace"
+                  }}>Shift+Enter</kbd> para criar
+                </p>
+                <p className="text-xs opacity-75">
+                  Exemplos: "nota.md", "pasta/nota", "projeto/"
+                </p>
+              </div>
+            </div>
           )}
+        </div>
+
+        <div
+          className="px-4 py-3 border-t text-xs flex justify-between items-center"
+          style={{
+            borderColor: "var(--theme-border)",
+            backgroundColor: "var(--theme-muted)",
+            color: "var(--theme-muted-foreground)",
+          }}
+        >
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1">
+              <kbd style={{ 
+                backgroundColor: "var(--theme-background)", 
+                padding: "2px 4px", 
+                borderRadius: "3px",
+                fontSize: "10px",
+                fontFamily: "monospace"
+              }}>↑↓</kbd>
+              navegar
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd style={{ 
+                backgroundColor: "var(--theme-background)", 
+                padding: "2px 4px", 
+                borderRadius: "3px",
+                fontSize: "10px",
+                fontFamily: "monospace"
+              }}>Enter</kbd>
+              selecionar
+            </span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1">
+              <kbd style={{ 
+                backgroundColor: "var(--theme-background)", 
+                padding: "2px 4px", 
+                borderRadius: "3px",
+                fontSize: "10px",
+                fontFamily: "monospace"
+              }}>Shift+Enter</kbd>
+              criar
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd style={{ 
+                backgroundColor: "var(--theme-background)", 
+                padding: "2px 4px", 
+                borderRadius: "3px",
+                fontSize: "10px",
+                fontFamily: "monospace"
+              }}>Esc</kbd>
+              fechar
+            </span>
+          </div>
         </div>
       </div>
     </div>

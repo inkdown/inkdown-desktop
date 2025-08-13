@@ -5,7 +5,6 @@ import { useDirectory } from "./contexts/DirectoryContext";
 import { cacheUtils } from "./utils/localStorage";
 import { UpdateNotification } from "./components/updater/UpdateNotification";
 import { useUpdater } from "./hooks/useUpdater";
-import { TitleBar } from "./components/ui/TitleBar";
 import { ErrorProvider } from "./contexts/ErrorContext";
 
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -19,7 +18,7 @@ const LoadingSpinner = () => (
     <div
       className="animate-spin rounded-full h-8 w-8 border-b-2"
       style={{ borderColor: "var(--theme-primary)" }}
-    ></div>
+    />
   </div>
 );
 
@@ -34,11 +33,9 @@ function AppRouter() {
       
       if (cachedWorkspace) {
         navigate("/editor", { replace: true });
-        await initializeWorkspace();
-      } else {
-        await initializeWorkspace();
       }
       
+      await initializeWorkspace();
       setInitializing(false);
     };
 
@@ -76,7 +73,6 @@ function App() {
 
   return (
     <ErrorProvider>
-      <TitleBar />
       <AppRouter />
       <UpdateNotification />
     </ErrorProvider>

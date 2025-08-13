@@ -1,5 +1,5 @@
 import { EditorView } from '@codemirror/view';
-import { EditorState, StateEffect } from '@codemirror/state';
+import { EditorState, StateEffect, type Extension } from '@codemirror/state';
 import { ExtensionsFactory } from '../codemirror/extensions';
 
 export interface EditorConfig {
@@ -14,6 +14,8 @@ export interface EditorConfig {
   highlightCurrentLine?: boolean;
   fontSize?: number;
   fontFamily?: string;
+  pasteUrlsAsLinks?: boolean;
+  tabIndentation?: boolean;
   onChange?: (state: EditorStateInfo) => void;
   onCursor?: (cursor: { line: number; column: number }) => void;
 }
@@ -39,6 +41,8 @@ export class Editor {
   private lastContent = '';
   private isModified = false;
   private debounceTimer?: number;
+  private extensionsCache = new Map<string, Extension[]>();
+  private lastExtensionKey = '';
 
   constructor(config: EditorConfig) {
     this.config = config;
@@ -54,7 +58,7 @@ export class Editor {
   private createEditor(): void {
     this.container.innerHTML = '';
     
-    const extensions = ExtensionsFactory.buildExtensions({
+    const extensions = this.getCachedExtensions({
       markdownShortcuts: true,
       githubMarkdown: this.config.githubMarkdown || false,
       vim: this.config.vim || false,
@@ -63,6 +67,8 @@ export class Editor {
       theme: this.config.theme || 'light',
       fontSize: this.config.fontSize,
       fontFamily: this.config.fontFamily,
+      pasteUrlsAsLinks: this.config.pasteUrlsAsLinks,
+      tabIndentation: this.config.tabIndentation !== false,
     });
 
     const state = EditorState.create({
@@ -88,6 +94,41 @@ export class Editor {
     this.applyTheme();
   }
 
+  private getCachedExtensions(config: {
+    markdownShortcuts?: boolean;
+    githubMarkdown?: boolean;
+    vim?: boolean;
+    showLineNumbers?: boolean;
+    highlightCurrentLine?: boolean;
+    theme?: 'light' | 'dark';
+    fontSize?: number;
+    fontFamily?: string;
+    pasteUrlsAsLinks?: boolean;
+    tabIndentation?: boolean;
+  }): Extension[] {
+    const key = JSON.stringify(config);
+    
+    if (this.lastExtensionKey === key && this.extensionsCache.has(key)) {
+      return this.extensionsCache.get(key)!;
+    }
+    
+    const extensions = ExtensionsFactory.buildExtensions(config);
+    
+    // Cache management - keep only last 3 extension sets
+    if (this.extensionsCache.size >= 3) {
+      const firstKey = this.extensionsCache.keys().next().value;
+      
+      if(firstKey) {
+        this.extensionsCache.delete(firstKey);
+      }
+    }
+    
+    this.extensionsCache.set(key, extensions);
+    this.lastExtensionKey = key;
+    
+    return extensions;
+  }
+
   private applyTheme(): void {
     this.container.classList.remove('cm-theme-light', 'cm-theme-dark');
     const theme = this.config.theme || 'light';
@@ -100,7 +141,7 @@ export class Editor {
     }
     this.debounceTimer = window.setTimeout(() => {
       this.handleDocumentChange(update);
-    }, 50);
+    }, 100); // Reduced debounce frequency for better performance
   };
 
   private handleDocumentChange(update: any): void {
@@ -179,13 +220,6 @@ export class Editor {
     return { ...this.config };
   }
 
-  public destroy(): void {
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-    }
-    this.view.destroy();
-  }
-
   public isReady(): boolean {
     return !!this.view;
   }
@@ -196,13 +230,17 @@ export class Editor {
     this.config.theme = theme;
     this.applyTheme();
     
-    const extensions = ExtensionsFactory.buildExtensions({
+    const extensions = this.getCachedExtensions({
+      markdownShortcuts: this.config.markdownShortcuts !== false,
+      githubMarkdown: this.config.githubMarkdown || false,
       vim: this.config.vim || false,
       showLineNumbers: this.config.showLineNumbers !== false,
       highlightCurrentLine: this.config.highlightCurrentLine !== false,
       theme: theme,
       fontSize: this.config.fontSize,
       fontFamily: this.config.fontFamily,
+      pasteUrlsAsLinks: this.config.pasteUrlsAsLinks,
+      tabIndentation: this.config.tabIndentation !== false,
     });
     
     this.view.dispatch({
@@ -223,7 +261,7 @@ export class Editor {
       this.applyTheme();
     }
     
-    const extensions = ExtensionsFactory.buildExtensions({
+    const extensions = this.getCachedExtensions({
       markdownShortcuts: this.config.markdownShortcuts !== false,
       githubMarkdown: this.config.githubMarkdown || false,
       vim: this.config.vim || false,
@@ -232,10 +270,20 @@ export class Editor {
       theme: this.config.theme || 'light',
       fontSize: this.config.fontSize,
       fontFamily: this.config.fontFamily,
+      pasteUrlsAsLinks: this.config.pasteUrlsAsLinks,
+      tabIndentation: this.config.tabIndentation !== false,
     });
     
     this.view.dispatch({
       effects: StateEffect.reconfigure.of(extensions)
     });
+  }
+
+  public destroy(): void {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+    this.extensionsCache.clear();
+    this.view.destroy();
   }
 }
