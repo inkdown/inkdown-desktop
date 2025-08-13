@@ -160,6 +160,7 @@ jobs:
           case "${{ runner.os }}" in
             "Windows")
               bundle_dir="src-tauri/target/x86_64-pc-windows-msvc/release/bundle"
+              # For Windows, Tauri updater expects the .msi file in the URL, not .msi.sig
               installer_file=$(ls $bundle_dir/msi/*.msi 2>/dev/null | head -1)
               updater_file=$(ls $bundle_dir/msi/*.msi.sig 2>/dev/null | head -1)
               installer_name=$(basename "$installer_file" 2>/dev/null || echo "")
@@ -170,12 +171,14 @@ jobs:
               else
                 bundle_dir="src-tauri/target/x86_64-apple-darwin/release/bundle"
               fi
-              installer_file=$(ls $bundle_dir/dmg/*.dmg 2>/dev/null | head -1)
+              # For macOS, Tauri updater expects the .app.tar.gz file (not .dmg)
+              installer_file=$(ls $bundle_dir/macos/*.app.tar.gz 2>/dev/null | head -1)
               updater_file=$(ls $bundle_dir/macos/*.app.tar.gz.sig 2>/dev/null | head -1)
               installer_name=$(basename "$installer_file" 2>/dev/null || echo "")
               ;;
             "Linux")
               bundle_dir="src-tauri/target/release/bundle"
+              # For Linux, Tauri updater expects the .AppImage file
               installer_file=$(ls $bundle_dir/appimage/*.AppImage 2>/dev/null | head -1)
               updater_file=$(ls $bundle_dir/appimage/*.AppImage.sig 2>/dev/null | head -1)
               installer_name=$(basename "$installer_file" 2>/dev/null || echo "")
@@ -211,13 +214,15 @@ jobs:
                 --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
               ;;
             "macOS")
+              # Upload .dmg for manual installation
               aws s3 cp "$bundle_dir/dmg/" \
                 "s3://${{ secrets.R2_BUCKET_NAME }}/releases/$version/$target/$arch/" \
                 --recursive --exclude "*" --include "*.dmg" \
                 --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              # Upload .app.tar.gz and .app.tar.gz.sig for updater
               aws s3 cp "$bundle_dir/macos/" \
                 "s3://${{ secrets.R2_BUCKET_NAME }}/releases/$version/$target/$arch/" \
-                --recursive --exclude "*" --include "*.app.tar.gz.sig" \
+                --recursive --exclude "*" --include "*.app.tar.gz" --include "*.app.tar.gz.sig" \
                 --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
               ;;
             "Linux")
