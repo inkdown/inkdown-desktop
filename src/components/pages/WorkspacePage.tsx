@@ -113,7 +113,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
           width={sidebarWidth}
         />
       )}
-      <div className="h-screen flex relative">
+      <div className="h-screen flex relative overflow-hidden">
         {sidebarVisible && (
           <>
             <Sidebar

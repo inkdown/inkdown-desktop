@@ -69,9 +69,6 @@ export class MarkdownPreview {
       // Buscar configuração GFM do cache
       const workspaceConfig = cacheUtils.getWorkspaceConfig();
       const gfmEnabled = workspaceConfig?.githubMarkdown ?? false;
-      
-      console.log('🔍 Cache workspaceConfig:', workspaceConfig);
-      console.log('🔍 GFM Enabled from cache:', gfmEnabled);
 
       // Chamar parser correto baseado na configuração do cache
       const result: ParseResult = gfmEnabled 
@@ -113,13 +110,10 @@ export class MarkdownPreview {
 
   public setTheme(theme: 'light' | 'dark'): void {
     this.config.theme = theme;
-    // O tema agora é controlado através de CSS custom properties
-    // Não precisamos alterar as classes
   }
 
   public updateConfig(config: Partial<PreviewConfig>): void {
     Object.assign(this.config, config);
-    // Re-render current content with new config
     if (this.lastContent) {
       this.updateContent(this.lastContent);
     }

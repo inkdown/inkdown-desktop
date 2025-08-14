@@ -13,12 +13,17 @@
     "windows": [
       {
         "title": "inkdown",
-        "width": 800,
-        "height": 600,
+        "width": 900,
+        "height": 700,
         "decorations": false,
         "resizable": true,
         "maximizable": true,
-        "minimizable": true
+        "minimizable": true,
+        "hiddenTitle": true,
+        "windowEffects": {
+          "effects": ["sidebar", "titlebar"],
+          "state": "active"
+        }
       }
     ],
     "security": {

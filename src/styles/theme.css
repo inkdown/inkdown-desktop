@@ -22,6 +22,7 @@
   
   /* === Sidebar === */
   --theme-sidebar-background: #f8fafc;
+  --theme-sidebar-background-rgb: 248, 250, 252;
   --theme-sidebar-foreground: #334155;
   --theme-sidebar-border: #e2e8f0;
   --theme-sidebar-hover: #f1f5f9;
@@ -106,7 +107,7 @@
   --inkdown-editor-font-size: 14px;
   --inkdown-editor-line-height: 1.6;
   --inkdown-editor-padding: 16px;
-  --inkdown-editor-padding-bottom: 100px;
+  --inkdown-editor-padding-bottom: 35vh;
 
   --inkdown-heading-font-weight: bold;
   --inkdown-heading-line-height: 1.3;
@@ -213,6 +214,7 @@
   
   /* === Sidebar === */
   --theme-sidebar-background: #1e293b;
+  --theme-sidebar-background-rgb: 30, 41, 59;
   --theme-sidebar-foreground: #cbd5e1;
   --theme-sidebar-border: #334155;
   --theme-sidebar-hover: #334155;
@@ -390,8 +392,7 @@ body {
   word-wrap: break-word !important;
   white-space: pre-wrap !important;
   overflow-x: hidden !important;
-  padding: var(--inkdown-editor-padding) !important;
-  padding-bottom: var(--inkdown-editor-padding-bottom) !important;
+  padding-bottom: 30vh !important;
 }
 
 .cm-line {
@@ -688,7 +689,7 @@ body {
 }
 
 .theme-transition {
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .theme-fade-in {
@@ -751,12 +752,11 @@ body {
   }
 }
 
-/* === Editable Title === */
+/* === Editable 'Title' === */
 .editable-title {
   background: transparent !important;
   border: none !important;
-  margin: 16px 0 0 0 !important;
-  padding: 4px 8px !important;
+  padding: 4px !important;
   border-radius: 4px !important;
   outline: none !important;
   font-size: 1.5rem !important;
@@ -787,7 +787,6 @@ body {
 /* === Sidebar Header === */
 .sidebar-header {
   background-color: var(--theme-sidebar-background) !important;
-  border-bottom: 1px solid var(--theme-sidebar-border) !important;
   color: var(--theme-sidebar-foreground) !important;
 }
 
@@ -811,7 +810,7 @@ body {
 /* === File Tree === */
 .file-tree-item {
   color: var(--theme-sidebar-foreground) !important;
-  transition: background-color 0.2s ease !important;
+  transition: background-color 0.15s ease !important;
 }
 
 .file-tree-item:hover:not(.selected) {
@@ -821,6 +820,14 @@ body {
 .file-tree-item.selected {
   background-color: var(--theme-sidebar-active) !important;
   color: var(--theme-sidebar-foreground) !important;
+}
+
+.file-tree-item.directory {
+  font-weight: 500;
+}
+
+.file-tree-item.file {
+  font-weight: 400;
 }
 
 .file-tree-item .file-icon {
@@ -889,7 +896,7 @@ body {
   line-height: var(--inkdown-editor-line-height);
   background-color: var(--inkdown-editor-bg);
   color: var(--inkdown-editor-fg);
-  padding: 20px 20px var(--inkdown-editor-padding-bottom) 32px;
+  padding: 20px 20px 30vh 32px;
   box-sizing: border-box;
   overflow: visible; /* Remove overflow from content */
 }
@@ -1076,7 +1083,6 @@ body {
   top: 0;
   right: 0;
   z-index: 1000;
-  /* Width will be calculated dynamically to match editor width */
 }
 
 .titlebar-drag-region {

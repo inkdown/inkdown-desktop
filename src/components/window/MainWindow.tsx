@@ -24,7 +24,7 @@ export const MainWindow = memo(function MainWindow({
   onTogglePreviewRef
 }: MainWindowProps) {
   return (
-    <div className="flex-1 flex flex-col min-w-0 pt-8">
+    <div className="flex-1 flex flex-col min-w-0 pt-8 h-full overflow-hidden">
       {selectedFile ? (
         <WindowContent 
           selectedFile={selectedFile} 

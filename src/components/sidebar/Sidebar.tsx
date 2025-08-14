@@ -20,11 +20,10 @@ export const Sidebar = memo(function Sidebar({
   
   return (
     <div 
-      className="flex flex-col h-screen pt-12"
+      className="flex flex-col h-screen pt-5"
       style={{ 
         width,
         backgroundColor: 'var(--theme-sidebar-background)',
-        borderRight: '1px solid var(--theme-sidebar-border)'
       }}
     >
       <SidebarContent

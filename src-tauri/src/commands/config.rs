@@ -185,7 +185,6 @@ pub fn save_workspace_config(workspace_path: String) -> Result<(), String> {
                     Ok(parsed_config) => parsed_config,
                     Err(_) => {
                         // If parsing fails, still use defaults but log the issue
-                        println!("Warning: Failed to parse existing workspace config, using defaults");
                         create_default_workspace_config()
                     }
                 }
@@ -236,7 +235,6 @@ pub fn update_workspace_config(config: serde_json::Value) -> Result<(), String> 
 
     // Debug: Check if workspace_path exists before update
     let workspace_path_before = current_config.get("workspace_path").cloned();
-    println!("DEBUG: workspace_path before update: {:?}", workspace_path_before);
     
     if let serde_json::Value::Object(config_map) = config {
         for (key, value) in config_map {
@@ -246,7 +244,6 @@ pub fn update_workspace_config(config: serde_json::Value) -> Result<(), String> 
     
     // Debug: Check if workspace_path exists after update
     let workspace_path_after = current_config.get("workspace_path").cloned();
-    println!("DEBUG: workspace_path after update: {:?}", workspace_path_after);
 
     let config_string = serde_json::to_string_pretty(&current_config)
         .map_err(|e| format!("Failed to serialize config: {}", e))?;

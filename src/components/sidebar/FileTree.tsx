@@ -1,5 +1,5 @@
 import { useState, useCallback, memo, useMemo, useRef } from "react";
-import { Folder, FolderOpen, FileText } from "lucide-react";
+import { FileText, ChevronRight, ChevronDown } from "lucide-react";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { platform } from "@tauri-apps/plugin-os";
 import { FileNode, useDirectory } from "../../contexts/DirectoryContext";
@@ -191,15 +191,13 @@ const FileTreeItem = memo(function FileTreeItem({
     paddingLeft: `${level * 14 + 8}px`,
   }), [level]);
 
-  const itemClasses = useMemo(() => {
-    const baseClasses = "file-tree-item flex items-center py-1 px-2 cursor-pointer rounded text-sm theme-transition";
-    const selectedClass = isSelected ? "selected" : "";
-    const typeClass = node.is_directory ? "directory" : "file";
-    const dragOverClass = isDraggedOver ? "drag-over" : "";
-    const draggingClass = isDragging ? "dragging" : "";
-    
-    return `${baseClasses} ${selectedClass} ${typeClass} ${dragOverClass} ${draggingClass}`.trim();
-  }, [isSelected, node.is_directory, isDraggedOver, isDragging]);
+  const baseClasses = "file-tree-item flex items-center py-1 px-2 cursor-pointer rounded text-sm";
+  const selectedClass = isSelected ? " selected" : "";
+  const typeClass = node.is_directory ? " directory" : " file";
+  const dragOverClass = isDraggedOver ? " drag-over" : "";
+  const draggingClass = isDragging ? " dragging" : "";
+  
+  const itemClasses = `${baseClasses}${selectedClass}${typeClass}${dragOverClass}${draggingClass}`;
 
   const handleToggle = useCallback(
     (e: React.MouseEvent) => {
@@ -339,9 +337,9 @@ const FileTreeItem = memo(function FileTreeItem({
   const icon = useMemo(() => 
     node.is_directory ? (
       isExpanded ? (
-        <FolderOpen size={16} className="folder-icon opacity-70" />
+        <ChevronDown size={16} className="folder-icon opacity-70" />
       ) : (
-        <Folder size={16} className="folder-icon opacity-70" />
+        <ChevronRight size={16} className="folder-icon opacity-70" />
       )
     ) : (
       <FileText size={16} className="file-icon opacity-60" />
@@ -402,7 +400,7 @@ const FileTreeItem = memo(function FileTreeItem({
           </div>
         ) : (
           <span
-            className={`text-sm truncate flex-1 filename ${isSelected ? "font-medium" : "font-normal"}`}
+            className="text-sm truncate flex-1 filename"
             title={displayName}
           >
             {displayName}
@@ -562,7 +560,7 @@ export const FileTree = memo(function FileTree({
 
   // Memoize workspace drop classes
   const workspaceDropClasses = useMemo(() => {
-    const baseClasses = `h-full overflow-auto theme-scrollbar ${className}`;
+    const baseClasses = `h-full overflow-auto theme-scrollbar rounded-lg ${className}`;
     const dragOverClass = dragHandlers.isDraggedOver(fileTree.path) ? "workspace-drag-over" : "";
     return `${baseClasses} ${dragOverClass}`.trim();
   }, [className, dragHandlers, fileTree.path]);

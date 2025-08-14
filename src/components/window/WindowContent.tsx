@@ -147,7 +147,7 @@ export const WindowContent = memo(function WindowContent({
 
   if (!selectedFile) {
     return (
-      <div 
+      <div
         className="flex-1 flex items-center justify-center"
       >
         <div className="text-center">
@@ -174,7 +174,7 @@ export const WindowContent = memo(function WindowContent({
 
   if (isLoading) {
     return (
-      <div 
+      <div
         className="flex-1 flex items-center justify-center"
       >
         <div className="text-center">
@@ -191,7 +191,7 @@ export const WindowContent = memo(function WindowContent({
 
 
   return (
-    <div className="flex-1 relative flex flex-col overflow-auto">
+    <div className="flex ml-[8vw] mr-[8vw] flex-col h-full relative">
       {isModified && (
         <div className="absolute top-2 right-2 z-10">
           <div
@@ -207,7 +207,7 @@ export const WindowContent = memo(function WindowContent({
       )}
 
       <div
-        className="px-4 py-3 flex items-center justify-between"
+        className="px-4 py-3 flex items-center justify-between flex-shrink-0"
       >
         <Title
           filePath={selectedFile}
@@ -216,12 +216,7 @@ export const WindowContent = memo(function WindowContent({
         />
       </div>
 
-      <EditorToolbar
-        isPreviewMode={isPreviewMode}
-        onTogglePreview={togglePreviewMode}
-      />
-
-      <div className="theme-editor">
+      <div className="theme-editor flex-1 flex flex-col min-h-0 relative">
         <EditorComponent
           ref={editorRef}
           initialContent={fileContent}
@@ -230,6 +225,7 @@ export const WindowContent = memo(function WindowContent({
           onContentChange={handleContentChange}
           onSave={handleSave}
           onError={handleError}
+          onTogglePreview={togglePreviewMode}
         />
       </div>
     </div>

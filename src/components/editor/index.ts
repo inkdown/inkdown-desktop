@@ -10,4 +10,6 @@ export type { EventListener } from './utils/EventEmitter';
 export { EditorComponent } from './EditorComponent';
 export type { EditorComponentProps, EditorComponentHandle } from './EditorComponent';
 
+export { EditorFooter } from './EditorFooter';
+
 export { EditorComponent as default } from './EditorComponent';

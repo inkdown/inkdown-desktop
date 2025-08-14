@@ -8,13 +8,11 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 fn parse_markdown_basic(markdown: String) -> Result<crate::markdown::parser::ParseResult, String> {
-    println!("📝 Usando Basic Parser");
     crate::markdown::basic_parser::parse_basic_markdown_to_html(&markdown)
 }
 
 #[tauri::command]
 fn parse_markdown_gfm(markdown: String) -> Result<crate::markdown::parser::ParseResult, String> {
-    println!("🚀 Usando GFM Parser");
     crate::markdown::gfm_parser::parse_gfm_markdown_to_html(&markdown)
 }
 

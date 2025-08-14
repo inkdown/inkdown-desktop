@@ -15,11 +15,10 @@ export const SidebarHeader = memo(function SidebarHeader({
   
   return (
     <div 
-      className="px-3 py-3 fixed top-0 left-0 h-12 sidebar-header z-20"
+      className="px-3 py-3 fixed top-0 left-0 h-12 rounded-lg sidebar-header z-20"
       style={{ 
         width: `${width}px`,
         backgroundColor: 'var(--theme-sidebar-background)',
-        borderBottom: '1px solid var(--theme-sidebar-border)'
       }}
     >
         <div className="flex items-center justify-between">

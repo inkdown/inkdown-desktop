@@ -1,7 +1,9 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { Edit3 } from 'lucide-react';
 
 export const WelcomeScreen = memo(function WelcomeScreen() {
+  const isMac = useMemo(() => /Mac/.test(navigator.platform), []);
+
   return (
     <div 
       className="flex-1 flex items-center justify-center"
@@ -11,9 +13,19 @@ export const WelcomeScreen = memo(function WelcomeScreen() {
         <h2 className="text-xl font-semibold mb-2 theme-text-primary">
           Bem-vindo ao inkdown
         </h2>
-        <p className="theme-text-muted">
-          Selecione um arquivo .md na sidebar para começar a editar
+        <p className="theme-text-muted mb-4">
+          Selecione um arquivo para começar a editar
         </p>
+        <div className="space-y-2 text-sm theme-text-muted text-center">
+          <p className="flex items-center justify-center gap-2"> 
+            Abrir paleta de notas
+              ({isMac ? '⌘' : 'Ctrl'} + O)
+            </p>
+          <p className="flex items-center justify-center gap-2">
+            Criar nova nota
+              ({isMac ? '⌘' : 'Ctrl'} + N)
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -127,7 +127,6 @@ pub fn get_theme_css(theme_id: String) -> Result<String, String> {
                         if let Ok(entries) = fs::read_dir(&theme_path) {
                             for entry in entries {
                                 if let Ok(entry) = entry {
-                                    println!("  - {:?}", entry.file_name());
                                 }
                             }
                         }
@@ -466,7 +465,6 @@ pub fn delete_community_theme(theme_name: String, theme_author: String) -> Resul
                                         // Perform atomic deletion with error recovery
                                         match fs::remove_dir_all(&theme_path) {
                                             Ok(()) => {
-                                                println!("Tema '{}' por '{}' removido com sucesso", theme_name, theme_author);
                                                 return Ok(());
                                             }
                                             Err(e) => {
