@@ -23,6 +23,7 @@ interface AppearanceState {
   readOnly: boolean;
   githubMarkdown: boolean;
   pasteUrlsAsLinks: boolean;
+  showEditorFooter: boolean;
   effectiveTheme: "light" | "dark";
   customThemes: CustomTheme[];
   currentCustomThemeId: string | null;
@@ -39,6 +40,7 @@ type AppearanceAction =
   | { type: "SET_READ_ONLY"; payload: boolean }
   | { type: "SET_GITHUB_MARKDOWN"; payload: boolean }
   | { type: "SET_PASTE_URLS_AS_LINKS"; payload: boolean }
+  | { type: "SET_SHOW_EDITOR_FOOTER"; payload: boolean }
   | { type: "SET_EFFECTIVE_THEME"; payload: "light" | "dark" }
   | { type: "SET_CUSTOM_THEMES"; payload: CustomTheme[] }
   | { type: "SET_CUSTOM_THEME_LOADING"; payload: boolean }
@@ -55,6 +57,7 @@ const initialState: AppearanceState = {
   readOnly: false,
   githubMarkdown: false,
   pasteUrlsAsLinks: true,
+  showEditorFooter: true,
   effectiveTheme: "light",
   customThemes: [],
   currentCustomThemeId: null,
@@ -84,6 +87,8 @@ function appearanceReducer(
       return { ...state, githubMarkdown: action.payload };
     case "SET_PASTE_URLS_AS_LINKS":
       return { ...state, pasteUrlsAsLinks: action.payload };
+    case "SET_SHOW_EDITOR_FOOTER":
+      return { ...state, showEditorFooter: action.payload };
     case "SET_EFFECTIVE_THEME":
       return { ...state, effectiveTheme: action.payload };
     case "SET_CUSTOM_THEMES":
@@ -113,6 +118,7 @@ interface AppearanceContextType extends AppearanceState {
     readOnly?: boolean;
     githubMarkdown?: boolean;
     pasteUrlsAsLinks?: boolean;
+    showEditorFooter?: boolean;
   }) => Promise<void>;
   refreshCustomThemes: () => Promise<void>;
   applyCustomTheme: (themeId: string) => Promise<void>;
@@ -178,6 +184,7 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
         readOnly: workspaceConfig?.readOnly || false,
         githubMarkdown: workspaceConfig?.githubMarkdown || false,
         pasteUrlsAsLinks: workspaceConfig?.pasteUrlsAsLinks !== false,
+        showEditorFooter: workspaceConfig?.showEditorFooter !== false,
       };
 
       dispatch({
@@ -226,30 +233,10 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
   }, [state.themeMode, state.effectiveTheme]);
 
   const applyStylesRef = useRef<number>();
-
-  const previousStylesRef = useRef({
-    fontSize: state.fontSize,
-    fontFamily: state.fontFamily,
-    effectiveTheme: state.effectiveTheme,
-    customThemeId: state.currentCustomThemeId,
-  });
   
   useEffect(() => {
     if (typeof document === "undefined") return;
     
-    const current = {
-      fontSize: state.fontSize,
-      fontFamily: state.fontFamily,
-      effectiveTheme: state.effectiveTheme,
-      customThemeId: state.currentCustomThemeId,
-    };
-    
-    const hasChanged = Object.keys(current).some(
-      key => current[key as keyof typeof current] !== previousStylesRef.current[key as keyof typeof current]
-    );
-    
-    if (!hasChanged) return;
-
     if (applyStylesRef.current) {
       cancelAnimationFrame(applyStylesRef.current);
     }
@@ -257,26 +244,24 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     applyStylesRef.current = requestAnimationFrame(() => {
       const root = document.documentElement;
       
-      if (previousStylesRef.current.fontSize !== current.fontSize) {
-        root.style.setProperty("--inkdown-editor-font-size", `${current.fontSize}px`);
-      }
+      root.style.setProperty("--inkdown-editor-font-size", `${state.fontSize}px`);
+      root.style.setProperty("--inkdown-ui-font-family", state.fontFamily);
+      root.style.setProperty("--inkdown-editor-font-family", state.fontFamily);
       
-      if (previousStylesRef.current.fontFamily !== current.fontFamily) {
-        root.style.setProperty("--inkdown-editor-font-family", current.fontFamily);
-        
-        if (current.fontFamily.includes("Mono") || current.fontFamily.includes("monospace")) {
-          root.style.setProperty("--inkdown-editor-mono-font-family", current.fontFamily);
-        }
+      if (state.fontFamily.includes("Mono") || state.fontFamily.includes("monospace")) {
+        root.style.setProperty("--inkdown-editor-mono-font-family", state.fontFamily);
       }
 
-      if (!current.customThemeId && 
-          (previousStylesRef.current.effectiveTheme !== current.effectiveTheme || 
-           previousStylesRef.current.customThemeId !== current.customThemeId)) {
-        applyThemeToDOM(current.effectiveTheme);
+      if (!state.currentCustomThemeId) {
+        applyThemeToDOM(state.effectiveTheme);
       }
-      
-      previousStylesRef.current = current;
     });
+
+    return () => {
+      if (applyStylesRef.current) {
+        cancelAnimationFrame(applyStylesRef.current);
+      }
+    };
   }, [state.effectiveTheme, state.fontSize, state.fontFamily, state.currentCustomThemeId, applyThemeToDOM]);
 
   useEffect(() => {
@@ -288,13 +273,10 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     );
   }, [appearanceConfig, workspaceConfig, isLoading]);
 
-  const customThemesRef = useRef(state.customThemes);
-  customThemesRef.current = state.customThemes; 
-
   const handleThemeDownloaded = useCallback((event: CustomEvent) => {
     const { theme } = event.detail;
     
-    const exists = customThemesRef.current.some(t => t.name === theme.name && t.author === theme.author);
+    const exists = state.customThemes.some(t => t.name === theme.name && t.author === theme.author);
     if (exists) return;
     
     const convertedTheme: CustomTheme = {
@@ -311,9 +293,8 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
       }))
     };
     
-    const updatedThemes = [...customThemesRef.current, convertedTheme];
-    dispatch({ type: "SET_CUSTOM_THEMES", payload: updatedThemes });
-  }, []);
+    dispatch({ type: "SET_CUSTOM_THEMES", payload: [...state.customThemes, convertedTheme] });
+  }, [state.customThemes]);
 
   const removeCustomTheme = useCallback(() => {
     dispatch({ type: "SET_CURRENT_CUSTOM_THEME", payload: null });
@@ -327,7 +308,7 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     const { theme } = event.detail;
     const themeKey = `${theme.author}-${theme.name}`;
     
-    const updatedThemes = customThemesRef.current.filter(t => 
+    const updatedThemes = state.customThemes.filter(t => 
       `${t.author}-${t.name}` !== themeKey
     );
     dispatch({ type: "SET_CUSTOM_THEMES", payload: updatedThemes });
@@ -338,7 +319,7 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
         )) {
       removeCustomTheme();
     }
-  }, [state.currentCustomThemeId, removeCustomTheme]);
+  }, [state.customThemes, state.currentCustomThemeId, removeCustomTheme]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -405,6 +386,7 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
       readOnly?: boolean;
       githubMarkdown?: boolean;
       pasteUrlsAsLinks?: boolean;
+      showEditorFooter?: boolean;
     }) => {
       if (updates.vimMode !== undefined)
         dispatch({ type: "SET_VIM_MODE", payload: updates.vimMode });
@@ -424,6 +406,8 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
         dispatch({ type: "SET_GITHUB_MARKDOWN", payload: updates.githubMarkdown });
       if (updates.pasteUrlsAsLinks !== undefined)
         dispatch({ type: "SET_PASTE_URLS_AS_LINKS", payload: updates.pasteUrlsAsLinks });
+      if (updates.showEditorFooter !== undefined)
+        dispatch({ type: "SET_SHOW_EDITOR_FOOTER", payload: updates.showEditorFooter });
 
       try {
         await updateWorkspaceConfig(updates);

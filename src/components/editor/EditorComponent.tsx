@@ -2,7 +2,6 @@ import { useRef, forwardRef, useImperativeHandle, useEffect, useMemo, useCallbac
 import { Editor, EditorConfig, EditorStateInfo } from './core/Editor';
 import { MarkdownPreview } from './preview/MarkdownPreview';
 import { useAppearance } from '../../contexts/AppearanceContext';
-import { EditorFooter } from './EditorFooter';
 
 export interface EditorComponentProps {
   initialContent?: string;
@@ -19,7 +18,6 @@ export interface EditorComponentProps {
   onStateChange?: (state: EditorStateInfo) => void;
   onSave?: (content: string) => void;
   onError?: (error: Error) => void;
-  onTogglePreview: () => void;
 }
 
 export interface EditorComponentHandle {
@@ -42,7 +40,6 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
   onContentChange,
   onStateChange,
   onError,
-  onTogglePreview,
 }, ref) => {
   const { effectiveTheme } = useAppearance();
   const editorContainerRef = useRef<HTMLDivElement>(null);
@@ -248,18 +245,11 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
           className={`preview-container absolute inset-0 z-10 overflow-auto ${showPreview ? 'block' : 'hidden'}`}
           style={{ backgroundColor: 'var(--inkdown-editor-bg)' }}
         />
-        <div className="absolute bottom-0 right-0 z-20 pointer-events-none p-4">
-          <EditorFooter
-            content={currentContentRef.current}
-            isPreviewMode={showPreview}
-            onTogglePreview={onTogglePreview}
-          />
-        </div>
       </div>
     </div>
   );
 });
 
 EditorComponent.displayName = 'EditorComponent';
-
 export default EditorComponent;
+

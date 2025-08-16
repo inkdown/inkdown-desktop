@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Palette, FileText, Keyboard, FolderOpen, RefreshCw, Package, Info } from 'lucide-react';
+import { Palette, FileText, Keyboard, FolderOpen, RefreshCw, Users, Info } from 'lucide-react';
 import { SettingsSection } from './SettingsModal';
 
 interface SettingsSidebarProps {
@@ -30,8 +30,8 @@ const sections = [
   },
   {
     id: 'plugins' as const,
-    label: 'Plugins & Temas',
-    icon: Package,
+    label: 'Comunidade',
+    icon: Users,
   },
   {
     id: 'updates' as const,

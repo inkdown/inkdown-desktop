@@ -17,6 +17,9 @@ interface WindowContentProps {
   themeMode: string;
   onSaveRef: React.MutableRefObject<(() => void) | null>;
   onTogglePreviewRef?: React.MutableRefObject<(() => void) | null>;
+  onContentChange?: (content: string) => void;
+  onPreviewModeChange?: (isPreviewMode: boolean) => void;
+  showEditorFooter?: boolean;
 }
 
 export const WindowContent = memo(function WindowContent({
@@ -25,6 +28,9 @@ export const WindowContent = memo(function WindowContent({
   themeMode,
   onSaveRef,
   onTogglePreviewRef,
+  onContentChange: externalOnContentChange,
+  onPreviewModeChange,
+  showEditorFooter,
 }: WindowContentProps) {
   const [fileContent, setFileContent] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
@@ -42,6 +48,9 @@ export const WindowContent = memo(function WindowContent({
     try {
       const content = await invoke<string>("read_file", { path: filePath });
       setFileContent(content);
+      if (showEditorFooter) {
+        externalOnContentChange?.(content);
+      }
     } catch (err) {
       console.error("Error loading file:", err);
       showError({
@@ -51,10 +60,13 @@ export const WindowContent = memo(function WindowContent({
         onRetry: () => loadFileContent(filePath)
       });
       setFileContent("");
+      if (showEditorFooter) {
+        externalOnContentChange?.("");
+      }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [externalOnContentChange, showError, showEditorFooter]);
 
   const saveFileContent = useCallback(
     async (filePath: string, content: string) => {
@@ -83,7 +95,10 @@ export const WindowContent = memo(function WindowContent({
   const handleContentChange = useCallback((content: string) => {
     setFileContent(content);
     setIsModified(true);
-  }, []);
+    if (showEditorFooter) {
+      externalOnContentChange?.(content);
+    }
+  }, [externalOnContentChange, showEditorFooter]);
 
   const handleSave = useCallback(
     async (content: string) => {
@@ -119,8 +134,12 @@ export const WindowContent = memo(function WindowContent({
   );
 
   const togglePreviewMode = useCallback(() => {
-    setIsPreviewMode((prev) => !prev);
-  }, []);
+    setIsPreviewMode((prev) => {
+      const newMode = !prev;
+      onPreviewModeChange?.(newMode);
+      return newMode;
+    });
+  }, [onPreviewModeChange]);
 
   const performSave = useCallback(() => {
     if (editorRef.current) {
@@ -225,7 +244,6 @@ export const WindowContent = memo(function WindowContent({
           onContentChange={handleContentChange}
           onSave={handleSave}
           onError={handleError}
-          onTogglePreview={togglePreviewMode}
         />
       </div>
     </div>

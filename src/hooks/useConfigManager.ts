@@ -21,6 +21,7 @@ const DEFAULT_WORKSPACE: WorkspaceConfig = {
   githubMarkdown: false,
   pasteUrlsAsLinks: true,
   devMode: false,
+  showEditorFooter: true,
   shortcuts: [
     { name: "toggleSidebar", shortcut: "Ctrl+Shift+B" },
     { name: "save", shortcut: "Ctrl+S" },
@@ -47,6 +48,8 @@ const DEFAULT_APPEARANCE: AppearanceConfig = {
   theme: "light",
 };
 
+const MAX_LISTENERS = 10;
+
 class ConfigManager {
   private static instance: ConfigManager;
   private state: ConfigState = {
@@ -69,6 +72,9 @@ class ConfigManager {
   }
 
   subscribe(listener: (state: ConfigState) => void): () => void {
+    if (this.listeners.size >= MAX_LISTENERS) {
+      console.warn('ConfigManager: Muitos listeners ativos, possível vazamento');
+    }
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
@@ -91,23 +97,53 @@ class ConfigManager {
     this.notify();
 
     try {
+      // Primeira prioridade: carregar do cache para início imediato
       let workspace = cacheUtils.getWorkspaceConfig();
       let appearance = cacheUtils.getAppearanceConfig();
-      if (!workspace || !appearance) {
-        const [workspaceStr, appearanceStr] = await Promise.all([
-          invoke<string>("load_workspace_config"),
-          invoke<string>("load_appearance_config"),
-        ]);
-
-        if (!workspace) {
-          workspace = JSON.parse(workspaceStr) as WorkspaceConfig;
-          cacheUtils.setWorkspaceConfig(workspace);
+      
+      // Se temos cache, aplique imediatamente para UI responsiva
+      if (workspace && appearance) {
+        // Garantir que showEditorFooter tem valor padrão se não existir
+        if (workspace.showEditorFooter === undefined) {
+          workspace.showEditorFooter = DEFAULT_WORKSPACE.showEditorFooter;
+          cacheUtils.setWorkspaceConfig(workspace); // Atualizar cache com novo campo
         }
+        
+        // Aplicar estado do cache imediatamente
+        this.state = {
+          workspace,
+          appearance,
+          isLoading: false,
+          error: null,
+          lastUpdated: Date.now(),
+        };
+        this.initialized = true;
+        this.notify();
+        
+        // Opcional: sincronizar com Rust em background
+        this.syncFromDisk(workspace, appearance);
+        return;
+      }
 
-        if (!appearance) {
-          appearance = JSON.parse(appearanceStr) as AppearanceConfig;
-          cacheUtils.setAppearanceConfig(appearance);
-        }
+      // Se não há cache, carregar do disco
+      const [workspaceStr, appearanceStr] = await Promise.all([
+        invoke<string>("load_workspace_config"),
+        invoke<string>("load_appearance_config"),
+      ]);
+
+      if (!workspace) {
+        workspace = JSON.parse(workspaceStr) as WorkspaceConfig;
+        cacheUtils.setWorkspaceConfig(workspace);
+      }
+
+      if (!appearance) {
+        appearance = JSON.parse(appearanceStr) as AppearanceConfig;
+        cacheUtils.setAppearanceConfig(appearance);
+      }
+
+      // Garantir que showEditorFooter existe também para carregamento inicial
+      if (workspace.showEditorFooter === undefined) {
+        workspace.showEditorFooter = DEFAULT_WORKSPACE.showEditorFooter;
       }
 
       if (!workspace.shortcuts || workspace.shortcuts.length === 0) {
@@ -145,6 +181,49 @@ class ConfigManager {
     this.notify();
   }
 
+  // Sincronização em background para garantir consistência com disco
+  private async syncFromDisk(cachedWorkspace: WorkspaceConfig, cachedAppearance: AppearanceConfig): Promise<void> {
+    try {
+      const [workspaceStr, appearanceStr] = await Promise.all([
+        invoke<string>("load_workspace_config"),
+        invoke<string>("load_appearance_config"),
+      ]);
+
+      const diskWorkspace = JSON.parse(workspaceStr) as WorkspaceConfig;
+      const diskAppearance = JSON.parse(appearanceStr) as AppearanceConfig;
+
+      // Verificar se há diferenças significativas
+      const workspaceChanged = JSON.stringify(diskWorkspace) !== JSON.stringify(cachedWorkspace);
+      const appearanceChanged = JSON.stringify(diskAppearance) !== JSON.stringify(cachedAppearance);
+
+      if (workspaceChanged || appearanceChanged) {
+        // Atualizar cache e estado se houve mudanças
+        if (workspaceChanged) {
+          // Garantir que showEditorFooter existe
+          if (diskWorkspace.showEditorFooter === undefined) {
+            diskWorkspace.showEditorFooter = DEFAULT_WORKSPACE.showEditorFooter;
+          }
+          cacheUtils.setWorkspaceConfig(diskWorkspace);
+        }
+        if (appearanceChanged) {
+          cacheUtils.setAppearanceConfig(diskAppearance);
+        }
+
+        this.state = {
+          workspace: workspaceChanged ? diskWorkspace : cachedWorkspace,
+          appearance: appearanceChanged ? diskAppearance : cachedAppearance,
+          isLoading: false,
+          error: null,
+          lastUpdated: Date.now(),
+        };
+        this.notify();
+      }
+    } catch (err) {
+      // Falha na sincronização em background não é crítica
+      console.warn("Background sync failed:", err);
+    }
+  }
+
   async updateWorkspaceConfig(
     updates: Partial<WorkspaceConfig>,
   ): Promise<void> {
@@ -152,7 +231,6 @@ class ConfigManager {
 
     const updateKey = "workspace";
 
-    // Check if there's already an update in progress
     if (this.updatePromises.has(updateKey)) {
       await this.updatePromises.get(updateKey);
     }
@@ -164,6 +242,11 @@ class ConfigManager {
       await updatePromise;
     } finally {
       this.updatePromises.delete(updateKey);
+      
+      if (this.updatePromises.size > 5) {
+        console.warn('ConfigManager: Muitas promises pendentes');
+        this.updatePromises.clear();
+      }
     }
   }
 
@@ -202,7 +285,6 @@ class ConfigManager {
 
     const updateKey = "appearance";
 
-    // Check if there's already an update in progress
     if (this.updatePromises.has(updateKey)) {
       await this.updatePromises.get(updateKey);
     }
@@ -214,6 +296,11 @@ class ConfigManager {
       await updatePromise;
     } finally {
       this.updatePromises.delete(updateKey);
+      
+      if (this.updatePromises.size > 5) {
+        console.warn('ConfigManager: Muitas promises pendentes');
+        this.updatePromises.clear();
+      }
     }
   }
 

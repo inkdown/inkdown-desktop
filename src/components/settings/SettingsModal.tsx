@@ -6,7 +6,7 @@ import { AppearanceSettings } from './sections/AppearanceSettings';
 import { EditorSettings } from './sections/EditorSettings';
 
 // Lazy load heavy components
-const PluginsSettings = lazy(() => import('./sections/PluginsSettings').then(m => ({ default: m.PluginsSettings })));
+const CommunitySettings = lazy(() => import('./sections/CommunitySettings').then(m => ({ default: m.CommunitySettings })));
 const ShortcutsSettings = lazy(() => import('./sections/ShortcutsSettings').then(m => ({ default: m.ShortcutsSettings })));
 const UpdateSettings = lazy(() => import('./sections/UpdateSettings').then(m => ({ default: m.UpdateSettings })));
 const AppSettings = lazy(() => import('./sections/AppSettings').then(m => ({ default: m.AppSettings })));
@@ -80,7 +80,7 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
       case 'plugins':
         return (
           <Suspense fallback={LoadingFallback}>
-            <PluginsSettings />
+            <CommunitySettings />
           </Suspense>
         );
       case 'updates':

@@ -3,7 +3,7 @@ import { useAppearance } from '../../../contexts/AppearanceContext';
 import { ToggleSwitch } from '../ToggleSwitch';
 
 const EditorSettings = memo(() => {
-  const { vimMode, showLineNumbers, highlightCurrentLine, readOnly, githubMarkdown, pasteUrlsAsLinks, updateWorkspace, isLoading } = useAppearance();
+  const { vimMode, showLineNumbers, highlightCurrentLine, readOnly, githubMarkdown, pasteUrlsAsLinks, showEditorFooter, updateWorkspace, isLoading } = useAppearance();
 
   // Memoize loading component
   const LoadingComponent = useMemo(() => (
@@ -38,6 +38,10 @@ const EditorSettings = memo(() => {
 
   const handlePasteUrlsAsLinks = useCallback((value: boolean) => {
     updateWorkspace({ pasteUrlsAsLinks: value });
+  }, [updateWorkspace]);
+
+  const handleShowEditorFooter = useCallback((value: boolean) => {
+    updateWorkspace({ showEditorFooter: value });
   }, [updateWorkspace]);
 
   if (isLoading) {
@@ -97,12 +101,19 @@ const EditorSettings = memo(() => {
           onChange={handleGithubMarkdown}
         />
         
+        <ToggleSwitch
+          label="Colar URLs como Links"
+          description="Transforma automaticamente URLs coladas em links markdown"
+          checked={pasteUrlsAsLinks}
+          onChange={handlePasteUrlsAsLinks}
+        />
+        
         <div style={{ borderBottom: 'none' }}>
           <ToggleSwitch
-            label="Colar URLs como Links"
-            description="Transforma automaticamente URLs coladas em links markdown"
-            checked={pasteUrlsAsLinks}
-            onChange={handlePasteUrlsAsLinks}
+            label="Mostrar Footer do Editor"
+            description="Exibe estatísticas e controles na parte inferior direita da tela"
+            checked={showEditorFooter}
+            onChange={handleShowEditorFooter}
           />
         </div>
       </div>

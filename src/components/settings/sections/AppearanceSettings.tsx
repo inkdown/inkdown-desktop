@@ -9,6 +9,8 @@ const THEME_OPTIONS = [
 
 const FONT_FAMILIES = [
   'Inter, system-ui, sans-serif',
+  'SF Pro Text, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+  'Roboto, Arial, sans-serif',
   'SF Mono, Monaco, Cascadia Code, Roboto Mono, Consolas, monospace',
   'JetBrains Mono, monospace',
   'Fira Code, monospace',
@@ -148,7 +150,7 @@ const AppearanceSettings = memo(() => {
 
         <div className="space-y-2">
           <label className="block text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-            Família da Fonte
+            Fonte do Aplicativo
           </label>
           <select
             value={fontFamily}
@@ -176,8 +178,12 @@ const AppearanceSettings = memo(() => {
               border: `1px solid ${'var(--input-border)'}`
             }}
           >
+            Esta fonte será aplicada em todo o aplicativo - interface e editor<br />
             The quick brown fox jumps over the lazy dog<br />
             0123456789 !@#$%^&*()
+          </div>
+          <div className="text-xs opacity-70" style={{ color: 'var(--text-secondary)' }}>
+            A fonte escolhida será usada tanto na interface quanto no editor
           </div>
         </div>
       </div>

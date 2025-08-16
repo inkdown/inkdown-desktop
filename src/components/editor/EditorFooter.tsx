@@ -1,10 +1,6 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 import { BookOpen, Edit3 } from 'lucide-react';
-
-interface EditorFooterStats {
-  characters: number;
-  words: number;
-}
+import { useContentStats } from '../../hooks/useContentStats';
 
 interface EditorFooterProps {
   content: string;
@@ -12,31 +8,19 @@ interface EditorFooterProps {
   onTogglePreview: () => void;
 }
 
-const calculateStats = (content: string): EditorFooterStats => {
-  const characters = content.length;
-  const words = content.trim() 
-    ? content.trim().split(/\s+/).filter(word => word.length > 0).length 
-    : 0;
-
-  return {
-    characters,
-    words
-  };
-};
-
 export const EditorFooter = memo(function EditorFooter({
   content,
   isPreviewMode,
   onTogglePreview
 }: EditorFooterProps) {
-  const stats = useMemo(() => calculateStats(content), [content]);
+  const stats = useContentStats(content, true);
 
   return (
     <div 
-      className="flex items-center gap-3 px-1 py-1 mb-32 text-xs rounded-lg shadow-lg backdrop-blur-sm border pointer-events-auto"
+      className="flex items-center border-[1px] gap-3 px-3 py-1 text-xs rounded-lg shadow-lg backdrop-blur-sm pointer-events-auto"
       style={{ 
         backgroundColor: 'var(--theme-secondary)',
-        borderColor: 'var(--theme-accent)',
+        borderColor: 'var(--theme-muted)',
       }}
     >
       <span>{stats.words} palavras</span>

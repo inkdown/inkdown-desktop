@@ -88,5 +88,6 @@ export interface WorkspaceConfig {
   githubMarkdown?: boolean;
   pasteUrlsAsLinks?: boolean;
   devMode?: boolean;
+  showEditorFooter?: boolean;
   shortcuts: KeyboardShortcut[];
 }

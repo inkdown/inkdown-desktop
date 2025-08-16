@@ -11,6 +11,7 @@ import { MainWindow } from "../window";
 import { NotePalette } from "../palette";
 import { FpsIndicator } from "../dev/FpsIndicator";
 import { TitleBar } from "../ui/TitleBar";
+import { EditorFooter } from "../editor/EditorFooter";
 
 const SettingsModal = lazy(() => import("../settings/SettingsModal"));
 
@@ -19,11 +20,13 @@ export const WorkspacePage = memo(function WorkspacePage() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [currentContent, setCurrentContent] = useState<string>("");
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const saveRef = useRef<(() => void) | null>(null);
   const togglePreviewRef = useRef<(() => void) | null>(null);
   const { sidebarWidth, handleMouseDown } = useSidebarResize(280);
   const { workspaceConfig, updateWorkspaceConfig } = useConfigManager();
-  const { themeMode } = useAppearance();
+  const { themeMode, showEditorFooter } = useAppearance();
   const navigate = useNavigate();
 
   const toggleSidebar = useCallback(() => {
@@ -37,6 +40,8 @@ export const WorkspacePage = memo(function WorkspacePage() {
 
   const handleFileSelect = useCallback((filePath: string) => {
     setSelectedFile(filePath);
+    setCurrentContent(""); // Reset content when switching files
+    setIsPreviewMode(false); // Reset preview mode when switching files
   }, []);
 
   const handleFilePathChange = useCallback((newPath: string) => {
@@ -60,9 +65,34 @@ export const WorkspacePage = memo(function WorkspacePage() {
     togglePreviewRef.current?.();
   }, []);
 
+  const handleContentChange = useCallback((content: string) => {
+    if (showEditorFooter) {
+      setCurrentContent(content);
+    }
+  }, [showEditorFooter]);
+
+  // Reset content when footer is disabled
+  const [previousShowFooter, setPreviousShowFooter] = useState(showEditorFooter);
+  if (previousShowFooter !== showEditorFooter) {
+    setPreviousShowFooter(showEditorFooter);
+    if (!showEditorFooter) {
+      setCurrentContent("");
+    }
+  }
+
+  const handlePreviewModeChange = useCallback((previewMode: boolean) => {
+    setIsPreviewMode(previewMode);
+  }, []);
+
+  const togglePreviewMode = useCallback(() => {
+    setIsPreviewMode((prev) => !prev);
+  }, []);
+
   const handleFileDeleted = useCallback((deletedPath: string) => {
     if (selectedFile === deletedPath) {
       setSelectedFile(null);
+      setCurrentContent(""); // Clear content when file is deleted
+      setIsPreviewMode(false); // Reset preview mode when file is deleted
     }
   }, [selectedFile]);
 
@@ -136,6 +166,9 @@ export const WorkspacePage = memo(function WorkspacePage() {
         themeMode={themeMode}
         onSaveRef={saveRef}
         onTogglePreviewRef={togglePreviewRef}
+        onContentChange={handleContentChange}
+        onPreviewModeChange={handlePreviewModeChange}
+        showEditorFooter={showEditorFooter}
       />
 
       {useMemo(
@@ -164,7 +197,16 @@ export const WorkspacePage = memo(function WorkspacePage() {
         </Suspense>
       )}
 
-        {/* Dev Mode Features */}
+        {selectedFile && showEditorFooter && (
+          <div className="fixed bottom-2 right-2 z-30 pointer-events-none">
+            <EditorFooter
+              content={currentContent}
+              isPreviewMode={isPreviewMode}
+              onTogglePreview={togglePreviewMode}
+            />
+          </div>
+        )}
+
         <FpsIndicator 
           isVisible={workspaceConfig?.devMode ?? false}
         />

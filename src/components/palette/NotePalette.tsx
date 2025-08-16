@@ -35,7 +35,19 @@ function NotePaletteComponent({
   }>({ isValid: true, message: "" });
   const inputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<number>();
+  const selectedItemRef = useRef<HTMLDivElement>(null);
   const { createNestedPath } = useFileOperations();
+
+  // Função para fazer scroll automático do item selecionado
+  const scrollToSelectedItem = useCallback(() => {
+    if (!selectedItemRef.current) return;
+
+    selectedItemRef.current.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest', // Só rola se necessário
+      inline: 'nearest'
+    });
+  }, []);
 
   const validatePath = useCallback((pathInput: string) => {
     if (!pathInput.trim()) {
@@ -187,6 +199,18 @@ function NotePaletteComponent({
       }, 0);
     }
   }, [isOpen]);
+
+  // Effect para scroll automático quando selectedIndex muda
+  useEffect(() => {
+    if (searchResults.length > 0) {
+      // Usar setTimeout para garantir que o DOM foi atualizado e a ref está atribuída
+      const timeoutId = setTimeout(() => {
+        scrollToSelectedItem();
+      }, 0);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [selectedIndex, searchResults.length, scrollToSelectedItem]);
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -346,6 +370,7 @@ function NotePaletteComponent({
             searchResults.map((note, index) => (
               <div
                 key={note.path}
+                ref={index === selectedIndex ? selectedItemRef : null}
                 className={`p-4 cursor-pointer border-b transition-colors ${
                   index === selectedIndex ? "bg-opacity-50" : ""
                 }`}

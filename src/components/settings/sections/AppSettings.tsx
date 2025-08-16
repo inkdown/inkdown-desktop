@@ -10,7 +10,7 @@ interface AppInfo {
 }
 
 const APP_INFO: AppInfo = {
-  version: "0.1.1",
+  version: "0.2.1",
   repoUrl: "https://github.com/inkdown/inkdown-desktop",
   siteUrl: "https://inkdown.vercel.app/"
 };

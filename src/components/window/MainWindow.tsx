@@ -11,6 +11,9 @@ interface MainWindowProps {
   themeMode: string;
   onSaveRef: React.MutableRefObject<(() => void) | null>;
   onTogglePreviewRef?: React.MutableRefObject<(() => void) | null>;
+  onContentChange?: (content: string) => void;
+  onPreviewModeChange?: (isPreviewMode: boolean) => void;
+  showEditorFooter?: boolean;
 }
 
 export const MainWindow = memo(function MainWindow({ 
@@ -21,7 +24,10 @@ export const MainWindow = memo(function MainWindow({
   workspaceConfig, 
   themeMode,
   onSaveRef,
-  onTogglePreviewRef
+  onTogglePreviewRef,
+  onContentChange,
+  onPreviewModeChange,
+  showEditorFooter
 }: MainWindowProps) {
   return (
     <div className="flex-1 flex flex-col min-w-0 pt-8 h-full overflow-hidden">
@@ -35,6 +41,9 @@ export const MainWindow = memo(function MainWindow({
           themeMode={themeMode}
           onSaveRef={onSaveRef}
           onTogglePreviewRef={onTogglePreviewRef}
+          onContentChange={onContentChange}
+          onPreviewModeChange={onPreviewModeChange}
+          showEditorFooter={showEditorFooter}
         />
       ) : (
         <WelcomeScreen />
