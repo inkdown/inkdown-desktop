@@ -1,7 +1,7 @@
 import { memo } from 'react';
 
 interface ToggleSwitchProps {
-  label: string;
+  label?: string;
   description?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
@@ -20,16 +20,20 @@ const ToggleSwitch = memo<ToggleSwitchProps>(({
       className="flex items-center justify-between px-3 py-2.5"
       style={{ borderBottom: '1px solid var(--theme-border)' }}
     >
-      <div>
-        <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-          {label}
+      {(label || description) && (
+        <div>
+          {label && (
+            <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+              {label}
+            </div>
+          )}
+          {description && (
+            <div className="text-xs leading-tight" style={{ color: 'var(--text-secondary)' }}>
+              {description}
+            </div>
+          )}
         </div>
-        {description && (
-          <div className="text-xs leading-tight" style={{ color: 'var(--text-secondary)' }}>
-            {description}
-          </div>
-        )}
-      </div>
+      )}
       <label className="relative inline-flex items-center cursor-pointer">
         <input
           type="checkbox"

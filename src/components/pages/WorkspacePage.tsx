@@ -40,6 +40,8 @@ export const WorkspacePage = memo(function WorkspacePage() {
 
   const handleFileSelect = useCallback((filePath: string) => {
     setSelectedFile(filePath);
+    // Expor para plugins via window global
+    (window as any).__activeFilePath = filePath;
     setCurrentContent(""); // Reset content when switching files
     setIsPreviewMode(false); // Reset preview mode when switching files
   }, []);
@@ -91,6 +93,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
   const handleFileDeleted = useCallback((deletedPath: string) => {
     if (selectedFile === deletedPath) {
       setSelectedFile(null);
+      (window as any).__activeFilePath = null;
       setCurrentContent(""); // Clear content when file is deleted
       setIsPreviewMode(false); // Reset preview mode when file is deleted
     }

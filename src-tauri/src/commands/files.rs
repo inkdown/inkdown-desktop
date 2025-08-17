@@ -187,6 +187,49 @@ pub fn read_file(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+pub fn write_binary_file(file_path: String, content: Vec<u8>) -> Result<(), String> {
+    if file_path.contains("..") {
+        return Err("Path traversal not allowed".to_string());
+    }
+
+    let path = Path::new(&file_path);
+
+    if !path.exists() {
+        if let Some(parent) = path.parent() {
+            if !parent.exists() {
+                return Err("Parent directory does not exist".to_string());
+            }
+        }
+
+        windows_utils::validate_path_length(&path)?;
+    } else {
+        let canonical_path = path
+            .canonicalize()
+            .map_err(|e| format!("Invalid file path: {}", e))?;
+
+        if !canonical_path.is_file() {
+            return Err("Path is not a file".to_string());
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            if let Ok(metadata) = canonical_path.metadata() {
+                if metadata.permissions().readonly() {
+                    let mut perms = metadata.permissions();
+                    perms.set_readonly(false);
+                    fs::set_permissions(&canonical_path, perms)
+                        .map_err(|e| format!("Failed to remove read-only attribute: {}", e))?;
+                }
+            }
+        }
+    }
+
+    fs::write(&path, &content).map_err(|e| format!("Failed to write file: {}", e))?;
+
+    Ok(())
+}
+
+#[tauri::command]
 pub fn write_file(file_path: String, content: String) -> Result<(), String> {
     if file_path.contains("..") {
         return Err("Path traversal not allowed".to_string());

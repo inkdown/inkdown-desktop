@@ -38,6 +38,7 @@ pub fn run() {
             // File operations
             commands::files::read_file,
             commands::files::write_file,
+            commands::files::write_binary_file,
             commands::files::create_file,
             commands::files::create_directory,
             commands::files::create_nested_path,

@@ -4,7 +4,6 @@ import {
   EditorComponent,
   EditorComponentHandle,
 } from "../editor/EditorComponent";
-import { EditorToolbar } from "../editor/EditorToolbar";
 import { Title } from "../editor/Title";
 import { useError } from "../../contexts/ErrorContext";
 

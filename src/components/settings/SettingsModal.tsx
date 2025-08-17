@@ -5,13 +5,13 @@ import { WorkspaceSettings } from './sections/WorkspaceSettings';
 import { AppearanceSettings } from './sections/AppearanceSettings';
 import { EditorSettings } from './sections/EditorSettings';
 
-// Lazy load heavy components
 const CommunitySettings = lazy(() => import('./sections/CommunitySettings').then(m => ({ default: m.CommunitySettings })));
+const PluginsSettings = lazy(() => import('./sections/PluginsSettings').then(m => ({ default: m.PluginsSettings })));
 const ShortcutsSettings = lazy(() => import('./sections/ShortcutsSettings').then(m => ({ default: m.ShortcutsSettings })));
 const UpdateSettings = lazy(() => import('./sections/UpdateSettings').then(m => ({ default: m.UpdateSettings })));
 const AppSettings = lazy(() => import('./sections/AppSettings').then(m => ({ default: m.AppSettings })));
 
-export type SettingsSection = 'workspace' | 'appearance' | 'editor' | 'preferences' | 'plugins' | 'updates' | 'app';
+export type SettingsSection = 'workspace' | 'appearance' | 'editor' | 'preferences' | 'community' | 'plugins' | 'updates' | 'app';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -22,7 +22,6 @@ interface SettingsModalProps {
 export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }: SettingsModalProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
 
-  // Memoize event handlers
   const handleClose = useCallback(() => {
     onClose();
   }, [onClose]);
@@ -37,7 +36,6 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
     }
   }, [handleClose]);
 
-  // Memoize key handler
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       event.stopPropagation();
@@ -52,7 +50,6 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
     return () => document.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, [isOpen, handleKeyDown]);
 
-  // Loading component for Suspense
   const LoadingFallback = useMemo(() => (
     <div className="flex items-center justify-center py-8">
       <div 
@@ -62,7 +59,6 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
     </div>
   ), []);
 
-  // Memoize section rendering with lazy loading
   const renderSection = useMemo(() => {
     switch (activeSection) {
       case 'workspace':
@@ -77,10 +73,16 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
             <ShortcutsSettings />
           </Suspense>
         );
-      case 'plugins':
+      case 'community':
         return (
           <Suspense fallback={LoadingFallback}>
             <CommunitySettings />
+          </Suspense>
+        );
+      case 'plugins':
+        return (
+          <Suspense fallback={LoadingFallback}>
+            <PluginsSettings />
           </Suspense>
         );
       case 'updates':

@@ -115,4 +115,54 @@ export const cacheUtils = {
   invalidateThemes: () => {
     cacheManager.remove('customThemes');
   },
+
+  // Plugin Cache Functions
+  getEnabledPlugins: (): string[] => {
+    const cache = cacheManager.get<Record<string, { enabled: boolean; settings: Record<string, any> }>>('plugins') || {};
+    return Object.keys(cache).filter(pluginId => cache[pluginId].enabled);
+  },
+
+  getPluginCache: () => {
+    return cacheManager.get<Record<string, { enabled: boolean; settings: Record<string, any> }>>('plugins') || {};
+  },
+
+  setPluginEnabled: (pluginId: string, enabled: boolean) => {
+    const cache = cacheUtils.getPluginCache();
+    if (!cache[pluginId]) {
+      cache[pluginId] = { enabled, settings: {} };
+    } else {
+      cache[pluginId].enabled = enabled;
+    }
+    cacheManager.set('plugins', cache);
+  },
+
+  getPluginSettings: (pluginId: string): Record<string, any> => {
+    const cache = cacheUtils.getPluginCache();
+    return cache[pluginId]?.settings || {};
+  },
+
+  setPluginSettings: (pluginId: string, settings: Record<string, any>) => {
+    const cache = cacheUtils.getPluginCache();
+    if (!cache[pluginId]) {
+      cache[pluginId] = { enabled: false, settings };
+    } else {
+      cache[pluginId].settings = settings;
+    }
+    cacheManager.set('plugins', cache);
+  },
+
+  isPluginEnabled: (pluginId: string): boolean => {
+    const cache = cacheUtils.getPluginCache();
+    return cache[pluginId]?.enabled || false;
+  },
+
+  removePlugin: (pluginId: string) => {
+    const cache = cacheUtils.getPluginCache();
+    delete cache[pluginId];
+    cacheManager.set('plugins', cache);
+  },
+
+  invalidatePlugins: () => {
+    cacheManager.remove('plugins');
+  },
 };

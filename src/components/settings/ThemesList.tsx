@@ -13,7 +13,6 @@ interface ThemesListProps {
   onDeleteTheme?: (theme: CommunityTheme) => void;
 }
 
-// Memoized theme card component for better performance
 const ThemeCard = memo<{
   theme: CommunityTheme;
   index: number;
@@ -182,7 +181,6 @@ const ThemesList = memo<ThemesListProps>(({
   onDownloadTheme,
   onDeleteTheme,
 }) => {
-  // Memoize loading state
   const LoadingComponent = useMemo(() => (
     <div className="text-center py-8">
       <div
