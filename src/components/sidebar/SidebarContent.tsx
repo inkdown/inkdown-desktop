@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { FileTree } from './FileTree';
-import { FileNode } from '../../contexts/DirectoryContext';
+import { FileNode } from '../../stores/directoryStore';
 
 interface SidebarContentProps {
   fileTree: FileNode;

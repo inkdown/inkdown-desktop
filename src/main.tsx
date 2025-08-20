@@ -1,21 +1,32 @@
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
-import { DirectoryProvider } from "./contexts/DirectoryContext";
-import { EditingProvider } from "./contexts/EditingContext";
-import { AppearanceProvider } from "./contexts/AppearanceContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { initializeStores, cleanupStores } from "./stores";
 
-createRoot(document.getElementById("root") as HTMLElement).render(
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+  cleanupStores();
+});
+
+// Initialize stores before rendering
+initializeStores().then(() => {
+  createRoot(document.getElementById("root") as HTMLElement).render(
     <ErrorBoundary>
       <BrowserRouter>
-        <AppearanceProvider>
-          <DirectoryProvider>
-            <EditingProvider>
-              <App />
-            </EditingProvider>
-          </DirectoryProvider>
-        </AppearanceProvider>
+        <App />
       </BrowserRouter>
     </ErrorBoundary>
-);
+  );
+}).catch((error) => {
+  console.error("Failed to initialize application:", error);
+  
+  // Render app anyway with error state
+  createRoot(document.getElementById("root") as HTMLElement).render(
+    <ErrorBoundary>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ErrorBoundary>
+  );
+});

@@ -1,9 +1,19 @@
 import { memo, useMemo, useCallback } from 'react';
-import { useAppearance } from '../../../contexts/AppearanceContext';
+import { useWorkspaceConfig, useConfigStore } from '../../../stores/configStore';
 import { ToggleSwitch } from '../ToggleSwitch';
 
 const EditorSettings = memo(() => {
-  const { vimMode, showLineNumbers, highlightCurrentLine, readOnly, githubMarkdown, pasteUrlsAsLinks, showEditorFooter, updateWorkspace, isLoading } = useAppearance();
+  const workspaceConfig = useWorkspaceConfig();
+  const { updateWorkspaceConfig } = useConfigStore();
+  
+  // Extract values with defaults
+  const vimMode = workspaceConfig?.vimMode ?? false;
+  const showLineNumbers = workspaceConfig?.showLineNumbers ?? true;
+  const highlightCurrentLine = workspaceConfig?.highlightCurrentLine ?? true;
+  const readOnly = workspaceConfig?.readOnly ?? false;
+  const githubMarkdown = workspaceConfig?.githubMarkdown ?? false;
+  const pasteUrlsAsLinks = workspaceConfig?.pasteUrlsAsLinks ?? true;
+  const showEditorFooter = workspaceConfig?.showEditorFooter ?? true;
 
   // Memoize loading component
   const LoadingComponent = useMemo(() => (
@@ -17,36 +27,33 @@ const EditorSettings = memo(() => {
 
   // Memoize toggle handlers
   const handleVimMode = useCallback((value: boolean) => {
-    updateWorkspace({ vimMode: value });
-  }, [updateWorkspace]);
+    updateWorkspaceConfig({ vimMode: value });
+  }, [updateWorkspaceConfig]);
 
   const handleShowLineNumbers = useCallback((value: boolean) => {
-    updateWorkspace({ showLineNumbers: value });
-  }, [updateWorkspace]);
+    updateWorkspaceConfig({ showLineNumbers: value });
+  }, [updateWorkspaceConfig]);
 
   const handleHighlightCurrentLine = useCallback((value: boolean) => {
-    updateWorkspace({ highlightCurrentLine: value });
-  }, [updateWorkspace]);
+    updateWorkspaceConfig({ highlightCurrentLine: value });
+  }, [updateWorkspaceConfig]);
 
   const handleReadOnly = useCallback((value: boolean) => {
-    updateWorkspace({ readOnly: value });
-  }, [updateWorkspace]);
+    updateWorkspaceConfig({ readOnly: value });
+  }, [updateWorkspaceConfig]);
 
   const handleGithubMarkdown = useCallback((value: boolean) => {
-    updateWorkspace({ githubMarkdown: value });
-  }, [updateWorkspace]);
+    updateWorkspaceConfig({ githubMarkdown: value });
+  }, [updateWorkspaceConfig]);
 
   const handlePasteUrlsAsLinks = useCallback((value: boolean) => {
-    updateWorkspace({ pasteUrlsAsLinks: value });
-  }, [updateWorkspace]);
+    updateWorkspaceConfig({ pasteUrlsAsLinks: value });
+  }, [updateWorkspaceConfig]);
 
   const handleShowEditorFooter = useCallback((value: boolean) => {
-    updateWorkspace({ showEditorFooter: value });
-  }, [updateWorkspace]);
+    updateWorkspaceConfig({ showEditorFooter: value });
+  }, [updateWorkspaceConfig]);
 
-  if (isLoading) {
-    return LoadingComponent;
-  }
 
   return (
     <div className="space-y-5">

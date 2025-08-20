@@ -1,7 +1,7 @@
 import "./App.css";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
-import { useDirectory } from "./contexts/DirectoryContext";
+import { useCurrentDirectory, useDirectoryStore } from "./stores/directoryStore";
 import { cacheUtils } from "./utils/localStorage";
 import { UpdateNotification } from "./components/updater/UpdateNotification";
 import { useUpdater } from "./hooks/useUpdater";
@@ -23,7 +23,8 @@ const LoadingSpinner = () => (
 );
 
 function AppRouter() {
-  const { currentDirectory, initializeWorkspace } = useDirectory();
+  const currentDirectory = useCurrentDirectory();
+  const { initializeWorkspace } = useDirectoryStore();
   const navigate = useNavigate();
   const [initializing, setInitializing] = useState(true);
 

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { useDirectory } from '../../contexts/DirectoryContext';
+import { useDirectoryStore } from '../../stores/directoryStore';
 
 interface TitleProps {
   filePath: string;
@@ -13,7 +13,7 @@ export const Title = React.memo<TitleProps>(({
   onFilePathChange,
   className = '' 
 }) => {
-  const { refreshFileTree } = useDirectory();
+  const { refreshFileTree } = useDirectoryStore();
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);

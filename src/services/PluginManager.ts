@@ -71,21 +71,34 @@ class PluginManager {
       .join('+');
   }
 
-  async scanPlugins(): Promise<LoadedPlugin[]> {
+  /**
+   * Scans plugins directory and loads ONLY enabled plugins
+   * This method is optimized for app startup - only processes plugins that are enabled in cache
+   */
+  async scanEnabledPlugins(): Promise<LoadedPlugin[]> {
     try {
-      console.log('🔍 [PluginManager] Scanning plugins directory...');
-      const pluginInfos = await invoke<any[]>('scan_plugins_directory');
-      console.log(`📦 [PluginManager] Found ${pluginInfos.length} plugins:`, pluginInfos.map(p => p.manifest?.id || 'unknown'));
+      const enabledPluginIds = cacheUtils.getEnabledPlugins();
       
-      for (const pluginInfo of pluginInfos) {
-        const isEnabled = cacheUtils.isPluginEnabled(pluginInfo.manifest.id);
-        console.log(`🔧 [PluginManager] Plugin ${pluginInfo.manifest.id} - enabled: ${isEnabled}`);
-        
-        // Sempre registra o plugin (para mostrar na UI), mas marca corretamente o status
+      if (enabledPluginIds.length === 0) {
+        console.log('⏭️ [PluginManager] No enabled plugins found in cache, skipping enabled plugin scan');
+        return [];
+      }
+      
+      console.log(`🔍 [PluginManager] Scanning ONLY enabled plugins: [${enabledPluginIds.join(', ')}]`);
+      
+      const allPluginInfos = await invoke<any[]>('scan_plugins_directory');
+      const enabledPluginInfos = allPluginInfos.filter(info => 
+        enabledPluginIds.includes(info.manifest.id)
+      );
+      
+      console.log(`✅ [PluginManager] Found ${enabledPluginInfos.length} enabled plugins to process`);
+      
+      // Process and immediately load only enabled plugins
+      for (const pluginInfo of enabledPluginInfos) {
         const loadedPlugin: LoadedPlugin = {
           ...pluginInfo,
-          enabled: isEnabled,
-          loaded: false, // Código não foi carregado ainda
+          enabled: true,
+          loaded: false,
           instance: null,
           shortcuts: new Map(),
           commands: new Map(),
@@ -93,20 +106,53 @@ class PluginManager {
         };
         
         this.plugins.set(pluginInfo.manifest.id, loadedPlugin);
+        
+        // Immediately load the plugin code
+        console.log(`🔄 [PluginManager] Auto-enabling plugin: ${pluginInfo.manifest.id}`);
+        this.enablePlugin(pluginInfo.manifest.id).catch(error => {
+          console.error(`❌ [PluginManager] Failed to auto-enable plugin ${pluginInfo.manifest.id}:`, error);
+        });
       }
       
-      console.log(`✅ [PluginManager] Total plugins in manager: ${this.plugins.size}`);
       this.notifyListeners();
+      return Array.from(this.plugins.values());
+    } catch (error) {
+      console.error('❌ [PluginManager] Failed to scan enabled plugins:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Scans ALL plugins in directory (for settings UI)
+   * This method is used when user opens plugin settings to see all available plugins
+   */
+  async scanPlugins(): Promise<LoadedPlugin[]> {
+    try {
+      console.log('🔍 [PluginManager] Scanning ALL plugins directory (for settings UI)...');
+      const pluginInfos = await invoke<any[]>('scan_plugins_directory');
+      console.log(`📦 [PluginManager] Found ${pluginInfos.length} plugins:`, pluginInfos.map(p => p.manifest?.id || 'unknown'));
       
-      // Auto-enable plugins that are marked as enabled in cache
-      for (const plugin of this.plugins.values()) {
-        if (plugin.enabled && !plugin.loaded && !plugin.instance) {
-          console.log(`🔄 [PluginManager] Auto-enabling plugin: ${plugin.manifest.id}`);
-          this.enablePlugin(plugin.manifest.id).catch(error => {
-            console.error(`❌ [PluginManager] Failed to auto-enable plugin ${plugin.manifest.id}:`, error);
-          });
+      for (const pluginInfo of pluginInfos) {
+        // Only register if not already registered (avoid overwriting loaded plugins)
+        if (!this.plugins.has(pluginInfo.manifest.id)) {
+          const isEnabled = cacheUtils.isPluginEnabled(pluginInfo.manifest.id);
+          
+          const loadedPlugin: LoadedPlugin = {
+            ...pluginInfo,
+            enabled: isEnabled,
+            loaded: false,
+            instance: null,
+            shortcuts: new Map(),
+            commands: new Map(),
+            statusBarItems: new Map()
+          };
+          
+          this.plugins.set(pluginInfo.manifest.id, loadedPlugin);
         }
       }
+      
+      console.log(`✅ [PluginManager] Total plugins registered: ${this.plugins.size}`);
+      this.notifyListeners();
       
       return Array.from(this.plugins.values());
     } catch (error) {
@@ -129,10 +175,13 @@ class PluginManager {
         return true;
       }
 
-      // Verificação se o plugin deve ser carregado
-      if (!this.shouldLoadPlugin(pluginId)) {
-        console.log(`❌ [PluginManager] Plugin ${pluginId} should not be loaded`);
-        return false;
+      // Update cache first to indicate user intent to enable
+      cacheUtils.setPluginEnabled(pluginId, true);
+      
+      // Check if plugin is already loaded
+      if (plugin.loaded && plugin.instance) {
+        console.log(`⚠️ [PluginManager] Plugin ${pluginId} is already loaded`);
+        return true;
       }
 
       console.log(`📄 [PluginManager] Reading plugin file: ${plugin.manifest.main}`);
@@ -156,11 +205,14 @@ class PluginManager {
         plugin.enabled = true;
         plugin.instance = result;
         
+        // Initialize plugin settings (sync file system and cache)
+        await this.initializePluginSettings(pluginId);
+        
         console.log(`✅ [PluginManager] Plugin ${pluginId} enabled successfully`);
         console.log(`📊 [PluginManager] Plugin shortcuts registered: ${plugin.shortcuts.size}`);
         console.log(`📊 [PluginManager] Global shortcuts total: ${this.globalShortcuts.size}`);
         
-        cacheUtils.setPluginEnabled(pluginId, true);
+        // Cache was already updated earlier
         this.notifyListeners();
         
         // Force immediate state update to ensure UI and keyboard shortcuts are in sync
@@ -170,9 +222,13 @@ class PluginManager {
       }
       
       console.log(`❌ [PluginManager] Plugin ${pluginId} execution failed`);
+      // Revert cache since enabling failed
+      cacheUtils.setPluginEnabled(pluginId, false);
       return false;
     } catch (error) {
       console.error(`❌ [PluginManager] Failed to enable plugin ${pluginId}:`, error);
+      // Revert cache since enabling failed
+      cacheUtils.setPluginEnabled(pluginId, false);
       return false;
     }
   }
@@ -335,6 +391,54 @@ class PluginManager {
     return Array.from(this.plugins.values()).filter(plugin => 
       plugin.loaded && plugin.instance !== null
     );
+  }
+
+  /**
+   * Saves plugin settings to both cache and file system
+   */
+  async savePluginSettings(pluginId: string, settings: Record<string, any>): Promise<boolean> {
+    try {
+      console.log(`💾 [PluginManager] Saving settings for plugin: ${pluginId}`, settings);
+      
+      // Save to cache
+      cacheUtils.setPluginSettings(pluginId, settings);
+      
+      // Save to file system
+      await this.saveSettingsToFile(pluginId, settings);
+      
+      console.log(`✅ [PluginManager] Settings saved successfully for ${pluginId}`);
+      return true;
+    } catch (error) {
+      console.error(`❌ [PluginManager] Failed to save settings for ${pluginId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Reloads settings for a specific plugin and notifies the plugin instance
+   */
+  async reloadPluginSettings(pluginId: string): Promise<boolean> {
+    try {
+      const plugin = this.plugins.get(pluginId);
+      if (!plugin || !plugin.loaded || !plugin.instance) {
+        console.log(`⚠️ [PluginManager] Plugin ${pluginId} is not loaded, cannot reload settings`);
+        return false;
+      }
+
+      console.log(`🔄 [PluginManager] Reloading settings for plugin: ${pluginId}`);
+      
+      if (typeof plugin.instance.reloadSettings === 'function') {
+        await plugin.instance.reloadSettings();
+        console.log(`✅ [PluginManager] Settings reloaded for plugin: ${pluginId}`);
+        return true;
+      } else {
+        console.warn(`⚠️ [PluginManager] Plugin ${pluginId} does not support settings reloading`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`❌ [PluginManager] Failed to reload settings for plugin ${pluginId}:`, error);
+      return false;
+    }
   }
 
   async executeShortcut(shortcut: string, event: KeyboardEvent): Promise<boolean> {
@@ -503,18 +607,112 @@ class PluginManager {
       },
       
       settings: {
-        load: (pluginId: string) => cacheUtils.getPluginSettings(pluginId),
+        load: (pluginId: string) => {
+          // Load from cache first, will be enhanced to load from file system
+          return cacheUtils.getPluginSettings(pluginId);
+        },
         save: (pluginId: string, settings: Record<string, any>) => {
+          // Save to both cache and file system
           cacheUtils.setPluginSettings(pluginId, settings);
+          this.saveSettingsToFile(pluginId, settings).catch(error => {
+            console.error(`⚠️ [PluginManager] Failed to save settings to file for ${pluginId}:`, error);
+          });
         },
         setHasSettings: (pluginId: string, hasSettings: boolean) => {
           cacheUtils.setPluginHasSettings(pluginId, hasSettings);
         },
         getHasSettings: (pluginId: string) => {
           return cacheUtils.getPluginHasSettings(pluginId);
+        },
+        // Enhanced API methods
+        loadFromFile: async (pluginId: string) => {
+          return await this.loadSettingsFromFile(pluginId);
+        },
+        saveToFile: async (pluginId: string, settings: Record<string, any>) => {
+          return await this.saveSettingsToFile(pluginId, settings);
+        },
+        backup: async (pluginId: string) => {
+          return await this.backupPluginSettings(pluginId);
         }
       }
     };
+  }
+
+  /**
+   * Loads plugin settings from the file system (configs.json)
+   */
+  private async loadSettingsFromFile(pluginId: string): Promise<Record<string, any>> {
+    try {
+      console.log(`📁 [PluginManager] Loading settings from file for plugin: ${pluginId}`);
+      const result = await invoke<any>('read_plugin_settings', { pluginId });
+      console.log(`✅ [PluginManager] Settings loaded from file for ${pluginId}:`, result);
+      return result || {};
+    } catch (error) {
+      console.error(`❌ [PluginManager] Failed to load settings from file for ${pluginId}:`, error);
+      return {};
+    }
+  }
+
+  /**
+   * Saves plugin settings to the file system (configs.json)
+   */
+  private async saveSettingsToFile(pluginId: string, settings: Record<string, any>): Promise<void> {
+    try {
+      console.log(`💾 [PluginManager] Saving settings to file for plugin: ${pluginId}`, settings);
+      await invoke('write_plugin_settings', { pluginId, settings });
+      console.log(`✅ [PluginManager] Settings saved to file for ${pluginId}`);
+    } catch (error) {
+      console.error(`❌ [PluginManager] Failed to save settings to file for ${pluginId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Creates a backup of plugin settings
+   */
+  private async backupPluginSettings(pluginId: string): Promise<string> {
+    try {
+      console.log(`🔄 [PluginManager] Creating backup for plugin: ${pluginId}`);
+      const result = await invoke<string>('backup_plugin_settings', { pluginId });
+      console.log(`✅ [PluginManager] Backup created for ${pluginId}: ${result}`);
+      return result;
+    } catch (error) {
+      console.error(`❌ [PluginManager] Failed to create backup for ${pluginId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Initializes plugin settings by loading from file system and syncing with cache
+   */
+  async initializePluginSettings(pluginId: string): Promise<void> {
+    try {
+      console.log(`🔧 [PluginManager] Initializing settings for plugin: ${pluginId}`);
+      
+      // Load settings from file
+      const fileSettings = await this.loadSettingsFromFile(pluginId);
+      
+      // Get current cache settings
+      const cacheSettings = cacheUtils.getPluginSettings(pluginId);
+      
+      // If file settings exist and are newer, use them; otherwise use cache
+      let finalSettings = fileSettings;
+      
+      // If cache has settings but file doesn't, save cache to file
+      if (Object.keys(fileSettings).length === 0 && Object.keys(cacheSettings).length > 0) {
+        console.log(`📄 [PluginManager] File settings empty, using cache settings for ${pluginId}`);
+        finalSettings = cacheSettings;
+        await this.saveSettingsToFile(pluginId, cacheSettings);
+      } else if (Object.keys(fileSettings).length > 0) {
+        // Update cache with file settings
+        console.log(`💾 [PluginManager] Updating cache with file settings for ${pluginId}`);
+        cacheUtils.setPluginSettings(pluginId, fileSettings);
+      }
+      
+      console.log(`✅ [PluginManager] Settings initialized for ${pluginId}:`, finalSettings);
+    } catch (error) {
+      console.error(`❌ [PluginManager] Failed to initialize settings for ${pluginId}:`, error);
+    }
   }
 
   private async executePlugin(code: string, api: PluginAPI, manifest: PluginManifest): Promise<any> {
@@ -706,22 +904,67 @@ class PluginManager {
         throw new Error(`Module '${moduleId}' is not available`);
       };
 
-      // Create Plugin base class
       class Plugin {
         protected settings: Record<string, any> = {};
         protected cleanupFunctions: (() => void)[] = [];
 
         constructor(public app: any, public manifest: any) {
-          // Make sure the app has a reference to the plugin manager
           this.app.pluginManager = (globalThis as any).pluginManager;
         }
 
         async loadSettings(): Promise<void> {
-          this.settings = api.settings.load(this.manifest.id);
+          try {
+            this.settings = api.settings.load(this.manifest.id);
+            
+            if (Object.keys(this.settings).length === 0 && api.settings.loadFromFile) {
+              console.log(`📁 [Plugin ${this.manifest.id}] Cache empty, loading from file system...`);
+              const fileSettings = await api.settings.loadFromFile(this.manifest.id);
+              if (Object.keys(fileSettings).length > 0) {
+                this.settings = fileSettings;
+                api.settings.save(this.manifest.id, this.settings);
+                console.log(`✅ [Plugin ${this.manifest.id}] Settings loaded from file and cached`);
+              }
+            }
+          } catch (error) {
+            console.error(`❌ [Plugin ${this.manifest.id}] Failed to load settings:`, error);
+            this.settings = {};
+          }
         }
 
         async saveSettings(): Promise<void> {
-          api.settings.save(this.manifest.id, this.settings);
+          try {
+            // Save to both cache and file system
+            api.settings.save(this.manifest.id, this.settings);
+            
+            if (api.settings.saveToFile) {
+              await api.settings.saveToFile(this.manifest.id, this.settings);
+            }
+          } catch (error) {
+            console.error(`❌ [Plugin ${this.manifest.id}] Failed to save settings:`, error);
+          }
+        }
+
+        async reloadSettings(): Promise<void> {
+          console.log(`🔄 [Plugin ${this.manifest.id}] Reloading settings...`);
+          
+          try {
+            // Load fresh settings (cache first, then file system if needed)
+            await this.loadSettings();
+            
+            // Notify plugin that settings have changed
+            if (typeof this.onSettingsChanged === 'function') {
+              try {
+                await this.onSettingsChanged(this.settings);
+                console.log(`✅ [Plugin ${this.manifest.id}] Settings change callback completed`);
+              } catch (error) {
+                console.error(`❌ [Plugin ${this.manifest.id}] Error in onSettingsChanged:`, error);
+              }
+            } else {
+              console.log(`ℹ️ [Plugin ${this.manifest.id}] No onSettingsChanged callback defined - consider adding it to your plugin`);
+            }
+          } catch (error) {
+            console.error(`❌ [Plugin ${this.manifest.id}] Failed to reload settings:`, error);
+          }
         }
 
         getSetting(key: string, defaultValue?: any): any {
@@ -730,7 +973,36 @@ class PluginManager {
 
         setSetting(key: string, value: any): void {
           this.settings[key] = value;
+          // Immediately persist the change
+          this.saveSettings().catch(error => {
+            console.error(`❌ [Plugin ${this.manifest.id}] Failed to persist setting change:`, error);
+          });
         }
+
+        // Enhanced settings utilities
+        getSettingWithValidation(key: string, defaultValue: any, validator?: (value: any) => boolean): any {
+          const value = this.settings[key] ?? defaultValue;
+          if (validator && !validator(value)) {
+            console.warn(`⚠️ [Plugin ${this.manifest.id}] Invalid setting value for ${key}, using default`);
+            return defaultValue;
+          }
+          return value;
+        }
+
+        async createSettingsBackup(): Promise<string | null> {
+          try {
+            if (api.settings.backup) {
+              return await api.settings.backup(this.manifest.id);
+            }
+            return null;
+          } catch (error) {
+            console.error(`❌ [Plugin ${this.manifest.id}] Failed to create settings backup:`, error);
+            return null;
+          }
+        }
+
+        // Override this method in your plugin to react to settings changes
+        async onSettingsChanged?(settings: Record<string, any>): Promise<void>;
 
         addCommand(command: any): () => void {
           const cleanup = api.commands.add(command);

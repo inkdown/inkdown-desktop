@@ -1,11 +1,11 @@
 import { useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useDirectory } from "../contexts/DirectoryContext";
+import { useDirectoryStore } from "../stores/directoryStore";
 
 export function useFileOperations() {
   const errorRef = useRef<string | null>(null);
 
-  const { refreshFileTree: refreshTree } = useDirectory();
+  const { refreshFileTree: refreshTree } = useDirectoryStore();
 
   const createDirectory = useCallback(
     async (parentPath: string, name?: string): Promise<string | null> => {

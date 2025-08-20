@@ -1,15 +1,13 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
-import { useDirectory } from "../contexts/DirectoryContext";
+import { useCurrentDirectory, useDirectoryLoading, useDirectoryError, useDirectoryStore } from "../stores/directoryStore";
 
 export default function HomePage() {
-  const {
-    setDirectory,
-    isLoading,
-    error,
-    currentDirectory,
-  } = useDirectory();
+  const currentDirectory = useCurrentDirectory();
+  const isLoading = useDirectoryLoading();
+  const error = useDirectoryError();
+  const { setDirectory } = useDirectoryStore();
   const navigate = useNavigate();
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDirectory } from "../contexts/DirectoryContext";
+import { useCurrentDirectory } from "../stores/directoryStore";
 
 const WorkspacePage = lazy(() => import("../components/pages/WorkspacePage"));
 
@@ -11,7 +11,7 @@ const LoadingSpinner = () => (
 );
 
 export default function EditorPage() {
-  const { currentDirectory } = useDirectory();
+  const currentDirectory = useCurrentDirectory();
   const navigate = useNavigate();
 
   if (!currentDirectory) {

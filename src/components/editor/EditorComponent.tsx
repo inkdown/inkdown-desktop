@@ -1,7 +1,8 @@
-import { useRef, forwardRef, useImperativeHandle, useEffect, useMemo, useCallback } from 'react';
+import { useRef, forwardRef, useImperativeHandle, useEffect, useMemo, useCallback, memo } from 'react';
 import { Editor, EditorConfig, EditorStateInfo } from './core/Editor';
 import { MarkdownPreview } from './preview/MarkdownPreview';
-import { useAppearance } from '../../contexts/AppearanceContext';
+import { useEffectiveTheme } from '../../stores/appearanceStore';
+import { useWorkspaceConfig, useAppearanceConfig } from '../../stores/configStore';
 
 export interface EditorComponentProps {
   initialContent?: string;
@@ -26,7 +27,7 @@ export interface EditorComponentHandle {
   focus: () => void;
 }
 
-export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponentProps>(({
+const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponentProps>(({
   initialContent = '',
   themeName,
   plugins = [],
@@ -41,7 +42,10 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
   onStateChange,
   onError,
 }, ref) => {
-  const { effectiveTheme } = useAppearance();
+  const effectiveTheme = useEffectiveTheme();
+  const workspaceConfig = useWorkspaceConfig();
+  const appearanceConfig = useAppearanceConfig();
+  
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -49,49 +53,52 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
   const isInitialized = useRef(false);
   const currentContentRef = useRef(initialContent);
 
-  const appearanceConfig = useAppearance();
-  
-  const {
-    vimMode: configVimMode,
-    showLineNumbers: configShowLineNumbers,
-    highlightCurrentLine: configHighlightCurrentLine,
-    readOnly: configReadOnly,
-    fontSize: configFontSize,
-    fontFamily: configFontFamily,
-    pasteUrlsAsLinks: configPasteUrlsAsLinks
-  } = appearanceConfig;
+  // Extract config values with proper defaults
+  const configVimMode = workspaceConfig?.vimMode ?? false;
+  const configShowLineNumbers = workspaceConfig?.showLineNumbers ?? true;
+  const configHighlightCurrentLine = workspaceConfig?.highlightCurrentLine ?? true;
+  const configReadOnly = workspaceConfig?.readOnly ?? false;
+  const configFontSize = appearanceConfig?.["font-size"] ?? 14;
+  const configFontFamily = appearanceConfig?.["font-family"] ?? "Inter, system-ui, sans-serif";
+  const configPasteUrlsAsLinks = workspaceConfig?.pasteUrlsAsLinks ?? true;
 
   const finalTheme: 'light' | 'dark' = useMemo(() => themeName || effectiveTheme, [themeName, effectiveTheme]);
 
   const editorConfigRef = useRef<EditorConfig | null>(null);
   
+  // Split config into smaller, focused memos
+  const themeConfig = useMemo(() => ({
+    theme: finalTheme,
+  }), [finalTheme]);
+  
+  const editorSettings = useMemo(() => ({
+    readOnly: configReadOnly ?? readOnly ?? false,
+    vim: configVimMode ?? plugins.includes('vim'),
+    showLineNumbers: configShowLineNumbers ?? showLineNumbers ?? true,
+    highlightCurrentLine: configHighlightCurrentLine ?? highlightCurrentLine ?? true,
+  }), [configReadOnly, readOnly, configVimMode, plugins, configShowLineNumbers, showLineNumbers, configHighlightCurrentLine, highlightCurrentLine]);
+  
+  const fontSettings = useMemo(() => ({
+    fontSize: configFontSize ?? fontSize ?? 14,
+    fontFamily: configFontFamily ?? fontFamily ?? 'Inter, system-ui, sans-serif',
+  }), [configFontSize, fontSize, configFontFamily, fontFamily]);
+  
+  const behaviorSettings = useMemo(() => ({
+    markdownShortcuts: true,
+    githubMarkdown: false,
+    pasteUrlsAsLinks: configPasteUrlsAsLinks,
+  }), [configPasteUrlsAsLinks]);
+  
   const editorConfig = useMemo((): EditorConfig => {
     return {
       container: editorContainerRef.current!,
       content: initialContent,
-      readOnly: configReadOnly ?? readOnly ?? false,
-      theme: finalTheme,
-      markdownShortcuts: true,
-      githubMarkdown: false,
-      vim: configVimMode ?? plugins.includes('vim'),
-      showLineNumbers: configShowLineNumbers ?? showLineNumbers ?? true,
-      highlightCurrentLine: configHighlightCurrentLine ?? highlightCurrentLine ?? true,
-      fontSize: configFontSize ?? fontSize ?? 14,
-      fontFamily: configFontFamily ?? fontFamily ?? 'Inter, system-ui, sans-serif',
-      pasteUrlsAsLinks: configPasteUrlsAsLinks,
+      ...themeConfig,
+      ...editorSettings,
+      ...fontSettings,
+      ...behaviorSettings,
     };
-  }, [
-    initialContent,
-    configReadOnly, readOnly,
-    finalTheme,
-    configVimMode,
-    configShowLineNumbers, showLineNumbers,
-    configHighlightCurrentLine, highlightCurrentLine,
-    configFontSize, fontSize,
-    configFontFamily, fontFamily,
-    configPasteUrlsAsLinks,
-    plugins
-  ]);
+  }, [initialContent, themeConfig, editorSettings, fontSettings, behaviorSettings]);
 
   const handleStateChange = useCallback((state: EditorStateInfo) => {
     currentContentRef.current = state.content;
@@ -295,6 +302,28 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
         />
       </div>
     </div>
+  );
+});
+
+EditorComponentInternal.displayName = 'EditorComponentInternal';
+
+// Memoized component with optimized prop comparison
+export const EditorComponent = memo(EditorComponentInternal, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
+  const pluginsEqual = (prevProps.plugins?.length === nextProps.plugins?.length) &&
+    (prevProps.plugins?.every((plugin, index) => plugin === nextProps.plugins?.[index]) ?? true);
+    
+  return (
+    prevProps.initialContent === nextProps.initialContent &&
+    prevProps.themeName === nextProps.themeName &&
+    prevProps.readOnly === nextProps.readOnly &&
+    prevProps.showPreview === nextProps.showPreview &&
+    prevProps.showLineNumbers === nextProps.showLineNumbers &&
+    prevProps.highlightCurrentLine === nextProps.highlightCurrentLine &&
+    prevProps.fontSize === nextProps.fontSize &&
+    prevProps.fontFamily === nextProps.fontFamily &&
+    prevProps.className === nextProps.className &&
+    pluginsEqual
   );
 });
 

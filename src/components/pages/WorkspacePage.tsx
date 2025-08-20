@@ -1,12 +1,12 @@
-import { useState, useCallback, memo, useRef, useMemo, lazy, Suspense, useEffect, useReducer } from "react";
+import { useCallback, memo, useRef, lazy, Suspense, useEffect, useReducer } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDirectory } from "../../contexts/DirectoryContext";
 import { useSidebarResize } from "../../hooks/useSidebarResize";
-import { useConfigManager } from "../../hooks/useConfigManager";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
-import { useAppearance } from "../../contexts/AppearanceContext";
 import type { ThemeMode } from "../../types/config";
-import { PluginEngineProvider, usePluginEngineContext } from "../../plugins";
+import { useFileTree, useCurrentDirectory } from "../../stores/directoryStore";
+import { useWorkspaceConfig, useAppearanceConfig, useConfigStore } from "../../stores/configStore";
+import { useEffectiveTheme } from "../../stores/appearanceStore";
+import { usePlugins } from "../../stores/pluginStore";
 import { Sidebar, SidebarResizer } from "../sidebar";
 import { SidebarHeader } from "../sidebar/SidebarHeader";
 import { MainWindow } from "../window";
@@ -14,7 +14,7 @@ import { NotePalette } from "../palette";
 import { FpsIndicator } from "../dev/FpsIndicator";
 import { TitleBar } from "../ui/TitleBar";
 import { EditorFooter } from "../editor/EditorFooter";
-import { StatusBarDropdown } from "../ui/StatusBarDropdown";
+import { StatusBar } from "../ui/StatusBar";
 
 const SettingsModal = lazy(() => import("../settings/SettingsModal"));
 
@@ -62,14 +62,22 @@ function workspaceReducer(state: WorkspaceState, action: WorkspaceAction): Works
 }
 
 export const WorkspacePage = memo(function WorkspacePage() {
-  const { fileTree, currentDirectory } = useDirectory();
+  const fileTree = useFileTree();
+  const currentDirectory = useCurrentDirectory();
   const [state, dispatch] = useReducer(workspaceReducer, initialWorkspaceState);
   const saveRef = useRef<(() => void) | null>(null);
   const togglePreviewRef = useRef<(() => void) | null>(null);
   const { sidebarWidth, handleMouseDown } = useSidebarResize(280);
-  const { workspaceConfig, updateWorkspaceConfig } = useConfigManager();
-  const { themeMode, showEditorFooter, fontSize, fontFamily } = useAppearance();
+  const workspaceConfig = useWorkspaceConfig();
+  const appearanceConfig = useAppearanceConfig();
+  const { updateWorkspaceConfig } = useConfigStore();
+  const themeMode = useEffectiveTheme();
   const navigate = useNavigate();
+
+  // Extract appearance config values with defaults
+  const showEditorFooter = workspaceConfig?.showEditorFooter ?? true;
+  const fontSize = appearanceConfig?.["font-size"] ?? 14;
+  const fontFamily = appearanceConfig?.["font-family"] ?? "Inter, system-ui, sans-serif";
 
   const appStateRef = useRef<{
     activeFile: { path: string; name: string; content: string } | null;
@@ -114,13 +122,13 @@ export const WorkspacePage = memo(function WorkspacePage() {
   }, [updateAppState]);
 
   const toggleSidebar = useCallback(() => {
-    const currentState = workspaceConfig.sidebarVisible ?? true;
+    const currentState = workspaceConfig?.sidebarVisible ?? true;
     const newState = !currentState;
 
     updateWorkspaceConfig({ sidebarVisible: newState })
       .then(() => {})
       .catch((_) => {});
-  }, [workspaceConfig.sidebarVisible, updateWorkspaceConfig]);
+  }, [workspaceConfig?.sidebarVisible, updateWorkspaceConfig]);
 
   const handleFileSelect = useCallback((filePath: string) => {
     dispatch({ type: 'SET_SELECTED_FILE', payload: filePath });
@@ -208,7 +216,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
     );
   }
 
-  const sidebarVisible = workspaceConfig.sidebarVisible ?? true;
+  const sidebarVisible = workspaceConfig?.sidebarVisible ?? true;
 
   // Component to handle keyboard shortcuts inside plugin context
   const KeyboardShortcutsHandler = memo(() => {
@@ -222,47 +230,10 @@ export const WorkspacePage = memo(function WorkspacePage() {
     return null;
   });
 
-  const StatusBarRenderer = memo(() => {
-    const { plugins } = usePluginEngineContext();
-    
-    const sections = useMemo(() => {
-      const pluginActions: any[] = [];
-      for (const plugin of plugins.values()) {
-        if (plugin.enabled && plugin.statusBarItems) {
-          for (const item of plugin.statusBarItems.values()) {
-            pluginActions.push({
-              id: item.id,
-              label: item.text,
-              iconName: item.iconName,
-              onClick: item.callback || (() => {}),
-              disabled: false
-            });
-          }
-        }
-      }
-      
-      if (pluginActions.length === 0) return [];
-      
-      return [{
-        id: 'plugins',
-        label: 'Plugins',
-        actions: pluginActions
-      }];
-    }, [plugins]);
-
-    if (sections.length === 0) {
-      return null;
-    }
-
-    return (
-      <div className="fixed bottom-0 right-4 z-20 p-2">
-        <StatusBarDropdown sections={sections} />
-      </div>
-    );
-  });
+  const plugins = usePlugins();
 
   return (
-    <PluginEngineProvider appState={appStateRef.current} pluginsDirectory="~/.inkdown/plugins">
+    <>
       <KeyboardShortcutsHandler />
       <TitleBar 
         sidebarWidth={sidebarWidth}
@@ -320,7 +291,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
       )}
 
         {state.selectedFile && showEditorFooter && (
-          <div className="fixed bottom-2 right-2 z-30 pointer-events-none">
+          <div className="fixed bottom-8 right-2 z-30 pointer-events-none">
             <EditorFooter
               content={state.currentContent}
               isPreviewMode={state.isPreviewMode}
@@ -333,9 +304,13 @@ export const WorkspacePage = memo(function WorkspacePage() {
           isVisible={workspaceConfig?.devMode ?? false}
         />
 
-        <StatusBarRenderer />
+        <StatusBar
+          currentContent={state.currentContent}
+          selectedFile={state.selectedFile}
+          plugins={plugins}
+        />
       </div>
-    </PluginEngineProvider>
+    </>
   );
 });
 

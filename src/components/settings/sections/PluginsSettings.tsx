@@ -1,29 +1,26 @@
 import { memo, useState, useCallback, useMemo, useEffect } from 'react';
 import { Settings, AlertCircle, RefreshCw } from 'lucide-react';
-import { usePluginEngineContext } from '../../../plugins';
+import { usePlugins, usePluginLoading, usePluginError, usePluginStore } from '../../../stores/pluginStore';
 import type { LoadedPlugin } from '../../../plugins/types/plugin';
 import { PluginSettingsModal } from '../PluginSettingsModal';
 import { ToggleSwitch } from '../ToggleSwitch';
 import { cacheUtils } from '../../../utils/localStorage';
 
 export const PluginsSettings = memo(function PluginsSettings() {
-  const { 
-    plugins: enginePlugins, 
-    loading, 
-    error, 
-    refreshPlugins,
-    forceScanPlugins, 
-    enablePlugin, 
-    disablePlugin 
-  } = usePluginEngineContext();
+  const enginePlugins = usePlugins();
+  const loading = usePluginLoading();
+  const error = usePluginError();
+  const { refreshPlugins, enablePlugin, disablePlugin } = usePluginStore();
   
   const [selectedPlugin, setSelectedPlugin] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Force scan plugins when this component mounts (when user goes to plugins page)
   useEffect(() => {
-    forceScanPlugins();
-  }, [forceScanPlugins]);
+    if (enginePlugins.size === 0 && !loading) {
+      console.log('🔍 [PluginsSettings] No plugins loaded, performing initial scan for settings UI');
+      refreshPlugins();
+    }
+  }, []);
 
   const plugins = useMemo((): LoadedPlugin[] => {
     return Array.from(enginePlugins.values()).map(plugin => ({

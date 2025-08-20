@@ -77,10 +77,29 @@ export const PluginSettingsModal = memo(function PluginSettingsModal({
   const handleSave = useCallback(async () => {
     try {
       setSaving(true);
-      cacheUtils.setPluginSettings(pluginId, settings);
+      console.log(`💾 [PluginSettingsModal] Saving settings for plugin: ${pluginId}`, settings);
+      
+      // Save using the enhanced API which handles both cache and file system
+      const saved = await pluginManager.savePluginSettings(pluginId, settings);
+      if (saved) {
+        console.log(`✅ [PluginSettingsModal] Settings saved successfully for ${pluginId}`);
+      } else {
+        console.error(`❌ [PluginSettingsModal] Failed to save settings for ${pluginId}`);
+        // Still proceed with plugin reload
+      }
+      
+      // Notify the plugin instance to reload its settings
+      const reloaded = await pluginManager.reloadPluginSettings(pluginId);
+      if (reloaded) {
+        console.log(`🔄 [PluginSettingsModal] Plugin ${pluginId} settings reloaded successfully`);
+      } else {
+        console.warn(`⚠️ [PluginSettingsModal] Plugin ${pluginId} could not reload settings (plugin may not be loaded)`);
+      }
+      
       onClose();
     } catch (error) {
       console.error('Failed to save plugin settings:', error);
+      // TODO: Show error notification to user
     } finally {
       setSaving(false);
     }

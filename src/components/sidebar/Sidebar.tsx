@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { SidebarContent } from './SidebarContent';
-import { FileNode } from '../../contexts/DirectoryContext';
+import { FileNode } from '../../stores/directoryStore';
 
 interface SidebarProps {
   width: number;

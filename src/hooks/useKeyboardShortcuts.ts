@@ -1,5 +1,5 @@
-import { useEffect, useRef, useMemo, useContext } from 'react';
-import { PluginEngineContext } from '../plugins/context/PluginEngineContext';
+import { useEffect, useRef, useMemo } from 'react';
+import { usePluginStore } from '../stores/pluginStore';
 
 interface UseKeyboardShortcutsOptions {
   onToggleSidebar?: () => void;
@@ -42,9 +42,9 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     ['p', 'onOpenSettings']
   ]), []);
 
-  const pluginContext = useContext(PluginEngineContext);
-  const executeShortcutRef = useRef(pluginContext?.executeShortcut);
-  executeShortcutRef.current = pluginContext?.executeShortcut;
+  const { executeShortcut } = usePluginStore();
+  const executeShortcutRef = useRef(executeShortcut);
+  executeShortcutRef.current = executeShortcut;
 
   useEffect(() => {
     const handleKeyDown = async (event: KeyboardEvent) => {

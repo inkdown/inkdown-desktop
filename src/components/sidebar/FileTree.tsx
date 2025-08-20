@@ -2,10 +2,10 @@ import { useState, useCallback, memo, useMemo, useRef, useEffect } from "react";
 import { FileText, ChevronRight, ChevronDown } from "lucide-react";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { platform } from "@tauri-apps/plugin-os";
-import { FileNode, useDirectory } from "../../contexts/DirectoryContext";
+import { FileNode, useDirectoryStore } from "../../stores/directoryStore";
 import { ContextMenu } from "../ui/overlays/ContextMenu";
 import { useFileOperations } from "../../hooks/useFileOperations";
-import { useEditing } from "../../contexts/EditingContext";
+import { useEditingStore } from "../../stores/editingStore";
 import { useDragAndDrop } from "../../hooks/useDragAndDrop";
 
 const WINDOWS_INVALID_CHARS = ['<', '>', ':', '"', '|', '?', '*'] as const;
@@ -56,7 +56,7 @@ const FileTreeItem = memo(function FileTreeItem({
     deleteFileOrDirectory,
     renameFileOrDirectory,
   } = useFileOperations();
-  const { setEditingPath, setActiveFile, isEditing } = useEditing();
+  const { setEditingPath, setActiveFile, isEditing } = useEditingStore();
 
   const isSelected = selectedFile === node.path;
   const isCurrentlyEditing = isEditing(node.path);
@@ -485,8 +485,8 @@ export const FileTree = memo(function FileTree({
     y: number;
   } | null>(null);
   const { createDirectory, createFile } = useFileOperations();
-  const { setEditingPath } = useEditing();
-  const { refreshFileTree } = useDirectory();
+  const { setEditingPath } = useEditingStore();
+  const { refreshFileTree } = useDirectoryStore();
   const dragHandlers = useDragAndDrop(onFileSelect);
 
   const handleRefresh = useCallback(() => {

@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { LogOut, FolderOpen } from 'lucide-react';
-import { useDirectory } from '../../../contexts/DirectoryContext';
+import { useCurrentDirectory, useDirectoryStore } from '../../../stores/directoryStore';
 
 export function WorkspaceSettings() {
-  const { currentDirectory, clearDirectory } = useDirectory();
+  const currentDirectory = useCurrentDirectory();
+  const { clearDirectory } = useDirectoryStore();
   const navigate = useNavigate();
 
   const handleExitWorkspace = async () => {

@@ -1,5 +1,6 @@
 import { memo, useMemo, useCallback } from 'react';
-import { useAppearance } from '../../../contexts/AppearanceContext';
+import { useAppearanceConfig, useConfigStore } from '../../../stores/configStore';
+import { useCustomThemes, useCurrentCustomThemeId, useAppearanceStore } from '../../../stores/appearanceStore';
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light' },
@@ -21,17 +22,19 @@ const FONT_FAMILIES = [
 const FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 22, 24, 26, 28];
 
 const AppearanceSettings = memo(() => {
-  const { 
-    themeMode, 
-    fontSize, 
-    fontFamily,  
-    updateAppearance, 
-    isLoading,
-    customThemes,
-    currentCustomThemeId,
-    customThemesLoading,
-    applyTheme
-  } = useAppearance();
+  const appearanceConfig = useAppearanceConfig();
+  const customThemes = useCustomThemes();
+  const currentCustomThemeId = useCurrentCustomThemeId();
+  const { updateAppearanceConfig } = useConfigStore();
+  const { applyCustomTheme, updateTheme } = useAppearanceStore();
+  
+  const themeMode = appearanceConfig?.theme || 'light';
+  const fontSize = appearanceConfig?.["font-size"] || 14;
+  const fontFamily = appearanceConfig?.["font-family"] || 'Inter, system-ui, sans-serif';
+  
+  // Loading states
+  const isLoading = !appearanceConfig;
+  const customThemesLoading = !customThemes;
 
   // Memoize expensive computations
   const getCurrentThemeId = useMemo(() => 
@@ -51,16 +54,20 @@ const AppearanceSettings = memo(() => {
 
   // Memoize event handlers
   const handleThemeChange = useCallback((themeId: string) => {
-    applyTheme(themeId);
-  }, [applyTheme]);
+    if (['light', 'dark', 'auto'].includes(themeId)) {
+      updateTheme(themeId as 'light' | 'dark' | 'auto');
+    } else {
+      applyCustomTheme(themeId);
+    }
+  }, [applyCustomTheme, updateTheme]);
 
   const handleFontSizeChange = useCallback((fontSize: number) => {
-    updateAppearance({ fontSize });
-  }, [updateAppearance]);
+    updateAppearanceConfig({ "font-size": fontSize });
+  }, [updateAppearanceConfig]);
 
   const handleFontFamilyChange = useCallback((fontFamily: string) => {
-    updateAppearance({ fontFamily });
-  }, [updateAppearance]);
+    updateAppearanceConfig({ "font-family": fontFamily });
+  }, [updateAppearanceConfig]);
 
   // Memoize loading component
   const LoadingComponent = useMemo(() => (

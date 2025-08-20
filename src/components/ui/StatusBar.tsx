@@ -1,89 +1,100 @@
 import { memo, useMemo } from 'react';
-import { StatusBarDropdown, type StatusBarAction } from './StatusBarDropdown';
-import { Edit2, Trash2 } from 'lucide-react';
-
-export interface StatusBarItem {
-  id: string;
-  text: string;
-  tooltip?: string;
-  pluginId?: string;
-  callback?: () => void;
-  actions?: StatusBarAction[];
-}
+import { StatusBarDropdown, type StatusBarSection } from './StatusBarDropdown';
 
 interface StatusBarProps {
-  items: StatusBarItem[];
-  onRename?: (itemId: string) => void;
-  onDelete?: (itemId: string) => void;
+  currentContent: string;
+  selectedFile: string | null;
+  plugins: ReadonlyMap<string, any>;
   className?: string;
 }
 
 export const StatusBar = memo(function StatusBar({
-  items,
-  onRename,
-  onDelete,
+  currentContent,
+  selectedFile,
+  plugins,
   className = ''
 }: StatusBarProps) {
-  const processedItems = useMemo(() => {
-    return items.map(item => ({
-      ...item,
-      actions: item.actions || [
-        {
-          id: 'rename',
-          label: 'Renomear',
-          icon: <Edit2 size={12} />,
-          onClick: () => onRename?.(item.id)
-        },
-        {
-          id: 'delete',
-          label: 'Excluir',
-          icon: <Trash2 size={12} />,
-          onClick: () => onDelete?.(item.id),
-          separator: true
-        }
-      ]
-    }));
-  }, [items, onRename, onDelete]);
+  // Early return - most performant approach
+  if (!selectedFile) {
+    return null;
+  }
 
-  if (processedItems.length === 0) {
+  const sections = useMemo(() => {
+    const sectionList: StatusBarSection[] = [];
+    
+    // Default actions section (file is always selected here)
+    const defaultActions = [];
+    
+    // Character count
+    if (currentContent) {
+      defaultActions.push({
+        id: 'file-info',
+        label: `${currentContent.length} caracteres`,
+        iconName: 'file-text',
+        onClick: () => console.log('File info clicked'),
+        disabled: false
+      });
+    }
+    
+    // Note actions
+    defaultActions.push({
+      id: 'rename-note',
+      label: 'Renomear nota',
+      iconName: 'edit',
+      onClick: () => console.log('Rename note clicked'),
+      disabled: false
+    });
+    
+    defaultActions.push({
+      id: 'delete-note',
+      label: 'Excluir nota',
+      iconName: 'trash-2',
+      onClick: () => console.log('Delete note clicked'),
+      disabled: false
+    });
+    
+    if (defaultActions.length > 0) {
+      sectionList.push({
+        id: 'default',
+        label: 'Aplicativo',
+        actions: defaultActions
+      });
+    }
+    
+    // Plugin actions section
+    const pluginActions = [];
+    for (const plugin of plugins.values()) {
+      if (plugin.enabled && plugin.statusBarItems) {
+        for (const item of plugin.statusBarItems.values()) {
+          pluginActions.push({
+            id: item.id,
+            label: item.text,
+            iconName: item.iconName,
+            onClick: item.callback || (() => {}),
+            disabled: false
+          });
+        }
+      }
+    }
+    
+    if (pluginActions.length > 0) {
+      sectionList.push({
+        id: 'plugins',
+        label: 'Plugins',
+        actions: pluginActions
+      });
+    }
+    
+    return sectionList;
+  }, [currentContent, selectedFile, plugins]);
+
+  if (sections.length === 0) {
     return null;
   }
 
   return (
-    <div className={`
-      flex items-center gap-2 px-3 py-1 
-      border-t border-border
-      text-xs
-      ${className}
-    `}>
-      {processedItems.map(item => (
-        <div
-          key={item.id}
-          className="flex items-center gap-1 group"
-        >
-          <button
-            onClick={item.callback}
-            title={item.tooltip}
-            className="
-              px-2 py-1 rounded text-muted-foreground
-              hover:bg-accent hover:text-accent-foreground
-              transition-colors duration-150
-              cursor-pointer
-            "
-          >
-            {item.text}
-          </button>
-          
-          <StatusBarDropdown
-            sections={[{
-              id: 'default',
-              label: 'Ações',
-              actions: item.actions
-            }]}
-            className="opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-          />
-        </div>
-      ))}
+    <div className={`fixed bottom-0 right-4 z-20 p-2 ${className}`}>
+      <StatusBarDropdown sections={sections} />
     </div>
   );
 });

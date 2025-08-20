@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -329,6 +330,76 @@ fn compare_versions(version1: &str, version2: &str) -> i32 {
     }
     
     0
+}
+
+#[tauri::command]
+pub async fn read_plugin_settings(plugin_id: String) -> Result<Value, String> {
+    let config_dir = get_plugins_config_dir()?;
+    let plugin_dir = Path::new(&config_dir).join(&plugin_id);
+    
+    if !plugin_dir.exists() {
+        return Err("Plugin directory not found".to_string());
+    }
+
+    let settings_path = plugin_dir.join("configs.json");
+    
+    if !settings_path.exists() {
+        // Return empty object if settings file doesn't exist
+        return Ok(serde_json::json!({}));
+    }
+
+    let settings_content = fs::read_to_string(&settings_path)
+        .map_err(|e| format!("Failed to read settings file: {}", e))?;
+
+    let settings: Value = serde_json::from_str(&settings_content)
+        .map_err(|e| format!("Failed to parse settings JSON: {}", e))?;
+
+    Ok(settings)
+}
+
+#[tauri::command]
+pub async fn write_plugin_settings(plugin_id: String, settings: Value) -> Result<String, String> {
+    let config_dir = get_plugins_config_dir()?;
+    let plugin_dir = Path::new(&config_dir).join(&plugin_id);
+    
+    if !plugin_dir.exists() {
+        return Err("Plugin directory not found".to_string());
+    }
+
+    let settings_path = plugin_dir.join("configs.json");
+    
+    // Pretty-print the JSON for better readability
+    let settings_content = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("Failed to serialize settings: {}", e))?;
+
+    fs::write(&settings_path, settings_content)
+        .map_err(|e| format!("Failed to write settings file: {}", e))?;
+
+    println!("✅ [Rust] Plugin settings saved: {}/configs.json", plugin_id);
+    Ok("Settings saved successfully".to_string())
+}
+
+#[tauri::command]
+pub async fn backup_plugin_settings(plugin_id: String) -> Result<String, String> {
+    let config_dir = get_plugins_config_dir()?;
+    let plugin_dir = Path::new(&config_dir).join(&plugin_id);
+    let settings_path = plugin_dir.join("configs.json");
+    
+    if !settings_path.exists() {
+        return Err("No settings file to backup".to_string());
+    }
+
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    
+    let backup_path = plugin_dir.join(format!("configs.backup.{}.json", timestamp));
+    
+    fs::copy(&settings_path, &backup_path)
+        .map_err(|e| format!("Failed to create backup: {}", e))?;
+
+    Ok(format!("Backup created: configs.backup.{}.json", timestamp))
 }
 
 

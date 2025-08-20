@@ -6,7 +6,7 @@ import {
 } from "../editor/EditorComponent";
 import { Title } from "../editor/Title";
 import { useError } from "../../contexts/ErrorContext";
-import { useEditing } from "../../contexts/EditingContext";
+import { useEditingStore } from "../../stores/editingStore";
 
 interface WindowContentProps {
   selectedFile: string;
@@ -38,7 +38,7 @@ export const WindowContent = memo(function WindowContent({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const editorRef = useRef<EditorComponentHandle>(null);
   const { showError } = useError();
-  const { setActiveFile } = useEditing();
+  const { setActiveFile } = useEditingStore();
 
   const loadFileContent = useCallback(async (filePath: string) => {
     if (!filePath) return;
