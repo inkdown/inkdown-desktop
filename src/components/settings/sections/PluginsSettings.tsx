@@ -1,22 +1,59 @@
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useMemo, useEffect } from 'react';
 import { Settings, AlertCircle, RefreshCw } from 'lucide-react';
-import { usePluginManager } from '../../../hooks/usePluginManager';
-import { LoadedPlugin } from '../../../types/plugins';
+import { usePluginEngineContext } from '../../../plugins';
+import type { LoadedPlugin } from '../../../plugins/types/plugin';
 import { PluginSettingsModal } from '../PluginSettingsModal';
 import { ToggleSwitch } from '../ToggleSwitch';
+import { cacheUtils } from '../../../utils/localStorage';
 
 export const PluginsSettings = memo(function PluginsSettings() {
-  const { plugins, loading, error, refreshPlugins, togglePlugin, getPluginSettings } = usePluginManager();
+  const { 
+    plugins: enginePlugins, 
+    loading, 
+    error, 
+    refreshPlugins,
+    forceScanPlugins, 
+    enablePlugin, 
+    disablePlugin 
+  } = usePluginEngineContext();
+  
   const [selectedPlugin, setSelectedPlugin] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Force scan plugins when this component mounts (when user goes to plugins page)
+  useEffect(() => {
+    forceScanPlugins();
+  }, [forceScanPlugins]);
+
+  const plugins = useMemo((): LoadedPlugin[] => {
+    return Array.from(enginePlugins.values()).map(plugin => ({
+      manifest: {
+        ...plugin.manifest,
+        keywords: plugin.manifest.keywords ? [...plugin.manifest.keywords] : undefined
+      },
+      instance: plugin.instance,
+      enabled: plugin.enabled,
+      loaded: plugin.loaded,
+      error: plugin.error,
+      settingsConfig: plugin.settingsConfig,
+      permissions: plugin.manifest.permissions || [],
+      shortcuts: plugin.shortcuts || new Map(),
+      commands: plugin.commands || new Map(),
+      statusBarItems: plugin.statusBarItems || new Map()
+    }));
+  }, [enginePlugins]);
+
   const handleTogglePlugin = useCallback(async (pluginId: string, enabled: boolean) => {
     try {
-      await togglePlugin(pluginId, enabled);
+      if (enabled) {
+        await enablePlugin(pluginId);
+      } else {
+        await disablePlugin(pluginId);
+      }
     } catch (err) {
       console.error('Failed to toggle plugin:', err);
     }
-  }, [togglePlugin]);
+  }, [enablePlugin, disablePlugin]);
 
   const handleRefresh = useCallback(async () => {
     try {
@@ -116,7 +153,7 @@ export const PluginsSettings = memo(function PluginsSettings() {
                 plugin={plugin}
                 onToggle={handleTogglePlugin}
                 onOpenSettings={handleOpenSettings}
-                hasSettings={!!getPluginSettings(plugin.manifest.id)}
+                hasSettings={cacheUtils.getPluginHasSettings(plugin.manifest.id)}
               />
             ))}
           </div>

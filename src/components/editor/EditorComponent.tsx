@@ -49,6 +49,8 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
   const isInitialized = useRef(false);
   const currentContentRef = useRef(initialContent);
 
+  const appearanceConfig = useAppearance();
+  
   const {
     vimMode: configVimMode,
     showLineNumbers: configShowLineNumbers,
@@ -57,37 +59,40 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
     fontSize: configFontSize,
     fontFamily: configFontFamily,
     pasteUrlsAsLinks: configPasteUrlsAsLinks
-  } = useAppearance();
+  } = appearanceConfig;
 
-  const finalTheme: 'light' | 'dark' = themeName || effectiveTheme;
+  const finalTheme: 'light' | 'dark' = useMemo(() => themeName || effectiveTheme, [themeName, effectiveTheme]);
 
-  // Memoize config to prevent unnecessary recreations
-  const editorConfig = useMemo((): EditorConfig => ({
-    container: editorContainerRef.current!,
-    content: initialContent,
-    readOnly: configReadOnly ?? readOnly ?? false,
-    theme: finalTheme,
-    markdownShortcuts: true,
-    githubMarkdown: false,
-    vim: configVimMode ?? plugins.includes('vim'),
-    showLineNumbers: configShowLineNumbers ?? showLineNumbers ?? true,
-    highlightCurrentLine: configHighlightCurrentLine ?? highlightCurrentLine ?? true,
-    fontSize: configFontSize ?? fontSize ?? 14,
-    fontFamily: configFontFamily ?? fontFamily ?? 'Inter, system-ui, sans-serif',
-    pasteUrlsAsLinks: configPasteUrlsAsLinks,
-  }), [
+  const editorConfigRef = useRef<EditorConfig | null>(null);
+  
+  const editorConfig = useMemo((): EditorConfig => {
+    return {
+      container: editorContainerRef.current!,
+      content: initialContent,
+      readOnly: configReadOnly ?? readOnly ?? false,
+      theme: finalTheme,
+      markdownShortcuts: true,
+      githubMarkdown: false,
+      vim: configVimMode ?? plugins.includes('vim'),
+      showLineNumbers: configShowLineNumbers ?? showLineNumbers ?? true,
+      highlightCurrentLine: configHighlightCurrentLine ?? highlightCurrentLine ?? true,
+      fontSize: configFontSize ?? fontSize ?? 14,
+      fontFamily: configFontFamily ?? fontFamily ?? 'Inter, system-ui, sans-serif',
+      pasteUrlsAsLinks: configPasteUrlsAsLinks,
+    };
+  }, [
     initialContent,
     configReadOnly, readOnly,
     finalTheme,
-    configVimMode, plugins,
+    configVimMode,
     configShowLineNumbers, showLineNumbers,
     configHighlightCurrentLine, highlightCurrentLine,
     configFontSize, fontSize,
     configFontFamily, fontFamily,
-    configPasteUrlsAsLinks
+    configPasteUrlsAsLinks,
+    plugins
   ]);
 
-  // Memoize handlers to prevent recreations
   const handleStateChange = useCallback((state: EditorStateInfo) => {
     currentContentRef.current = state.content;
     onStateChange?.(state);
@@ -106,7 +111,8 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
         container: editorContainerRef.current,
         onChange: handleStateChange,
       };
-
+      
+      editorConfigRef.current = config;
       editorRef.current = new Editor(config);
 
       if (showPreview && previewContainerRef.current) {
@@ -114,7 +120,6 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
           container: previewContainerRef.current,
           theme: finalTheme,
         });
-        // Initial content sync
         previewRef.current.updateFromContent(initialContent);
       }
 
@@ -129,6 +134,9 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
     initializeEditor();
 
     return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
       if (editorRef.current) {
         editorRef.current.destroy();
         editorRef.current = null;
@@ -139,54 +147,98 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
       }
       isInitialized.current = false;
     };
-  }, []);
+  }, [initializeEditor]);
 
-  // Memoized config comparison for better performance
   const configUpdateNeeded = useMemo(() => {
-    if (!isInitialized.current) return false;
+    if (!isInitialized.current || !editorConfigRef.current) return null;
 
-    return {
-      theme: finalTheme,
-      vim: configVimMode,
-      showLineNumbers: configShowLineNumbers,
-      highlightCurrentLine: configHighlightCurrentLine,
-      readOnly: configReadOnly,
-      fontSize: configFontSize,
-      fontFamily: configFontFamily,
-      pasteUrlsAsLinks: configPasteUrlsAsLinks,
-    };
+    const current = editorConfigRef.current;
+    const changes: Partial<EditorConfig> = {};
+    let hasChanges = false;
+
+    if (current.theme !== finalTheme) {
+      changes.theme = finalTheme;
+      hasChanges = true;
+    }
+    if (current.vim !== configVimMode) {
+      changes.vim = configVimMode;
+      hasChanges = true;
+    }
+    if (current.showLineNumbers !== configShowLineNumbers) {
+      changes.showLineNumbers = configShowLineNumbers;
+      hasChanges = true;
+    }
+    if (current.highlightCurrentLine !== configHighlightCurrentLine) {
+      changes.highlightCurrentLine = configHighlightCurrentLine;
+      hasChanges = true;
+    }
+    if (current.readOnly !== configReadOnly) {
+      changes.readOnly = configReadOnly;
+      hasChanges = true;
+    }
+    if (current.fontSize !== configFontSize) {
+      changes.fontSize = configFontSize;
+      hasChanges = true;
+    }
+    if (current.fontFamily !== configFontFamily) {
+      changes.fontFamily = configFontFamily;
+      hasChanges = true;
+    }
+    if (current.pasteUrlsAsLinks !== configPasteUrlsAsLinks) {
+      changes.pasteUrlsAsLinks = configPasteUrlsAsLinks;
+      hasChanges = true;
+    }
+
+    return hasChanges ? changes : null;
   }, [finalTheme, configVimMode, configShowLineNumbers, configHighlightCurrentLine, configReadOnly, configFontSize, configFontFamily, configPasteUrlsAsLinks]);
 
+  const updateTimeoutRef = useRef<number>();
+  
   useEffect(() => {
     if (!editorRef.current || !isInitialized.current || !configUpdateNeeded) return;
 
-    const hasContentChanged = initialContent !== editorRef.current.getContent();
-
-    if (hasContentChanged) {
-      editorRef.current.setContent(initialContent);
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
     }
 
-    editorRef.current.updateConfig(configUpdateNeeded);
+    updateTimeoutRef.current = window.setTimeout(() => {
+      if (!editorRef.current || !isInitialized.current) return;
 
-    if (previewRef.current) {
-      previewRef.current.updateConfig({
-        theme: finalTheme,
-      });
-    }
-  }, [configUpdateNeeded, initialContent, finalTheme]);
+      const hasContentChanged = initialContent !== editorRef.current.getContent();
 
-  // Memoized preview effect handler
+      if (hasContentChanged) {
+        editorRef.current.setContent(initialContent);
+      }
+
+      editorRef.current.updateConfig(configUpdateNeeded);
+      
+      if (editorConfigRef.current) {
+        Object.assign(editorConfigRef.current, configUpdateNeeded);
+      }
+
+      if (previewRef.current && configUpdateNeeded.theme) {
+        previewRef.current.updateConfig({
+          theme: configUpdateNeeded.theme,
+        });
+      }
+    }, 16); // ~60fps debounce
+
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, [configUpdateNeeded, initialContent]);
+
   const handlePreviewToggle = useCallback(() => {
     if (!isInitialized.current) return;
 
     if (showPreview && !previewRef.current && previewContainerRef.current) {
-      // Create preview when showPreview becomes true
       try {
         previewRef.current = new MarkdownPreview({
           container: previewContainerRef.current,
           theme: finalTheme,
         });
-        // Sync current content immediately
         const currentContent = editorRef.current?.getContent() || initialContent;
         if (currentContent) {
           previewRef.current.updateFromContent(currentContent);
@@ -195,7 +247,6 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
         console.error('Failed to create preview:', error);
       }
     } else if (!showPreview && previewRef.current) {
-      // Properly destroy preview when showPreview becomes false
       try {
         previewRef.current.destroy();
       } catch (error) {
@@ -205,13 +256,10 @@ export const EditorComponent = forwardRef<EditorComponentHandle, EditorComponent
       }
     }
 
-    // Optimize editor performance when in preview mode
     if (editorRef.current) {
       if (showPreview) {
-        // Reduce editor update frequency during preview
         editorRef.current.blur?.();
       } else {
-        // Re-focus editor when switching back
         requestAnimationFrame(() => {
           editorRef.current?.focus?.();
         });

@@ -144,6 +144,8 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
   } = useConfigManager();
   const [state, dispatch] = useReducer(appearanceReducer, initialState);
   const themeAppliedRef = useRef<string | null>(null);
+  const mediaQueryRef = useRef<MediaQueryList | null>(null);
+  const styleUpdateRef = useRef<number>();
 
   const applyThemeToDOM = useCallback(
     (themeId: string, isCustom: boolean = false) => {
@@ -160,7 +162,7 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
       } else {
         const effectiveTheme =
           themeId === "auto"
-            ? window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? (mediaQueryRef.current?.matches ?? window.matchMedia("(prefers-color-scheme: dark)").matches)
               ? "dark"
               : "light"
             : themeId;
@@ -202,16 +204,17 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
   }, [appearanceConfig, workspaceConfig]);
 
   useEffect(() => {
+    if (state.themeMode === "auto" && !mediaQueryRef.current) {
+      try {
+        mediaQueryRef.current = window.matchMedia("(prefers-color-scheme: dark)");
+      } catch {
+        mediaQueryRef.current = null;
+      }
+    }
+
     const calculateTheme = () => {
       if (state.themeMode === "auto") {
-        try {
-          const prefersDark = window.matchMedia?.(
-            "(prefers-color-scheme: dark)",
-          ).matches;
-          return prefersDark ? "dark" : "light";
-        } catch {
-          return "light";
-        }
+        return (mediaQueryRef.current?.matches ?? false) ? "dark" : "light";
       }
       return state.themeMode as "light" | "dark";
     };
@@ -221,27 +224,26 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
       dispatch({ type: "SET_EFFECTIVE_THEME", payload: newTheme });
     }
 
-    if (state.themeMode === "auto") {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    if (state.themeMode === "auto" && mediaQueryRef.current) {
       const handleChange = () => {
-        const theme = mediaQuery.matches ? "dark" : "light";
-        dispatch({ type: "SET_EFFECTIVE_THEME", payload: theme });
+        const theme = mediaQueryRef.current?.matches ? "dark" : "light";
+        if (theme) {
+          dispatch({ type: "SET_EFFECTIVE_THEME", payload: theme });
+        }
       };
-      mediaQuery.addEventListener("change", handleChange);
-      return () => mediaQuery.removeEventListener("change", handleChange);
+      mediaQueryRef.current.addEventListener("change", handleChange);
+      return () => mediaQueryRef.current?.removeEventListener("change", handleChange);
     }
-  }, [state.themeMode, state.effectiveTheme]);
+  }, [state.themeMode]);
 
-  const applyStylesRef = useRef<number>();
-  
   useEffect(() => {
     if (typeof document === "undefined") return;
     
-    if (applyStylesRef.current) {
-      cancelAnimationFrame(applyStylesRef.current);
+    if (styleUpdateRef.current) {
+      cancelAnimationFrame(styleUpdateRef.current);
     }
     
-    applyStylesRef.current = requestAnimationFrame(() => {
+    styleUpdateRef.current = requestAnimationFrame(() => {
       const root = document.documentElement;
       
       root.style.setProperty("--inkdown-editor-font-size", `${state.fontSize}px`);
@@ -258,19 +260,34 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     });
 
     return () => {
-      if (applyStylesRef.current) {
-        cancelAnimationFrame(applyStylesRef.current);
+      if (styleUpdateRef.current) {
+        cancelAnimationFrame(styleUpdateRef.current);
       }
     };
   }, [state.effectiveTheme, state.fontSize, state.fontFamily, state.currentCustomThemeId, applyThemeToDOM]);
 
+  const configChangeTimeoutRef = useRef<number>();
+  
   useEffect(() => {
     if (typeof window === "undefined" || isLoading) return;
-    window.dispatchEvent(
-      new CustomEvent("inkdown-config-change", {
-        detail: { appearance: appearanceConfig, workspace: workspaceConfig },
-      }),
-    );
+    
+    if (configChangeTimeoutRef.current) {
+      clearTimeout(configChangeTimeoutRef.current);
+    }
+    
+    configChangeTimeoutRef.current = window.setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("inkdown-config-change", {
+          detail: { appearance: appearanceConfig, workspace: workspaceConfig },
+        }),
+      );
+    }, 100); // Debounce config changes
+    
+    return () => {
+      if (configChangeTimeoutRef.current) {
+        clearTimeout(configChangeTimeoutRef.current);
+      }
+    };
   }, [appearanceConfig, workspaceConfig, isLoading]);
 
   const handleThemeDownloaded = useCallback((event: CustomEvent) => {
@@ -333,6 +350,15 @@ export function AppearanceProvider({ children }: AppearanceProviderProps) {
     return () => {
       window.removeEventListener('inkdown-theme-downloaded', downloadListener);
       window.removeEventListener('inkdown-theme-deleted', deleteListener);
+      if (styleUpdateRef.current) {
+        cancelAnimationFrame(styleUpdateRef.current);
+      }
+      if (configChangeTimeoutRef.current) {
+        clearTimeout(configChangeTimeoutRef.current);
+      }
+      if (mediaQueryRef.current) {
+        mediaQueryRef.current = null;
+      }
     };
   }, [handleThemeDownloaded, handleThemeDeleted]); 
 

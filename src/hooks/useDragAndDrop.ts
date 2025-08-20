@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, DragEvent, useMemo } from "react";
+import { useState, useCallback, useRef, DragEvent, useMemo, useEffect } from "react";
 import { useFileOperations } from "./useFileOperations";
 import { platform } from "@tauri-apps/plugin-os";
 
@@ -13,16 +13,27 @@ export function useDragAndDrop(onFileSelect?: (path: string) => void) {
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
   const [isWindows, setIsWindows] = useState<boolean>(false);
   const dragCounterRef = useRef(0);
+  const onFileSelectRef = useRef(onFileSelect);
   const { moveFileOrDirectory, getLastError } = useFileOperations();
 
-  // Detect Windows platform
-  useMemo(async () => {
-    try {
-      const currentPlatform = await platform();
-      setIsWindows(currentPlatform === 'windows');
-    } catch (error) {
-      console.warn('Could not detect platform:', error);
-    }
+  onFileSelectRef.current = onFileSelect;
+
+  useEffect(() => {
+    const detectPlatform = async () => {
+      try {
+        if (typeof window !== 'undefined' && window.__TAURI__) {
+          const currentPlatform = await platform();
+          setIsWindows(currentPlatform === 'windows');
+        } else {
+          setIsWindows(false);
+        }
+      } catch (error) {
+        console.warn('Could not detect platform:', error);
+        setIsWindows(false);
+      }
+    };
+
+    detectPlatform();
   }, []);
 
   const handleDragStart = useCallback((e: DragEvent, path: string, isDirectory: boolean, name: string) => {
@@ -151,8 +162,8 @@ export function useDragAndDrop(onFileSelect?: (path: string) => void) {
     try {
       const newPath = await moveFileOrDirectory(dragData.path, targetPath);
       if (newPath) {
-        if (!dragData.isDirectory && onFileSelect) {
-          onFileSelect(newPath);
+        if (!dragData.isDirectory && onFileSelectRef.current) {
+          onFileSelectRef.current(newPath);
         }
       } else {
         const error = getLastError();
@@ -163,7 +174,7 @@ export function useDragAndDrop(onFileSelect?: (path: string) => void) {
     }
 
     setDraggedItem(null);
-  }, [draggedItem, moveFileOrDirectory, getLastError, onFileSelect, isWindows]);
+  }, [draggedItem, moveFileOrDirectory, getLastError, isWindows]);
 
   const isDraggedOver = useCallback((path: string) => {
     return dragOverTarget === path;

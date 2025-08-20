@@ -63,6 +63,7 @@ class ConfigManager {
   private initialized = false;
   private loadPromise: Promise<void> | null = null;
   private updatePromises: Map<string, Promise<void>> = new Map();
+  private abortController: AbortController | null = null;
 
   static getInstance(): ConfigManager {
     if (!ConfigManager.instance) {
@@ -87,29 +88,28 @@ class ConfigManager {
     if (this.initialized) return;
     if (this.loadPromise) return this.loadPromise;
 
+    this.abortController = new AbortController();
     this.loadPromise = this.loadConfigs();
     await this.loadPromise;
     this.loadPromise = null;
   }
 
   private async loadConfigs(): Promise<void> {
+    if (this.abortController?.signal.aborted) return;
+    
     this.state = { ...this.state, isLoading: true, error: null };
     this.notify();
 
     try {
-      // Primeira prioridade: carregar do cache para início imediato
       let workspace = cacheUtils.getWorkspaceConfig();
       let appearance = cacheUtils.getAppearanceConfig();
       
-      // Se temos cache, aplique imediatamente para UI responsiva
       if (workspace && appearance) {
-        // Garantir que showEditorFooter tem valor padrão se não existir
         if (workspace.showEditorFooter === undefined) {
           workspace.showEditorFooter = DEFAULT_WORKSPACE.showEditorFooter;
-          cacheUtils.setWorkspaceConfig(workspace); // Atualizar cache com novo campo
+          cacheUtils.setWorkspaceConfig(workspace);
         }
         
-        // Aplicar estado do cache imediatamente
         this.state = {
           workspace,
           appearance,
@@ -120,12 +120,10 @@ class ConfigManager {
         this.initialized = true;
         this.notify();
         
-        // Opcional: sincronizar com Rust em background
         this.syncFromDisk(workspace, appearance);
         return;
       }
 
-      // Se não há cache, carregar do disco
       const [workspaceStr, appearanceStr] = await Promise.all([
         invoke<string>("load_workspace_config"),
         invoke<string>("load_appearance_config"),
@@ -141,7 +139,6 @@ class ConfigManager {
         cacheUtils.setAppearanceConfig(appearance);
       }
 
-      // Garantir que showEditorFooter existe também para carregamento inicial
       if (workspace.showEditorFooter === undefined) {
         workspace.showEditorFooter = DEFAULT_WORKSPACE.showEditorFooter;
       }
@@ -181,7 +178,6 @@ class ConfigManager {
     this.notify();
   }
 
-  // Sincronização em background para garantir consistência com disco
   private async syncFromDisk(cachedWorkspace: WorkspaceConfig, cachedAppearance: AppearanceConfig): Promise<void> {
     try {
       const [workspaceStr, appearanceStr] = await Promise.all([
@@ -192,14 +188,11 @@ class ConfigManager {
       const diskWorkspace = JSON.parse(workspaceStr) as WorkspaceConfig;
       const diskAppearance = JSON.parse(appearanceStr) as AppearanceConfig;
 
-      // Verificar se há diferenças significativas
       const workspaceChanged = JSON.stringify(diskWorkspace) !== JSON.stringify(cachedWorkspace);
       const appearanceChanged = JSON.stringify(diskAppearance) !== JSON.stringify(cachedAppearance);
 
       if (workspaceChanged || appearanceChanged) {
-        // Atualizar cache e estado se houve mudanças
         if (workspaceChanged) {
-          // Garantir que showEditorFooter existe
           if (diskWorkspace.showEditorFooter === undefined) {
             diskWorkspace.showEditorFooter = DEFAULT_WORKSPACE.showEditorFooter;
           }
@@ -219,7 +212,6 @@ class ConfigManager {
         this.notify();
       }
     } catch (err) {
-      // Falha na sincronização em background não é crítica
       console.warn("Background sync failed:", err);
     }
   }
@@ -227,7 +219,7 @@ class ConfigManager {
   async updateWorkspaceConfig(
     updates: Partial<WorkspaceConfig>,
   ): Promise<void> {
-    if (!this.state.workspace) return;
+    if (!this.state.workspace || this.abortController?.signal.aborted) return;
 
     const updateKey = "workspace";
 
@@ -281,7 +273,7 @@ class ConfigManager {
   async updateAppearanceConfig(
     updates: Partial<AppearanceConfig>,
   ): Promise<void> {
-    if (!this.state.appearance) return;
+    if (!this.state.appearance || this.abortController?.signal.aborted) return;
 
     const updateKey = "appearance";
 
@@ -332,7 +324,6 @@ class ConfigManager {
     }
   }
 
-  // Add method to clear errors
   clearError(): void {
     if (this.state.error) {
       this.state = {
@@ -350,14 +341,27 @@ class ConfigManager {
   }
 
   async refresh(): Promise<void> {
+    if (this.abortController) {
+      this.abortController.abort();
+    }
+    
     cacheUtils.invalidateWorkspace();
     cacheUtils.invalidateAppearance();
     this.initialized = false;
+    this.updatePromises.clear();
     await this.initialize();
   }
 
   getState(): ConfigState {
     return this.state;
+  }
+
+  cleanup(): void {
+    if (this.abortController) {
+      this.abortController.abort();
+    }
+    this.listeners.clear();
+    this.updatePromises.clear();
   }
 }
 

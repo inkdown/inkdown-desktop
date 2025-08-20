@@ -1,4 +1,4 @@
-import { useState, useCallback, memo, useMemo, useRef } from "react";
+import { useState, useCallback, memo, useMemo, useRef, useEffect } from "react";
 import { FileText, ChevronRight, ChevronDown } from "lucide-react";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { platform } from "@tauri-apps/plugin-os";
@@ -8,7 +8,6 @@ import { useFileOperations } from "../../hooks/useFileOperations";
 import { useEditing } from "../../contexts/EditingContext";
 import { useDragAndDrop } from "../../hooks/useDragAndDrop";
 
-// Constants moved outside component for better performance
 const WINDOWS_INVALID_CHARS = ['<', '>', ':', '"', '|', '?', '*'] as const;
 const RESERVED_NAMES = [
   'CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 
@@ -57,7 +56,7 @@ const FileTreeItem = memo(function FileTreeItem({
     deleteFileOrDirectory,
     renameFileOrDirectory,
   } = useFileOperations();
-  const { setEditingPath, isEditing } = useEditing();
+  const { setEditingPath, setActiveFile, isEditing } = useEditing();
 
   const isSelected = selectedFile === node.path;
   const isCurrentlyEditing = isEditing(node.path);
@@ -69,14 +68,22 @@ const FileTreeItem = memo(function FileTreeItem({
     [node.is_directory, node.name]
   );
 
-  useMemo(() => {
+  useEffect(() => {
     if (isWindowsPlatform === null) {
-      try {
-        const currentPlatform = platform();
-        setIsWindowsPlatform(currentPlatform === 'windows');
-      } catch (error) {
-        setIsWindowsPlatform(false);
-      }
+      const detectPlatform = async () => {
+        try {
+          if (typeof window !== 'undefined' && window.__TAURI__) {
+            const currentPlatform = await platform();
+            setIsWindowsPlatform(currentPlatform === 'windows');
+          } else {
+            setIsWindowsPlatform(false);
+          }
+        } catch (error) {
+          setIsWindowsPlatform(false);
+        }
+      };
+
+      detectPlatform();
     }
   }, [isWindowsPlatform]);
 
@@ -212,8 +219,12 @@ const FileTreeItem = memo(function FileTreeItem({
   const handleSelect = useCallback(() => {
     if (!node.is_directory) {
       onFileSelect(node.path);
+      
+      // Set active file with empty content initially - WindowContent will load actual content
+      setActiveFile(node.path, "");
+      console.log(`📄 [FileTree] Selected file: ${node.name} (content will be loaded by WindowContent)`);
     }
-  }, [node.is_directory, node.path, onFileSelect]);
+  }, [node.is_directory, node.path, onFileSelect, setActiveFile]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -410,7 +421,7 @@ const FileTreeItem = memo(function FileTreeItem({
 
       {node.children && node.children.length > 0 && isExpanded && (
         <div className="ml-2">
-          {node.children!.map((child) => (
+          {node.children.map((child) => (
             <FileTreeItem
               key={child.path}
               node={child}
@@ -441,6 +452,16 @@ const FileTreeItem = memo(function FileTreeItem({
         />
       )}
     </div>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.node.path === nextProps.node.path &&
+    prevProps.node.name === nextProps.node.name &&
+    prevProps.node.is_directory === nextProps.node.is_directory &&
+    prevProps.selectedFile === nextProps.selectedFile &&
+    prevProps.level === nextProps.level &&
+    prevProps.isWorkspaceRoot === nextProps.isWorkspaceRoot &&
+    JSON.stringify(prevProps.node.children) === JSON.stringify(nextProps.node.children)
   );
 });
 
@@ -532,7 +553,6 @@ export const FileTree = memo(function FileTree({
   const handleCreateFolder = useCallback(async () => {
     const newPath = await createDirectory(fileTree.path);
     if (newPath) {
-      // Use longer setTimeout for Windows compatibility with focus issues
       setTimeout(() => setEditingPath(newPath), 50);
     }
     closeContextMenu();
@@ -558,7 +578,6 @@ export const FileTree = memo(function FileTree({
     closeContextMenu();
   }, [createFile, fileTree.path, onFileSelect, closeContextMenu]);
 
-  // Memoize workspace drop classes
   const workspaceDropClasses = useMemo(() => {
     const baseClasses = `h-full overflow-auto theme-scrollbar rounded-lg ${className}`;
     const dragOverClass = dragHandlers.isDraggedOver(fileTree.path) ? "workspace-drag-over" : "";
@@ -620,5 +639,11 @@ export const FileTree = memo(function FileTree({
         />
       )}
     </div>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.selectedFile === nextProps.selectedFile &&
+    prevProps.className === nextProps.className &&
+    JSON.stringify(prevProps.fileTree) === JSON.stringify(nextProps.fileTree)
   );
 });

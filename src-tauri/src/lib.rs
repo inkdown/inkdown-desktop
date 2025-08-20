@@ -56,7 +56,15 @@ pub fn run() {
             commands::themes::search_community_themes,
             commands::themes::download_community_theme,
             commands::themes::get_installed_theme_names,
-            commands::themes::delete_community_theme
+            commands::themes::delete_community_theme,
+            // Plugin commands
+            commands::plugins::scan_plugins_directory,
+            commands::plugins::read_plugin_file,
+            commands::plugins::validate_plugin_permissions,
+            commands::plugins::install_plugin_from_path,
+            commands::plugins::uninstall_plugin,
+            commands::plugins::get_plugin_manifest,
+            commands::plugins::check_plugin_compatibility
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

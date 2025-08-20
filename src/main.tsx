@@ -1,4 +1,3 @@
-import React from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
@@ -8,7 +7,6 @@ import { AppearanceProvider } from "./contexts/AppearanceContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
         <AppearanceProvider>
@@ -20,5 +18,4 @@ createRoot(document.getElementById("root") as HTMLElement).render(
         </AppearanceProvider>
       </BrowserRouter>
     </ErrorBoundary>
-  </React.StrictMode>,
 );

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useMemo } from 'react';
-import { pluginManager } from '../services/pluginManager';
+import { useEffect, useRef, useMemo, useContext } from 'react';
+import { PluginEngineContext } from '../plugins/context/PluginEngineContext';
 
 interface UseKeyboardShortcutsOptions {
   onToggleSidebar?: () => void;
@@ -9,40 +9,25 @@ interface UseKeyboardShortcutsOptions {
   onOpenSettings?: () => void;
 }
 
-// Helper function to normalize keyboard shortcuts
-function normalizeShortcut(shortcut: string, isMac: boolean): string {
-  return shortcut
-    .toLowerCase()
-    .replace(/cmd|command/g, isMac ? 'meta' : 'ctrl')
-    .replace(/\+/g, '+')
-    .trim();
-}
-
-// Helper function to check if event matches shortcut
-function matchesShortcut(event: KeyboardEvent, shortcut: string, isMac: boolean): boolean {
-  const normalized = normalizeShortcut(shortcut, isMac);
-  const parts = normalized.split('+').map(p => p.trim());
+function buildShortcutString(event: KeyboardEvent, isMac: boolean): string {
+  const parts: string[] = [];
   
-  const hasCtrl = parts.includes('ctrl');
-  const hasMeta = parts.includes('meta') || parts.includes('cmd');
-  const hasShift = parts.includes('shift');
-  const hasAlt = parts.includes('alt');
+  if (isMac) {
+    if (event.metaKey) parts.push('Cmd');
+    if (event.ctrlKey) parts.push('Ctrl');
+  } else {
+    if (event.ctrlKey) parts.push('Ctrl');
+  }
   
-  const key = parts.find(p => !['ctrl', 'meta', 'cmd', 'shift', 'alt'].includes(p)) || '';
+  if (event.altKey) parts.push('Alt');
+  if (event.shiftKey) parts.push('Shift');
   
-  const eventKey = event.key.toLowerCase();
-  const actualCtrl = isMac ? false : event.ctrlKey;
-  const actualMeta = isMac ? event.metaKey : false;
-  const actualCmd = isMac ? event.metaKey : event.ctrlKey;
+  const key = event.key.toLowerCase();
+  if (key && key !== 'meta' && key !== 'control' && key !== 'alt' && key !== 'shift') {
+    parts.push(key.charAt(0).toUpperCase() + key.slice(1));
+  }
   
-  return (
-    eventKey === key &&
-    ((hasCtrl && actualCtrl) || (!hasCtrl && !actualCtrl)) &&
-    ((hasMeta && actualMeta) || (!hasMeta && !actualMeta)) &&
-    ((hasCtrl || hasMeta) ? actualCmd : true) &&
-    event.shiftKey === hasShift &&
-    event.altKey === hasAlt
-  );
+  return parts.length > 1 ? parts.join('+') : '';
 }
 
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
@@ -50,7 +35,6 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
   optionsRef.current = options;
 
   const isMac = useMemo(() => /Mac/.test(navigator.platform), []);
-
   const keyMap = useMemo(() => new Map([
     ['s', 'onSave'],
     ['o', 'onOpenNotePalette'],
@@ -58,25 +42,23 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     ['p', 'onOpenSettings']
   ]), []);
 
+  const pluginContext = useContext(PluginEngineContext);
+  const executeShortcutRef = useRef(pluginContext?.executeShortcut);
+  executeShortcutRef.current = pluginContext?.executeShortcut;
+
   useEffect(() => {
     const handleKeyDown = async (event: KeyboardEvent) => {
-      // First try plugin shortcuts (they have priority)
-      const pluginShortcuts = pluginManager.getAllPluginShortcuts();
-      for (const shortcut of pluginShortcuts) {
-        if (matchesShortcut(event, shortcut.shortcut, isMac)) {
-          try {
-            if (!shortcut.condition || shortcut.condition()) {
-              await shortcut.execute();
-              event.preventDefault();
-              return;
-            }
-          } catch (error) {
-            console.error(`Plugin shortcut error:`, error);
+      if (executeShortcutRef.current) {
+        const shortcutStr = buildShortcutString(event, isMac);
+        
+        if (shortcutStr) {
+          const handled = await executeShortcutRef.current(shortcutStr, event);
+          if (handled) {
+            return;
           }
         }
       }
       
-      // Then handle built-in shortcuts
       const isCtrlOrCmd = isMac ? event.metaKey : event.ctrlKey;
       
       if (!isCtrlOrCmd) return;
@@ -102,6 +84,9 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isMac, keyMap]);
 }

@@ -118,22 +118,37 @@ export const cacheUtils = {
 
   // Plugin Cache Functions
   getEnabledPlugins: (): string[] => {
-    const cache = cacheManager.get<Record<string, { enabled: boolean; settings: Record<string, any> }>>('plugins') || {};
+    const cache = cacheManager.get<Record<string, { enabled: boolean; settings: Record<string, any>; hasSettings?: boolean }>>('plugins') || {};
     return Object.keys(cache).filter(pluginId => cache[pluginId].enabled);
   },
 
   getPluginCache: () => {
-    return cacheManager.get<Record<string, { enabled: boolean; settings: Record<string, any> }>>('plugins') || {};
+    return cacheManager.get<Record<string, { enabled: boolean; settings: Record<string, any>; hasSettings?: boolean }>>('plugins') || {};
   },
 
   setPluginEnabled: (pluginId: string, enabled: boolean) => {
     const cache = cacheUtils.getPluginCache();
     if (!cache[pluginId]) {
-      cache[pluginId] = { enabled, settings: {} };
+      cache[pluginId] = { enabled, settings: {}, hasSettings: false };
     } else {
       cache[pluginId].enabled = enabled;
     }
     cacheManager.set('plugins', cache);
+  },
+
+  setPluginHasSettings: (pluginId: string, hasSettings: boolean) => {
+    const cache = cacheUtils.getPluginCache();
+    if (!cache[pluginId]) {
+      cache[pluginId] = { enabled: false, settings: {}, hasSettings };
+    } else {
+      cache[pluginId].hasSettings = hasSettings;
+    }
+    cacheManager.set('plugins', cache);
+  },
+
+  getPluginHasSettings: (pluginId: string): boolean => {
+    const cache = cacheUtils.getPluginCache();
+    return cache[pluginId]?.hasSettings || false;
   },
 
   getPluginSettings: (pluginId: string): Record<string, any> => {

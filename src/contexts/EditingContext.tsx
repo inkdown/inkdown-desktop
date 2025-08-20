@@ -33,23 +33,40 @@ export function EditingProvider({ children }: EditingProviderProps) {
     setEditingPathState(path);
     if (typeof window !== 'undefined') {
       (window as any).__editingContext = { editingPath: path };
+      
+      // Clear active file if no path
+      if (!path) {
+        (window as any).__activeFile = null;
+        setActiveFileState(null);
+      }
     }
   }, []);
 
   const setActiveFile = useCallback((path: string, content: string) => {
     const fileName = path.split('/').pop() || 'unknown';
-    setActiveFileState({
+    const fileObj = {
       path,
       name: fileName,
       content
-    });
-    setEditingPath(path);
+    };
+    setActiveFileState(fileObj);
+    // DON'T call setEditingPath here - that's for renaming mode only
     setIsModified(false);
+    
+    if (typeof window !== 'undefined') {
+      (window as any).__activeFile = fileObj;
+    }
   }, []);
 
   const updateContent = useCallback((content: string) => {
     if (activeFile) {
-      setActiveFileState(prev => prev ? { ...prev, content } : null);
+      const updatedFile = { ...activeFile, content };
+      setActiveFileState(updatedFile);
+      
+      // Update global for plugins
+      if (typeof window !== 'undefined') {
+        (window as any).__activeFile = updatedFile;
+      }
     }
   }, [activeFile]);
 

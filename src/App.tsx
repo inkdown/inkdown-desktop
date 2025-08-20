@@ -6,7 +6,6 @@ import { cacheUtils } from "./utils/localStorage";
 import { UpdateNotification } from "./components/updater/UpdateNotification";
 import { useUpdater } from "./hooks/useUpdater";
 import { ErrorProvider } from "./contexts/ErrorContext";
-import { pluginManager } from "./services/pluginManager";
 
 const HomePage = lazy(() => import("./pages/HomePage"));
 const EditorPage = lazy(() => import("./pages/EditorPage"));
@@ -70,18 +69,6 @@ function App() {
   useEffect(() => {
     // Auto-check para atualizações na inicialização
     autoCheck();
-    
-    // Inicializar sistema de plugins
-    const initializePlugins = async () => {
-      try {
-        await pluginManager.initialize();
-        console.log('Plugin system initialized successfully');
-      } catch (error) {
-        console.error('Failed to initialize plugin system:', error);
-      }
-    };
-    
-    initializePlugins();
   }, [autoCheck]);
 
   return (

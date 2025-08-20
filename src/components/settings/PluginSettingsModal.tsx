@@ -1,7 +1,26 @@
 import { memo, useState, useEffect, useCallback } from 'react';
 import { X, Save } from 'lucide-react';
-import { pluginManager } from '../../services/pluginManager';
-import { PluginSettingsConfig, SettingDefinition, SettingGroup } from '../../types/plugins';
+import { pluginManager } from '../../services/PluginManager';
+// Plugin settings types (simplified for now)
+interface PluginSettingsConfig {
+  groups: SettingGroup[];
+}
+
+interface SettingGroup {
+  id: string;
+  name: string;
+  description?: string;
+  collapsible?: boolean;
+  settings: SettingDefinition[];
+}
+
+interface SettingDefinition {
+  key: string;
+  name: string;
+  description?: string;
+  type: 'text' | 'number' | 'boolean' | 'dropdown' | 'password' | 'slider' | 'textarea' | 'color';
+  defaultValue: any;
+}
 import { cacheUtils } from '../../utils/localStorage';
 import { ToggleSwitch } from './ToggleSwitch';
 
@@ -31,8 +50,8 @@ export const PluginSettingsModal = memo(function PluginSettingsModal({
           
           // Initialize with default values if not set
           const initialSettings = { ...currentSettings };
-          pluginConfig.groups.forEach(group => {
-            group.settings.forEach(setting => {
+          pluginConfig.groups.forEach((group: SettingGroup) => {
+            group.settings.forEach((setting: SettingDefinition) => {
               if (!(setting.key in initialSettings)) {
                 initialSettings[setting.key] = setting.defaultValue;
               }

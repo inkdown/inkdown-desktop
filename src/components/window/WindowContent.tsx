@@ -6,6 +6,7 @@ import {
 } from "../editor/EditorComponent";
 import { Title } from "../editor/Title";
 import { useError } from "../../contexts/ErrorContext";
+import { useEditing } from "../../contexts/EditingContext";
 
 interface WindowContentProps {
   selectedFile: string;
@@ -37,6 +38,7 @@ export const WindowContent = memo(function WindowContent({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const editorRef = useRef<EditorComponentHandle>(null);
   const { showError } = useError();
+  const { setActiveFile } = useEditing();
 
   const loadFileContent = useCallback(async (filePath: string) => {
     if (!filePath) return;
@@ -47,6 +49,8 @@ export const WindowContent = memo(function WindowContent({
     try {
       const content = await invoke<string>("read_file", { path: filePath });
       setFileContent(content);
+      setActiveFile(filePath, content);
+      
       if (showEditorFooter) {
         externalOnContentChange?.(content);
       }
@@ -65,28 +69,28 @@ export const WindowContent = memo(function WindowContent({
     } finally {
       setIsLoading(false);
     }
-  }, [externalOnContentChange, showError, showEditorFooter]);
+  }, [externalOnContentChange, showError, showEditorFooter, setActiveFile]);
 
-  const saveFileContent = useCallback(
-    async (filePath: string, content: string) => {
-      try {
-        await invoke("write_file", { filePath, content });
-        return true;
-      } catch (err) {
-        console.error("Error saving file:", err);
-        showError({
-          title: "Não foi possível salvar o arquivo",
-          message: "Ocorreu um problema ao tentar salvar suas alterações. Tente novamente ou verifique se você tem permissão para escrever neste local.",
-          details: err instanceof Error ? err.message : "Erro desconhecido"
-        });
-        return false;
-      }
-    },
-    [],
-  );
+  const saveFileContent = useCallback(async (filePath: string, content: string) => {
+    try {
+      await invoke("write_file", { filePath, content });
+      return true;
+    } catch (err) {
+      console.error("Error saving file:", err);
+      showError({
+        title: "Não foi possível salvar o arquivo",
+        message: "Ocorreu um problema ao tentar salvar suas alterações. Tente novamente ou verifique se você tem permissão para escrever neste local.",
+        details: err instanceof Error ? err.message : "Erro desconhecido"
+      });
+      return false;
+    }
+  }, [showError]);
 
+  const previousFileRef = useRef<string | null>(null);
+  
   useEffect(() => {
-    if (selectedFile) {
+    if (selectedFile && selectedFile !== previousFileRef.current) {
+      previousFileRef.current = selectedFile;
       loadFileContent(selectedFile);
     }
   }, [selectedFile, loadFileContent]);
@@ -150,7 +154,9 @@ export const WindowContent = memo(function WindowContent({
   useEffect(() => {
     onSaveRef.current = performSave;
     return () => {
-      onSaveRef.current = null;
+      if (onSaveRef) {
+        onSaveRef.current = null;
+      }
     };
   }, [performSave, onSaveRef]);
 
@@ -158,7 +164,9 @@ export const WindowContent = memo(function WindowContent({
     if (onTogglePreviewRef) {
       onTogglePreviewRef.current = togglePreviewMode;
       return () => {
-        onTogglePreviewRef.current = null;
+        if (onTogglePreviewRef) {
+          onTogglePreviewRef.current = null;
+        }
       };
     }
   }, [togglePreviewMode, onTogglePreviewRef]);
