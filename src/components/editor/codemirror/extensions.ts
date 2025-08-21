@@ -279,7 +279,6 @@ export class ExtensionsFactory {
     const line = state.doc.lineAt(selection.head);
     const lineText = line.text;
     
-    // Remove heading existente se houver
     const cleanText = lineText.replace(/^#+\s*/, '');
     const headingMarker = '#'.repeat(level) + ' ';
     const newLineText = headingMarker + cleanText;
@@ -297,14 +296,12 @@ export class ExtensionsFactory {
   }
 
   private static handlePasteEvent(event: ClipboardEvent, view: EditorView): void {
-    // Acesso ao clipboard via evento (mais confiável que navigator.clipboard)
     const clipboardData = event.clipboardData;
     if (!clipboardData) return;
 
     const clipboardText = clipboardData.getData('text/plain');
     const trimmedText = clipboardText.trim();
     
-    // Quick check para performance - só processar se parece URL
     if (!trimmedText || trimmedText.length > 2048 || 
         (!trimmedText.startsWith('http://') && !trimmedText.startsWith('https://'))) {
       return; // Deixa paste padrão acontecer
@@ -347,10 +344,8 @@ export class ExtensionsFactory {
     
     const codeBlockTemplate = '```\n\n```';
     
-    // Se não estiver no início da linha, adiciona quebra de linha antes
     const insertText = line.from === selection.from ? codeBlockTemplate : `\n${codeBlockTemplate}`;
     
-    // Posição do cursor no centro do code block (após primeira quebra de linha)
     const cursorPosition = selection.from + insertText.indexOf('\n') + 1;
     
     view.dispatch({
@@ -377,7 +372,6 @@ export class ExtensionsFactory {
 |          |          |          |
 |          |          |          |`;
 
-    // Se não estiver no início da linha, adiciona quebra de linha antes
     const insertText = line.from === selection.from ? tableTemplate : `\n${tableTemplate}`;
     
     view.dispatch({
@@ -399,7 +393,6 @@ export class ExtensionsFactory {
     
     const listTemplate = '- [ ] ';
     
-    // Se não estiver no início da linha, adiciona quebra de linha antes
     const insertText = line.from === selection.from ? listTemplate : `\n${listTemplate}`;
     const cursorOffset = insertText.length;
     

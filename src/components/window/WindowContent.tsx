@@ -7,6 +7,7 @@ import {
 import { Title } from "../editor/Title";
 import { useError } from "../../contexts/ErrorContext";
 import { useEditingStore } from "../../stores/editingStore";
+import { usePluginStore } from "../../stores/pluginStore";
 
 interface WindowContentProps {
   selectedFile: string;
@@ -32,13 +33,15 @@ export const WindowContent = memo(function WindowContent({
   onPreviewModeChange,
   showEditorFooter,
 }: WindowContentProps) {
-  const [fileContent, setFileContent] = useState<string>("");
+  const [content, setContent] = useState<string>(""); // Single source of truth for content
   const [isLoading, setIsLoading] = useState(false);
   const [isModified, setIsModified] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const editorRef = useRef<EditorComponentHandle>(null);
+  const originalContentRef = useRef<string>(""); // Track original file content for comparison
   const { showError } = useError();
   const { setActiveFile } = useEditingStore();
+  const { setActiveEditor, clearActiveEditor } = usePluginStore();
 
   const loadFileContent = useCallback(async (filePath: string) => {
     if (!filePath) return;
@@ -47,13 +50,23 @@ export const WindowContent = memo(function WindowContent({
     setIsModified(false);
 
     try {
-      const content = await invoke<string>("read_file", { path: filePath });
-      setFileContent(content);
-      setActiveFile(filePath, content);
-      
-      if (showEditorFooter) {
-        externalOnContentChange?.(content);
-      }
+      const fileContent = await invoke<string>("read_file", { path: filePath });
+      setContent(fileContent);
+      originalContentRef.current = fileContent; // Track original for modification detection
+      setActiveFile(filePath, fileContent);
+
+      // Connect plugin to editor AFTER content is loaded
+      setTimeout(() => {
+        if (editorRef.current && typeof editorRef.current.getCoreEditor === 'function') {
+          const coreEditor = editorRef.current.getCoreEditor();
+          if (coreEditor) {
+            console.log('🔌 [WindowContent] Connecting plugin to editor after content load');
+            console.log('🔌 [WindowContent] Editor content length after load:', coreEditor.getContent().length);
+            setActiveEditorRef.current(coreEditor);
+          }
+        }
+      }, 100); // Small delay to ensure editor has rendered with content
+
     } catch (err) {
       console.error("Error loading file:", err);
       showError({
@@ -62,14 +75,11 @@ export const WindowContent = memo(function WindowContent({
         details: err instanceof Error ? err.message : "Erro desconhecido",
         onRetry: () => loadFileContent(filePath)
       });
-      setFileContent("");
-      if (showEditorFooter) {
-        externalOnContentChange?.("");
-      }
+      setContent("");
     } finally {
       setIsLoading(false);
     }
-  }, [externalOnContentChange, showError, showEditorFooter, setActiveFile]);
+  }, [showError, setActiveFile]);
 
   const saveFileContent = useCallback(async (filePath: string, content: string) => {
     try {
@@ -95,29 +105,46 @@ export const WindowContent = memo(function WindowContent({
     }
   }, [selectedFile, loadFileContent]);
 
-  const handleContentChange = useCallback((content: string) => {
-    setFileContent(content);
-    setIsModified(true);
-    if (showEditorFooter) {
-      externalOnContentChange?.(content);
+  // Notify footer about initial content when file loads
+  useEffect(() => {
+    if (showEditorFooter && content && externalOnContentChange) {
+      externalOnContentChange(content);
     }
-  }, [externalOnContentChange, showEditorFooter]);
+  }, [content, showEditorFooter, externalOnContentChange]);
+
+  const handleContentChange = useCallback((newContent: string) => {
+    // DON'T update content state during typing - this causes cursor resets
+    // Only update modification state and notify external consumers
+    setIsModified(newContent !== originalContentRef.current);
+    
+    // Notify footer about content changes
+    if (showEditorFooter && externalOnContentChange) {
+      externalOnContentChange(newContent);
+    }
+  }, [showEditorFooter, externalOnContentChange]);
 
   const handleSave = useCallback(
-    async (content: string) => {
+    async (contentToSave: string) => {
       if (!selectedFile) return;
 
       try {
-        const success = await saveFileContent(selectedFile, content);
+        const success = await saveFileContent(selectedFile, contentToSave);
         if (success) {
-          setFileContent(content);
+          originalContentRef.current = contentToSave; // Update original content reference
+          // DON'T update content state - this would trigger editor reset and cursor jump
           setIsModified(false);
+          console.log('💾 [WindowContent] File saved successfully, cursor position preserved');
+          
+          // Update footer with saved content
+          if (showEditorFooter && externalOnContentChange) {
+            externalOnContentChange(contentToSave);
+          }
         }
       } catch (error) {
         console.error("Error in handleSave:", error);
       }
     },
-    [selectedFile, saveFileContent],
+    [selectedFile, saveFileContent, showEditorFooter, externalOnContentChange],
   );
 
   const handleError = useCallback((error: Error) => {
@@ -170,6 +197,22 @@ export const WindowContent = memo(function WindowContent({
       };
     }
   }, [togglePreviewMode, onTogglePreviewRef]);
+
+  // Stable refs to avoid dependency issues - update in useEffect to avoid render-time updates
+  const setActiveEditorRef = useRef(setActiveEditor);
+  const clearActiveEditorRef = useRef(clearActiveEditor);
+  
+  useEffect(() => {
+    setActiveEditorRef.current = setActiveEditor;
+    clearActiveEditorRef.current = clearActiveEditor;
+  }, [setActiveEditor, clearActiveEditor]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearActiveEditorRef.current();
+    };
+  }, []);
 
   if (!selectedFile) {
     return (
@@ -245,7 +288,7 @@ export const WindowContent = memo(function WindowContent({
       <div className="theme-editor flex-1 flex flex-col min-h-0 relative">
         <EditorComponent
           ref={editorRef}
-          initialContent={fileContent}
+          initialContent={content}
           themeName={resolvedTheme}
           showPreview={isPreviewMode}
           onContentChange={handleContentChange}

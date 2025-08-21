@@ -11,7 +11,7 @@ import { Sidebar, SidebarResizer } from "../sidebar";
 import { SidebarHeader } from "../sidebar/SidebarHeader";
 import { MainWindow } from "../window";
 import { NotePalette } from "../palette";
-import { FpsIndicator } from "../dev/FpsIndicator";
+import { DevTools } from "../dev/DevTools";
 import { TitleBar } from "../ui/TitleBar";
 import { EditorFooter } from "../editor/EditorFooter";
 import { StatusBar } from "../ui/StatusBar";
@@ -190,8 +190,6 @@ export const WorkspacePage = memo(function WorkspacePage() {
     }
   }, [state.selectedFile]);
 
-  // Keyboard shortcuts moved inside PluginEngineProvider
-
   if (!fileTree || !currentDirectory) {
     return (
       <div 
@@ -218,7 +216,6 @@ export const WorkspacePage = memo(function WorkspacePage() {
 
   const sidebarVisible = workspaceConfig?.sidebarVisible ?? true;
 
-  // Component to handle keyboard shortcuts inside plugin context
   const KeyboardShortcutsHandler = memo(() => {
     useKeyboardShortcuts({
       onToggleSidebar: toggleSidebar,
@@ -300,7 +297,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
           </div>
         )}
 
-        <FpsIndicator 
+        <DevTools 
           isVisible={workspaceConfig?.devMode ?? false}
         />
 

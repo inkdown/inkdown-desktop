@@ -53,7 +53,6 @@ export const ContextMenu = memo(function ContextMenu({
   const menuItems = useMemo(() => {
     const items = [];
 
-    // Add folder/file creation options for directories
     if (isDirectory) {
       items.push({
         icon: <FolderPlus size={15} />,
@@ -66,7 +65,6 @@ export const ContextMenu = memo(function ContextMenu({
         onClick: onCreateFile,
       });
       
-      // Add daily note option for all directories
       if (onCreateDailyNote) {
         items.push({
           icon: <Calendar size={15} />,
@@ -76,7 +74,6 @@ export const ContextMenu = memo(function ContextMenu({
       }
     }
 
-    // Add rename option (not for root directories)
     if (onRename && !isRootDirectory) {
       items.push({
         icon: <Edit size={15} />,
@@ -85,7 +82,6 @@ export const ContextMenu = memo(function ContextMenu({
       });
     }
 
-    // Add delete option (not for root directories)
     if (onDelete && !isRootDirectory) {
       items.push({
         icon: <Trash2 size={15} />,
@@ -128,7 +124,6 @@ export const ContextMenu = memo(function ContextMenu({
     }
   }, [x, y]);
 
-  // Always render if we have at least one item
   if (menuItems.length === 0) {
     return null;
   }

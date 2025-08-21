@@ -47,46 +47,57 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
   executeShortcutRef.current = executeShortcut;
 
   useEffect(() => {
+    let debounceTimer: number | undefined;
+    
     const handleKeyDown = async (event: KeyboardEvent) => {
-      if (executeShortcutRef.current) {
-        const shortcutStr = buildShortcutString(event, isMac);
-        
-        if (shortcutStr) {
-          const handled = await executeShortcutRef.current(shortcutStr, event);
-          if (handled) {
-            return;
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      
+      debounceTimer = window.setTimeout(async () => {
+        if (executeShortcutRef.current) {
+          const shortcutStr = buildShortcutString(event, isMac);
+          
+          if (shortcutStr) {
+            const handled = await executeShortcutRef.current(shortcutStr, event);
+            if (handled) {
+              return;
+            }
           }
         }
-      }
-      
-      const isCtrlOrCmd = isMac ? event.metaKey : event.ctrlKey;
-      
-      if (!isCtrlOrCmd) return;
+        
+        const isCtrlOrCmd = isMac ? event.metaKey : event.ctrlKey;
+        
+        if (!isCtrlOrCmd) return;
 
-      const key = event.key.toLowerCase();
+        const key = event.key.toLowerCase();
 
-      if (key === 'b' && event.shiftKey) {
-        optionsRef.current.onToggleSidebar?.();
-        event.preventDefault();
-        return;
-      }
-
-      if (event.shiftKey) return;
-
-      const handlerName = keyMap.get(key);
-      if (handlerName) {
-        const handler = optionsRef.current[handlerName as keyof typeof optionsRef.current];
-        if (handler) {
-          handler();
+        if (key === 'b' && event.shiftKey) {
+          optionsRef.current.onToggleSidebar?.();
           event.preventDefault();
+          return;
         }
-      }
+
+        if (event.shiftKey) return;
+
+        const handlerName = keyMap.get(key);
+        if (handlerName) {
+          const handler = optionsRef.current[handlerName as keyof typeof optionsRef.current];
+          if (handler) {
+            handler();
+            event.preventDefault();
+          }
+        }
+      }, 10);
     };
 
     document.addEventListener('keydown', handleKeyDown);
     
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
     };
   }, [isMac, keyMap]);
 }

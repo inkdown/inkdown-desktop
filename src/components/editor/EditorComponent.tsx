@@ -25,6 +25,7 @@ export interface EditorComponentHandle {
   getContent: () => string;
   setContent: (content: string) => void;
   focus: () => void;
+  getCoreEditor: () => any; // Expose core editor for plugins
 }
 
 const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponentProps>(({
@@ -53,7 +54,6 @@ const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponen
   const isInitialized = useRef(false);
   const currentContentRef = useRef(initialContent);
 
-  // Extract config values with proper defaults
   const configVimMode = workspaceConfig?.vimMode ?? false;
   const configShowLineNumbers = workspaceConfig?.showLineNumbers ?? true;
   const configHighlightCurrentLine = workspaceConfig?.highlightCurrentLine ?? true;
@@ -66,7 +66,6 @@ const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponen
 
   const editorConfigRef = useRef<EditorConfig | null>(null);
   
-  // Split config into smaller, focused memos
   const themeConfig = useMemo(() => ({
     theme: finalTheme,
   }), [finalTheme]);
@@ -103,7 +102,11 @@ const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponen
   const handleStateChange = useCallback((state: EditorStateInfo) => {
     currentContentRef.current = state.content;
     onStateChange?.(state);
-    onContentChange?.(state.content);
+    
+    if (onContentChange) {
+      setTimeout(() => onContentChange(state.content), 0);
+    }
+    
     if (previewRef.current) {
       previewRef.current.updateFromContent(state.content);
     }
@@ -135,15 +138,12 @@ const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponen
     } catch (error) {
       onError?.(error as Error);
     }
-  }, [editorConfig, handleStateChange, showPreview, finalTheme, initialContent, onError]);
+  }, [editorConfig, handleStateChange, showPreview, finalTheme, onError]);
 
   useEffect(() => {
     initializeEditor();
 
     return () => {
-      if (updateTimeoutRef.current) {
-        clearTimeout(updateTimeoutRef.current);
-      }
       if (editorRef.current) {
         editorRef.current.destroy();
         editorRef.current = null;
@@ -156,86 +156,97 @@ const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponen
     };
   }, [initializeEditor]);
 
-  const configUpdateNeeded = useMemo(() => {
-    if (!isInitialized.current || !editorConfigRef.current) return null;
+  const prevInitialContentRef = useRef(initialContent);
+  useEffect(() => {
+    if (editorRef.current && isInitialized.current && initialContent !== prevInitialContentRef.current) {
+      editorRef.current.setContent(initialContent);
+      currentContentRef.current = initialContent;
+      prevInitialContentRef.current = initialContent;
+    }
+  }, [initialContent]);
 
-    const current = editorConfigRef.current;
+  const prevConfigRef = useRef<{
+    theme: string;
+    vim: boolean;
+    showLineNumbers: boolean;
+    highlightCurrentLine: boolean;
+    readOnly: boolean;
+    fontSize: number;
+    fontFamily: string;
+    pasteUrlsAsLinks: boolean;
+  }>({
+    theme: finalTheme,
+    vim: configVimMode,
+    showLineNumbers: configShowLineNumbers,
+    highlightCurrentLine: configHighlightCurrentLine,
+    readOnly: configReadOnly,
+    fontSize: configFontSize,
+    fontFamily: configFontFamily,
+    pasteUrlsAsLinks: configPasteUrlsAsLinks,
+  });
+
+  useEffect(() => {
+    if (!editorRef.current || !isInitialized.current) return;
+
+    const current = prevConfigRef.current;
     const changes: Partial<EditorConfig> = {};
     let hasChanges = false;
 
     if (current.theme !== finalTheme) {
       changes.theme = finalTheme;
+      current.theme = finalTheme;
       hasChanges = true;
     }
     if (current.vim !== configVimMode) {
       changes.vim = configVimMode;
+      current.vim = configVimMode;
       hasChanges = true;
     }
     if (current.showLineNumbers !== configShowLineNumbers) {
       changes.showLineNumbers = configShowLineNumbers;
+      current.showLineNumbers = configShowLineNumbers;
       hasChanges = true;
     }
     if (current.highlightCurrentLine !== configHighlightCurrentLine) {
       changes.highlightCurrentLine = configHighlightCurrentLine;
+      current.highlightCurrentLine = configHighlightCurrentLine;
       hasChanges = true;
     }
     if (current.readOnly !== configReadOnly) {
       changes.readOnly = configReadOnly;
+      current.readOnly = configReadOnly;
       hasChanges = true;
     }
     if (current.fontSize !== configFontSize) {
       changes.fontSize = configFontSize;
+      current.fontSize = configFontSize;
       hasChanges = true;
     }
     if (current.fontFamily !== configFontFamily) {
       changes.fontFamily = configFontFamily;
+      current.fontFamily = configFontFamily;
       hasChanges = true;
     }
     if (current.pasteUrlsAsLinks !== configPasteUrlsAsLinks) {
       changes.pasteUrlsAsLinks = configPasteUrlsAsLinks;
+      current.pasteUrlsAsLinks = configPasteUrlsAsLinks;
       hasChanges = true;
     }
 
-    return hasChanges ? changes : null;
-  }, [finalTheme, configVimMode, configShowLineNumbers, configHighlightCurrentLine, configReadOnly, configFontSize, configFontFamily, configPasteUrlsAsLinks]);
-
-  const updateTimeoutRef = useRef<number>();
-  
-  useEffect(() => {
-    if (!editorRef.current || !isInitialized.current || !configUpdateNeeded) return;
-
-    if (updateTimeoutRef.current) {
-      clearTimeout(updateTimeoutRef.current);
-    }
-
-    updateTimeoutRef.current = window.setTimeout(() => {
-      if (!editorRef.current || !isInitialized.current) return;
-
-      const hasContentChanged = initialContent !== editorRef.current.getContent();
-
-      if (hasContentChanged) {
-        editorRef.current.setContent(initialContent);
-      }
-
-      editorRef.current.updateConfig(configUpdateNeeded);
+    if (hasChanges) {
+      editorRef.current.updateConfig(changes);
       
       if (editorConfigRef.current) {
-        Object.assign(editorConfigRef.current, configUpdateNeeded);
+        Object.assign(editorConfigRef.current, changes);
       }
 
-      if (previewRef.current && configUpdateNeeded.theme) {
+      if (previewRef.current && changes.theme) {
         previewRef.current.updateConfig({
-          theme: configUpdateNeeded.theme,
+          theme: changes.theme,
         });
       }
-    }, 16); // ~60fps debounce
-
-    return () => {
-      if (updateTimeoutRef.current) {
-        clearTimeout(updateTimeoutRef.current);
-      }
-    };
-  }, [configUpdateNeeded, initialContent]);
+    }
+  }, [finalTheme, configVimMode, configShowLineNumbers, configHighlightCurrentLine, configReadOnly, configFontSize, configFontFamily, configPasteUrlsAsLinks]);
 
   const handlePreviewToggle = useCallback(() => {
     if (!isInitialized.current) return;
@@ -246,7 +257,8 @@ const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponen
           container: previewContainerRef.current,
           theme: finalTheme,
         });
-        const currentContent = editorRef.current?.getContent() || initialContent;
+        const editorContent = editorRef.current?.getContent();
+        const currentContent = editorContent || currentContentRef.current || initialContent;
         if (currentContent) {
           previewRef.current.updateFromContent(currentContent);
         }
@@ -283,6 +295,7 @@ const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponen
     getContent: () => editorRef.current?.getContent() || '',
     setContent: (content: string) => editorRef.current?.setContent(content),
     focus: () => editorRef.current?.focus(),
+    getCoreEditor: () => editorRef.current, // Expose core editor for plugins
   }), []);
 
 
@@ -307,9 +320,7 @@ const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponen
 
 EditorComponentInternal.displayName = 'EditorComponentInternal';
 
-// Memoized component with optimized prop comparison
 export const EditorComponent = memo(EditorComponentInternal, (prevProps, nextProps) => {
-  // Custom comparison to prevent unnecessary re-renders
   const pluginsEqual = (prevProps.plugins?.length === nextProps.plugins?.length) &&
     (prevProps.plugins?.every((plugin, index) => plugin === nextProps.plugins?.[index]) ?? true);
     

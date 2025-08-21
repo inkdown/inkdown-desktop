@@ -43,7 +43,7 @@ export interface LoadedPlugin {
   shortcuts: Map<string, () => void>;
   commands: Map<string, any>;
   statusBarItems: Map<string, StatusBarItem>;
-  settingsConfig?: any;
+  settingsTabCallback?: (containerEl: HTMLElement) => void;
 }
 
 export interface StatusBarItem {
@@ -69,6 +69,9 @@ export interface PluginCommand {
   readonly icon?: string;
   readonly shortcut?: string;
   readonly condition?: () => boolean;
+  readonly callback?: () => Promise<void> | void;
+  readonly editorCallback?: (editor: any) => Promise<void> | void;
+  readonly checkCallback?: (checking: boolean) => boolean;
   execute(...args: any[]): Promise<void> | void;
 }
 

@@ -1,28 +1,6 @@
-import { memo, useState, useEffect, useCallback } from 'react';
-import { X, Save } from 'lucide-react';
+import { memo, useState, useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
 import { pluginManager } from '../../services/PluginManager';
-// Plugin settings types (simplified for now)
-interface PluginSettingsConfig {
-  groups: SettingGroup[];
-}
-
-interface SettingGroup {
-  id: string;
-  name: string;
-  description?: string;
-  collapsible?: boolean;
-  settings: SettingDefinition[];
-}
-
-interface SettingDefinition {
-  key: string;
-  name: string;
-  description?: string;
-  type: 'text' | 'number' | 'boolean' | 'dropdown' | 'password' | 'slider' | 'textarea' | 'color';
-  defaultValue: any;
-}
-import { cacheUtils } from '../../utils/localStorage';
-import { ToggleSwitch } from './ToggleSwitch';
 
 interface PluginSettingsModalProps {
   pluginId: string;
@@ -33,77 +11,51 @@ export const PluginSettingsModal = memo(function PluginSettingsModal({
   pluginId,
   onClose
 }: PluginSettingsModalProps) {
-  const [config, setConfig] = useState<PluginSettingsConfig | null>(null);
-  const [settings, setSettings] = useState<Record<string, any>>({});
+  const [hasSettings, setHasSettings] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
+  // Check if plugin has settings
   useEffect(() => {
-    const loadSettings = async () => {
+    const checkSettings = () => {
+      const settingsCallback = pluginManager.getPluginSettingsCallback(pluginId);
+      setHasSettings(!!settingsCallback);
+      setLoading(false);
+    };
+
+    checkSettings();
+  }, [pluginId]);
+
+  // Render settings when container becomes available
+  useEffect(() => {
+    const renderSettings = async () => {
+      if (!hasSettings || !containerRef.current || loading) {
+        return;
+      }
+
       try {
-        setLoading(true);
-        const pluginConfig = pluginManager.getPluginSettings(pluginId);
-        const currentSettings = cacheUtils.getPluginSettings(pluginId);
+        const settingsCallback = pluginManager.getPluginSettingsCallback(pluginId);
         
-        if (pluginConfig) {
-          setConfig(pluginConfig);
+        if (settingsCallback) {          
+          await pluginManager.reloadPluginSettings(pluginId);
           
-          // Initialize with default values if not set
-          const initialSettings = { ...currentSettings };
-          pluginConfig.groups.forEach((group: SettingGroup) => {
-            group.settings.forEach((setting: SettingDefinition) => {
-              if (!(setting.key in initialSettings)) {
-                initialSettings[setting.key] = setting.defaultValue;
-              }
-            });
-          });
+          // Clear container and render fresh settings
+          containerRef.current.innerHTML = '';
           
-          setSettings(initialSettings);
+          try {
+            settingsCallback(containerRef.current);
+            
+          } catch (callbackError) {
+            console.error(`[PluginSettingsModal] Settings callback failed for ${pluginId}:`, callbackError);
+          }
         }
       } catch (error) {
-        console.error('Failed to load plugin settings:', error);
-      } finally {
-        setLoading(false);
+        console.error(`[PluginSettingsModal] Failed to render plugin settings for ${pluginId}:`, error);
       }
     };
 
-    loadSettings();
-  }, [pluginId]);
-
-  const handleSettingChange = useCallback((key: string, value: any) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-  }, []);
-
-  const handleSave = useCallback(async () => {
-    try {
-      setSaving(true);
-      console.log(`💾 [PluginSettingsModal] Saving settings for plugin: ${pluginId}`, settings);
-      
-      // Save using the enhanced API which handles both cache and file system
-      const saved = await pluginManager.savePluginSettings(pluginId, settings);
-      if (saved) {
-        console.log(`✅ [PluginSettingsModal] Settings saved successfully for ${pluginId}`);
-      } else {
-        console.error(`❌ [PluginSettingsModal] Failed to save settings for ${pluginId}`);
-        // Still proceed with plugin reload
-      }
-      
-      // Notify the plugin instance to reload its settings
-      const reloaded = await pluginManager.reloadPluginSettings(pluginId);
-      if (reloaded) {
-        console.log(`🔄 [PluginSettingsModal] Plugin ${pluginId} settings reloaded successfully`);
-      } else {
-        console.warn(`⚠️ [PluginSettingsModal] Plugin ${pluginId} could not reload settings (plugin may not be loaded)`);
-      }
-      
-      onClose();
-    } catch (error) {
-      console.error('Failed to save plugin settings:', error);
-      // TODO: Show error notification to user
-    } finally {
-      setSaving(false);
-    }
-  }, [pluginId, settings, onClose]);
+    renderSettings();
+  }, [pluginId, hasSettings, loading]);
 
   if (loading) {
     return (
@@ -119,7 +71,7 @@ export const PluginSettingsModal = memo(function PluginSettingsModal({
     );
   }
 
-  if (!config) {
+  if (!hasSettings) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div className="w-96 p-6 rounded-lg" style={{ backgroundColor: 'var(--theme-background)' }}>
@@ -168,15 +120,8 @@ export const PluginSettingsModal = memo(function PluginSettingsModal({
         </div>
 
         <div className="p-6 overflow-y-auto max-h-96">
-          <div className="space-y-6">
-            {config.groups.map((group) => (
-              <SettingsGroupComponent
-                key={group.id}
-                group={group}
-                settings={settings}
-                onSettingChange={handleSettingChange}
-              />
-            ))}
+          <div ref={containerRef} className="space-y-4">
+            {/* Settings will be rendered here by the plugin callback */}
           </div>
         </div>
 
@@ -186,241 +131,13 @@ export const PluginSettingsModal = memo(function PluginSettingsModal({
             onClick={onClose}
             className="px-4 py-2 rounded-lg transition-colors"
             style={{
-              backgroundColor: 'var(--theme-secondary)',
-              color: 'var(--theme-secondary-foreground)'
-            }}
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
-            style={{
               backgroundColor: 'var(--theme-primary)',
               color: 'var(--theme-primary-foreground)'
             }}
           >
-            <Save className="w-4 h-4" />
-            {saving ? 'Salvando...' : 'Salvar'}
+            Fechar
           </button>
         </div>
-      </div>
-    </div>
-  );
-});
-
-interface SettingsGroupComponentProps {
-  group: SettingGroup;
-  settings: Record<string, any>;
-  onSettingChange: (key: string, value: any) => void;
-}
-
-const SettingsGroupComponent = memo(function SettingsGroupComponent({
-  group,
-  settings,
-  onSettingChange
-}: SettingsGroupComponentProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
-  return (
-    <div className="space-y-4">
-      <div 
-        className={`flex items-center gap-2 ${group.collapsible ? 'cursor-pointer' : ''}`}
-        onClick={() => group.collapsible && setIsCollapsed(!isCollapsed)}
-      >
-        <h3 className="text-lg font-medium" style={{ color: 'var(--theme-foreground)' }}>
-          {group.name}
-        </h3>
-        {group.collapsible && (
-          <span className={`transition-transform ${isCollapsed ? '' : 'rotate-180'}`}>
-            ▼
-          </span>
-        )}
-      </div>
-      
-      {group.description && (
-        <p className="text-sm" style={{ color: 'var(--theme-muted-foreground)' }}>
-          {group.description}
-        </p>
-      )}
-
-      {!isCollapsed && (
-        <div className="space-y-4">
-          {group.settings.map((setting) => (
-            <SettingComponent
-              key={setting.key}
-              setting={setting}
-              value={settings[setting.key] ?? setting.defaultValue}
-              onChange={(value) => onSettingChange(setting.key, value)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-});
-
-interface SettingComponentProps {
-  setting: SettingDefinition;
-  value: any;
-  onChange: (value: any) => void;
-}
-
-const SettingComponent = memo(function SettingComponent({
-  setting,
-  value,
-  onChange
-}: SettingComponentProps) {
-  const renderInput = () => {
-    switch (setting.type) {
-      case 'text':
-      case 'password':
-        return (
-          <input
-            type={setting.type}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={(setting as any).placeholder}
-            maxLength={(setting as any).maxLength}
-            className="w-full p-2 rounded border"
-            style={{
-              backgroundColor: 'var(--theme-input)',
-              borderColor: 'var(--theme-border)',
-              color: 'var(--theme-foreground)'
-            }}
-          />
-        );
-
-      case 'number':
-        const numberSetting = setting as any;
-        return (
-          <input
-            type="number"
-            value={value || 0}
-            onChange={(e) => onChange(Number(e.target.value))}
-            min={numberSetting.min}
-            max={numberSetting.max}
-            step={numberSetting.step}
-            className="w-full p-2 rounded border"
-            style={{
-              backgroundColor: 'var(--theme-input)',
-              borderColor: 'var(--theme-border)',
-              color: 'var(--theme-foreground)'
-            }}
-          />
-        );
-
-      case 'slider':
-        const sliderSetting = setting as any;
-        return (
-          <div className="flex items-center gap-3">
-            <input
-              type="range"
-              value={value || sliderSetting.min || 0}
-              onChange={(e) => onChange(Number(e.target.value))}
-              min={sliderSetting.min}
-              max={sliderSetting.max}
-              step={sliderSetting.step || 1}
-              className="flex-1"
-            />
-            <span className="text-sm w-12 text-center" style={{ color: 'var(--theme-foreground)' }}>
-              {value}
-            </span>
-          </div>
-        );
-
-      case 'boolean':
-        return (
-          <ToggleSwitch
-            label=''
-            checked={value || false}
-            onChange={onChange}
-          />
-        );
-
-      case 'dropdown':
-        const dropdownSetting = setting as any;
-        return (
-          <select
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-            className="w-full p-2 rounded border"
-            style={{
-              backgroundColor: 'var(--theme-input)',
-              borderColor: 'var(--theme-border)',
-              color: 'var(--theme-foreground)'
-            }}
-          >
-            {dropdownSetting.options.map((option: any) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        );
-
-      case 'textarea':
-        const textareaSetting = setting as any;
-        return (
-          <textarea
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={textareaSetting.placeholder}
-            rows={textareaSetting.rows || 4}
-            className="w-full p-2 rounded border resize-vertical"
-            style={{
-              backgroundColor: 'var(--theme-input)',
-              borderColor: 'var(--theme-border)',
-              color: 'var(--theme-foreground)'
-            }}
-          />
-        );
-
-      case 'color':
-        return (
-          <input
-            type="color"
-            value={value || '#000000'}
-            onChange={(e) => onChange(e.target.value)}
-            className="w-16 h-10 rounded border"
-            style={{
-              borderColor: 'var(--theme-border)'
-            }}
-          />
-        );
-
-      default:
-        return (
-          <input
-            type="text"
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-            className="w-full p-2 rounded border"
-            style={{
-              backgroundColor: 'var(--theme-input)',
-              borderColor: 'var(--theme-border)',
-              color: 'var(--theme-foreground)'
-            }}
-          />
-        );
-    }
-  };
-
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="flex-1">
-        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--theme-foreground)' }}>
-          {setting.name}
-        </label>
-        {setting.description && (
-          <p className="text-xs" style={{ color: 'var(--theme-muted-foreground)' }}>
-            {setting.description}
-          </p>
-        )}
-      </div>
-      <div className="flex-shrink-0 w-48">
-        {renderInput()}
       </div>
     </div>
   );

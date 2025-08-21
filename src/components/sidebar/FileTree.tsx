@@ -219,10 +219,7 @@ const FileTreeItem = memo(function FileTreeItem({
   const handleSelect = useCallback(() => {
     if (!node.is_directory) {
       onFileSelect(node.path);
-      
-      // Set active file with empty content initially - WindowContent will load actual content
       setActiveFile(node.path, "");
-      console.log(`📄 [FileTree] Selected file: ${node.name} (content will be loaded by WindowContent)`);
     }
   }, [node.is_directory, node.path, onFileSelect, setActiveFile]);
 
@@ -295,7 +292,6 @@ const FileTreeItem = memo(function FileTreeItem({
         }
       }
     } catch (error) {
-      console.error("Erro ao confirmar exclusão:", error);
     }
   }, [node.name, node.path, deleteFileOrDirectory, onFileDeleted]);
 
@@ -454,15 +450,33 @@ const FileTreeItem = memo(function FileTreeItem({
     </div>
   );
 }, (prevProps, nextProps) => {
-  return (
-    prevProps.node.path === nextProps.node.path &&
-    prevProps.node.name === nextProps.node.name &&
-    prevProps.node.is_directory === nextProps.node.is_directory &&
-    prevProps.selectedFile === nextProps.selectedFile &&
-    prevProps.level === nextProps.level &&
-    prevProps.isWorkspaceRoot === nextProps.isWorkspaceRoot &&
-    JSON.stringify(prevProps.node.children) === JSON.stringify(nextProps.node.children)
-  );
+  if (
+    prevProps.node.path !== nextProps.node.path ||
+    prevProps.node.name !== nextProps.node.name ||
+    prevProps.node.is_directory !== nextProps.node.is_directory ||
+    prevProps.selectedFile !== nextProps.selectedFile ||
+    prevProps.level !== nextProps.level ||
+    prevProps.isWorkspaceRoot !== nextProps.isWorkspaceRoot
+  ) {
+    return false;
+  }
+  
+  const prevChildren = prevProps.node.children;
+  const nextChildren = nextProps.node.children;
+  
+  if (!prevChildren && !nextChildren) return true;
+  if (!prevChildren || !nextChildren) return false;
+  if (prevChildren.length !== nextChildren.length) return false;
+  
+  for (let i = 0; i < prevChildren.length; i++) {
+    if (prevChildren[i].path !== nextChildren[i].path ||
+        prevChildren[i].name !== nextChildren[i].name ||
+        prevChildren[i].is_directory !== nextChildren[i].is_directory) {
+      return false;
+    }
+  }
+  
+  return true;
 });
 
 interface FileTreeProps {
@@ -641,9 +655,28 @@ export const FileTree = memo(function FileTree({
     </div>
   );
 }, (prevProps, nextProps) => {
-  return (
-    prevProps.selectedFile === nextProps.selectedFile &&
-    prevProps.className === nextProps.className &&
-    JSON.stringify(prevProps.fileTree) === JSON.stringify(nextProps.fileTree)
-  );
+  if (
+    prevProps.selectedFile !== nextProps.selectedFile ||
+    prevProps.className !== nextProps.className ||
+    prevProps.fileTree.path !== nextProps.fileTree.path ||
+    prevProps.fileTree.name !== nextProps.fileTree.name
+  ) {
+    return false;
+  }
+  
+  const prevChildren = prevProps.fileTree.children;
+  const nextChildren = nextProps.fileTree.children;
+  
+  if (!prevChildren && !nextChildren) return true;
+  if (!prevChildren || !nextChildren) return false;
+  if (prevChildren.length !== nextChildren.length) return false;
+  
+  for (let i = 0; i < Math.min(prevChildren.length, 50); i++) {
+    if (prevChildren[i].path !== nextChildren[i].path ||
+        prevChildren[i].name !== nextChildren[i].name) {
+      return false;
+    }
+  }
+  
+  return true;
 });

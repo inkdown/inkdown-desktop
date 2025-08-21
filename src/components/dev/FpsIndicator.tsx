@@ -99,18 +99,19 @@ export class FpsIndicator extends Component<FpsIndicatorProps, FpsIndicatorState
     const { className = "", isVisible = false } = this.props;
     const { fps } = this.state;
 
+    if (!isVisible) return null;
+
     const containerStyle = {
       backgroundColor: "var(--theme-muted)",
       border: "1px solid var(--theme-border)",
       color: this.getFpsColor(fps),
       backdropFilter: "blur(8px)",
       boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-      display: isVisible ? "block" : "none",
     };
 
     return (
       <div 
-        className={`fixed top-12 right-4 z-50 px-2 py-1 rounded text-xs font-mono select-none pointer-events-none ${className}`}
+        className={`px-2 py-1 rounded text-xs font-mono select-none pointer-events-none ${className}`}
         style={containerStyle}
       >
         {fps} FPS

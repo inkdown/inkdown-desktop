@@ -4,7 +4,7 @@ import { usePlugins, usePluginLoading, usePluginError, usePluginStore } from '..
 import type { LoadedPlugin } from '../../../plugins/types/plugin';
 import { PluginSettingsModal } from '../PluginSettingsModal';
 import { ToggleSwitch } from '../ToggleSwitch';
-import { cacheUtils } from '../../../utils/localStorage';
+import { pluginManager } from '../../../services/PluginManager';
 
 export const PluginsSettings = memo(function PluginsSettings() {
   const enginePlugins = usePlugins();
@@ -32,7 +32,7 @@ export const PluginsSettings = memo(function PluginsSettings() {
       enabled: plugin.enabled,
       loaded: plugin.loaded,
       error: plugin.error,
-      settingsConfig: plugin.settingsConfig,
+      settingsTabCallback: plugin.settingsTabCallback,
       permissions: plugin.manifest.permissions || [],
       shortcuts: plugin.shortcuts || new Map(),
       commands: plugin.commands || new Map(),
@@ -62,7 +62,17 @@ export const PluginsSettings = memo(function PluginsSettings() {
   }, [refreshPlugins]);
 
   const handleOpenSettings = useCallback((pluginId: string) => {
+    console.log(`🔧 [PluginsSettings] Opening settings modal for plugin: ${pluginId}`);
+    
+    // Verify plugin has settings before opening modal
+    const hasSettingsCallback = pluginManager.hasPluginSettings(pluginId);
+    if (!hasSettingsCallback) {
+      console.warn(`⚠️ [PluginsSettings] Plugin ${pluginId} has no settings callback registered`);
+      return;
+    }
+    
     setSelectedPlugin(pluginId);
+    console.log(`✅ [PluginsSettings] Settings modal state set for: ${pluginId}`);
   }, []);
 
   const handleCloseSettings = useCallback(() => {
@@ -150,7 +160,7 @@ export const PluginsSettings = memo(function PluginsSettings() {
                 plugin={plugin}
                 onToggle={handleTogglePlugin}
                 onOpenSettings={handleOpenSettings}
-                hasSettings={cacheUtils.getPluginHasSettings(plugin.manifest.id)}
+                hasSettings={pluginManager.hasPluginSettings(plugin.manifest.id)}
               />
             ))}
           </div>
@@ -180,6 +190,13 @@ const PluginItem = memo(function PluginItem({
   onOpenSettings,
   hasSettings
 }: PluginItemProps) {
+  // Additional check for settings - more performant to check directly
+  const actuallyHasSettings = useMemo(() => {
+    const directCheck = pluginManager.hasPluginSettings(plugin.manifest.id);
+    console.log(`🔍 [PluginItem] Settings check for ${plugin.manifest.id}: cache=${hasSettings}, direct=${directCheck}`);
+    return directCheck;
+  }, [plugin.manifest.id, hasSettings, plugin.enabled, plugin.loaded]);
+
   const handleToggle = useCallback(() => {
     onToggle(plugin.manifest.id, !plugin.enabled);
 
@@ -191,6 +208,7 @@ const PluginItem = memo(function PluginItem({
 
   const handleSettingsClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    console.log(`⚙️ [PluginItem] Opening settings for ${plugin.manifest.id}`);
     onOpenSettings(plugin.manifest.id);
   }, [plugin.manifest.id, onOpenSettings]);
 
@@ -236,7 +254,7 @@ const PluginItem = memo(function PluginItem({
         </div>
 
         <div className="flex items-center gap-2">
-          {hasSettings && plugin.enabled && (
+          {actuallyHasSettings && plugin.enabled && (
             <button
               onClick={handleSettingsClick}
               className="p-2 rounded-lg hover:bg-opacity-80 transition-colors"

@@ -15,7 +15,7 @@ export function useFileOperations() {
           name: name || null,
         });
 
-        await refreshTree(true); // Force refresh after operations
+        refreshTree(true);
         return newPath;
       } catch (err) {
         errorRef.current = err instanceof Error ? err.message : String(err);
@@ -33,7 +33,7 @@ export function useFileOperations() {
           name: name || null,
         });
 
-        await refreshTree(true); // Force refresh after operations
+        refreshTree(true);
         return newPath;
       } catch (err) {
         errorRef.current = err instanceof Error ? err.message : String(err);
@@ -47,7 +47,7 @@ export function useFileOperations() {
     async (path: string): Promise<boolean> => {
       try {
         await invoke("delete_file_or_directory", { path });
-        await refreshTree(true, path); // Force refresh with deleted path for cache cleanup
+        refreshTree(true, path);
         return true;
       } catch (err) {
         errorRef.current = err instanceof Error ? err.message : String(err);
@@ -65,7 +65,7 @@ export function useFileOperations() {
           newName,
         });
 
-        await refreshTree(true); // Force refresh after operations
+        refreshTree(true);
         return newPath;
       } catch (err) {
         errorRef.current = err instanceof Error ? err.message : String(err);
@@ -83,7 +83,7 @@ export function useFileOperations() {
           pathInput,
         });
 
-        await refreshTree(true);
+        refreshTree(true);
         return newPath;
       } catch (err) {
         errorRef.current = err instanceof Error ? err.message : String(err);
@@ -101,7 +101,7 @@ export function useFileOperations() {
           targetParentPath,
         });
 
-        await refreshTree(true);
+        refreshTree(true);
         return newPath;
       } catch (err) {
         errorRef.current = err instanceof Error ? err.message : String(err);

@@ -132,7 +132,6 @@ export const useDirectoryStore = create<DirectoryStore>()(
           cacheUtils.setWorkspacePath(path);
           localStorage.removeItem("inkdown-directory");
         } catch (saveError) {
-          console.warn("Failed to save workspace config to Tauri, using localStorage fallback:", saveError);
           localStorage.setItem("inkdown-directory", path);
           cacheUtils.setWorkspacePath(path);
         }
@@ -159,11 +158,10 @@ export const useDirectoryStore = create<DirectoryStore>()(
         lastRefreshCache.delete(currentDirectory);
       }
 
-      // Cache with 1 second debounce
       const lastRefresh = lastRefreshCache.get(currentDirectory) || 0;
       const now = Date.now();
       
-      if (!forceRefresh && !deletedPath && now - lastRefresh < 1000) {
+      if (!forceRefresh && !deletedPath && now - lastRefresh < 2000) {
         const cached = fileTreeCache.get(currentDirectory);
         if (cached) {
           set({ fileTree: cached });
@@ -188,7 +186,6 @@ export const useDirectoryStore = create<DirectoryStore>()(
         
         set({ fileTree: result });
       } catch (err) {
-        console.error("Error refreshing file tree:", err);
       }
     },
 

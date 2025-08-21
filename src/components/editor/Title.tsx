@@ -86,7 +86,6 @@ export const Title = React.memo<TitleProps>(({
       console.warn('Invalid filename:', trimmedTitle);
       setTitle(originalTitle.current);
       setIsEditing(false);
-      alert('Nome de arquivo inválido. Evite caracteres especiais e nomes reservados do sistema.');
       return;
     }
 
@@ -106,7 +105,6 @@ export const Title = React.memo<TitleProps>(({
       console.error('Failed to rename file:', error);
       setTitle(originalTitle.current);
       setIsEditing(false);
-      alert(`Falha ao renomear arquivo: ${error}`);
     }
   }, [title, onFilePathChange, refreshFileTree, validateFileName]);
 

@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { cacheUtils } from '../../../utils/localStorage';
+import { processMarkdownContent, type MarkdownPostProcessorContext } from '../../../plugins/markdown/MarkdownPostProcessor';
 
 interface ParseResult {
   html: string;
@@ -89,11 +90,18 @@ export class MarkdownPreview {
 
       // Only update DOM if HTML has actually changed
       if (result.html !== this.lastHtml) {
+        // Apply post-processors to the HTML
+        const context: MarkdownPostProcessorContext = {
+          sourcePath: 'current-file.md', // TODO: Get actual file path
+        };
+        
+        const processedHtml = await processMarkdownContent(result.html, context);
+        
         // Use requestAnimationFrame for smoother updates
         requestAnimationFrame(() => {
-          this.previewElement.innerHTML = result.html;
+          this.previewElement.innerHTML = processedHtml;
         });
-        this.lastHtml = result.html;
+        this.lastHtml = result.html; // Store original for comparison
       }
       
       this.lastContent = content;

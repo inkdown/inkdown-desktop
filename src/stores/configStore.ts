@@ -5,35 +5,29 @@ import { WorkspaceConfig, AppearanceConfig } from '../types/config';
 import { cacheUtils } from '../utils/localStorage';
 
 export interface ConfigState {
-  // Workspace Config
   workspaceConfig: WorkspaceConfig | null;
   workspaceLoading: boolean;
   workspaceError: string | null;
   
-  // Appearance Config
   appearanceConfig: AppearanceConfig | null;
   appearanceLoading: boolean;
   appearanceError: string | null;
   
-  // General
   initialized: boolean;
   lastUpdated: number;
 }
 
 export interface ConfigActions {
-  // Workspace actions
   updateWorkspaceConfig: (updates: Partial<WorkspaceConfig>) => Promise<void>;
   setWorkspaceConfig: (config: WorkspaceConfig) => void;
   setWorkspaceLoading: (loading: boolean) => void;
   setWorkspaceError: (error: string | null) => void;
   
-  // Appearance actions
   updateAppearanceConfig: (updates: Partial<AppearanceConfig>) => Promise<void>;
   setAppearanceConfig: (config: AppearanceConfig) => void;
   setAppearanceLoading: (loading: boolean) => void;
   setAppearanceError: (error: string | null) => void;
   
-  // General actions
   initialize: () => Promise<void>;
   refresh: () => Promise<void>;
   clearErrors: () => void;
@@ -80,7 +74,6 @@ const DEFAULT_APPEARANCE: AppearanceConfig = {
 
 export const useConfigStore = create<ConfigStore>()(
   subscribeWithSelector((set, get) => ({
-    // Initial state
     workspaceConfig: null,
     workspaceLoading: false,
     workspaceError: null,
@@ -90,7 +83,6 @@ export const useConfigStore = create<ConfigStore>()(
     initialized: false,
     lastUpdated: 0,
 
-    // Workspace actions
     setWorkspaceConfig: (config) => set({ workspaceConfig: config, lastUpdated: Date.now() }),
     setWorkspaceLoading: (loading) => set({ workspaceLoading: loading }),
     setWorkspaceError: (error) => set({ workspaceError: error }),

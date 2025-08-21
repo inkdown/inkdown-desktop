@@ -1,6 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
 import { cacheUtils } from '../utils/localStorage';
 import { setIcon } from '../utils/iconUtils';
+import { Setting } from '../plugins/settings/Setting';
+import { PluginEditorAPI } from '../plugins/editor/EditorAPI';
+import { 
+  markdownProcessorRegistry, 
+  type MarkdownPostProcessor, 
+  type MarkdownCodeBlockProcessor 
+} from '../plugins/markdown/MarkdownPostProcessor';
 import type { PluginManifest, LoadedPlugin } from '../plugins/types/plugin';
 
 export type { PluginManifest, LoadedPlugin } from '../plugins/types/plugin';
@@ -53,6 +60,7 @@ class PluginManager {
   private globalCommands = new Map<string, () => void>();
   private globalStatusBarItems = new Map<string, any>();
   private listeners = new Set<(state: any) => void>();
+  private activeEditorAPI: PluginEditorAPI | null = null;
 
   private normalizeShortcut(shortcut: string): string {
     return shortcut
@@ -71,29 +79,17 @@ class PluginManager {
       .join('+');
   }
 
-  /**
-   * Scans plugins directory and loads ONLY enabled plugins
-   * This method is optimized for app startup - only processes plugins that are enabled in cache
-   */
   async scanEnabledPlugins(): Promise<LoadedPlugin[]> {
     try {
       const enabledPluginIds = cacheUtils.getEnabledPlugins();
       
       if (enabledPluginIds.length === 0) {
-        console.log('⏭️ [PluginManager] No enabled plugins found in cache, skipping enabled plugin scan');
-        return [];
+          return [];
       }
-      
-      console.log(`🔍 [PluginManager] Scanning ONLY enabled plugins: [${enabledPluginIds.join(', ')}]`);
-      
       const allPluginInfos = await invoke<any[]>('scan_plugins_directory');
       const enabledPluginInfos = allPluginInfos.filter(info => 
         enabledPluginIds.includes(info.manifest.id)
       );
-      
-      console.log(`✅ [PluginManager] Found ${enabledPluginInfos.length} enabled plugins to process`);
-      
-      // Process and immediately load only enabled plugins
       for (const pluginInfo of enabledPluginInfos) {
         const loadedPlugin: LoadedPlugin = {
           ...pluginInfo,
@@ -107,33 +103,24 @@ class PluginManager {
         
         this.plugins.set(pluginInfo.manifest.id, loadedPlugin);
         
-        // Immediately load the plugin code
-        console.log(`🔄 [PluginManager] Auto-enabling plugin: ${pluginInfo.manifest.id}`);
         this.enablePlugin(pluginInfo.manifest.id).catch(error => {
-          console.error(`❌ [PluginManager] Failed to auto-enable plugin ${pluginInfo.manifest.id}:`, error);
+          console.error(`[PluginManager] Failed to auto-enable plugin ${pluginInfo.manifest.id}:`, error);
         });
       }
       
       this.notifyListeners();
       return Array.from(this.plugins.values());
     } catch (error) {
-      console.error('❌ [PluginManager] Failed to scan enabled plugins:', error);
+      console.error('[PluginManager] Failed to scan enabled plugins:', error);
       return [];
     }
   }
 
-  /**
-   * Scans ALL plugins in directory (for settings UI)
-   * This method is used when user opens plugin settings to see all available plugins
-   */
   async scanPlugins(): Promise<LoadedPlugin[]> {
     try {
-      console.log('🔍 [PluginManager] Scanning ALL plugins directory (for settings UI)...');
       const pluginInfos = await invoke<any[]>('scan_plugins_directory');
-      console.log(`📦 [PluginManager] Found ${pluginInfos.length} plugins:`, pluginInfos.map(p => p.manifest?.id || 'unknown'));
       
       for (const pluginInfo of pluginInfos) {
-        // Only register if not already registered (avoid overwriting loaded plugins)
         if (!this.plugins.has(pluginInfo.manifest.id)) {
           const isEnabled = cacheUtils.isPluginEnabled(pluginInfo.manifest.id);
           
@@ -150,15 +137,25 @@ class PluginManager {
           this.plugins.set(pluginInfo.manifest.id, loadedPlugin);
         }
       }
-      
-      console.log(`✅ [PluginManager] Total plugins registered: ${this.plugins.size}`);
       this.notifyListeners();
       
       return Array.from(this.plugins.values());
     } catch (error) {
-      console.error('❌ [PluginManager] Failed to scan plugins:', error);
+      console.error('[PluginManager] Failed to scan plugins:', error);
       return [];
     }
+  }
+
+  setActiveEditor(coreEditor: any): void {
+    if (coreEditor && (!this.activeEditorAPI || this.activeEditorAPI.coreEditor !== coreEditor)) {
+      this.activeEditorAPI = new PluginEditorAPI(coreEditor);
+    } else if (!coreEditor && this.activeEditorAPI) {
+      this.activeEditorAPI = null;
+    }
+  }
+
+  getActiveEditor(): PluginEditorAPI | null {
+    return this.activeEditorAPI;
   }
 
   async enablePlugin(pluginId: string): Promise<boolean> {
@@ -221,13 +218,10 @@ class PluginManager {
         return true;
       }
       
-      console.log(`❌ [PluginManager] Plugin ${pluginId} execution failed`);
-      // Revert cache since enabling failed
       cacheUtils.setPluginEnabled(pluginId, false);
       return false;
     } catch (error) {
-      console.error(`❌ [PluginManager] Failed to enable plugin ${pluginId}:`, error);
-      // Revert cache since enabling failed
+      console.error(`[PluginManager] Failed to enable plugin ${pluginId}:`, error);
       cacheUtils.setPluginEnabled(pluginId, false);
       return false;
     }
@@ -235,24 +229,19 @@ class PluginManager {
 
   async disablePlugin(pluginId: string): Promise<boolean> {
     try {
-      console.log(`🔄 [PluginManager] Disabling plugin: ${pluginId}`);
       const plugin = this.plugins.get(pluginId);
       if (!plugin) {
-        console.log(`❌ [PluginManager] Plugin ${pluginId} not found`);
         return false;
       }
 
       const instance = this.loadedInstances.get(pluginId);
       if (instance && typeof instance.onunload === 'function') {
-        console.log(`📤 [PluginManager] Calling onunload for plugin: ${pluginId}`);
         await instance.onunload();
       }
 
-      console.log(`🗑️ [PluginManager] Removing shortcuts for plugin: ${pluginId}`);
       if (plugin.shortcuts) {
         for (const [shortcut] of plugin.shortcuts) {
           this.globalShortcuts.delete(shortcut);
-          console.log(`🗑️ [PluginManager] Removed shortcut: ${shortcut}`);
         }
       }
       
@@ -260,19 +249,15 @@ class PluginManager {
       plugin.commands.clear();
       plugin.statusBarItems.clear();
       
-      console.log(`🗑️ [PluginManager] Removing commands for plugin: ${pluginId}`);
       for (const [command] of this.globalCommands.entries()) {
         if (command.startsWith(pluginId + '.')) {
           this.globalCommands.delete(command);
-          console.log(`🗑️ [PluginManager] Removed command: ${command}`);
         }
       }
 
-      console.log(`🗑️ [PluginManager] Removing status bar items for plugin: ${pluginId}`);
       for (const [itemId] of this.globalStatusBarItems.entries()) {
         if (itemId.startsWith(pluginId + '.')) {
           this.globalStatusBarItems.delete(itemId);
-          console.log(`🗑️ [PluginManager] Removed status bar item: ${itemId}`);
         }
       }
 
@@ -285,11 +270,8 @@ class PluginManager {
       // Limpa qualquer referência ao código do plugin
       if ((globalThis as any).pluginManager === this) {
         // Plugin pode ter deixado referências globais, mas não podemos fazer muito aqui
-        console.log(`🧹 [PluginManager] Cleaned up global references for plugin: ${pluginId}`);
       }
       
-      console.log(`✅ [PluginManager] Plugin ${pluginId} disabled successfully`);
-      console.log(`📊 [PluginManager] Global shortcuts remaining: ${this.globalShortcuts.size}`);
       
       cacheUtils.setPluginEnabled(pluginId, false);
       this.notifyListeners();
@@ -299,7 +281,7 @@ class PluginManager {
       
       return true;
     } catch (error) {
-      console.error(`❌ [PluginManager] Failed to disable plugin ${pluginId}:`, error);
+      console.error(`[PluginManager] Failed to disable plugin ${pluginId}:`, error);
       return false;
     }
   }
@@ -312,9 +294,14 @@ class PluginManager {
     return this.plugins.get(pluginId);
   }
 
-  getPluginSettings(pluginId: string): any {
+  getPluginSettingsCallback(pluginId: string): ((containerEl: HTMLElement) => void) | undefined {
     const plugin = this.plugins.get(pluginId);
-    return plugin?.settingsConfig;
+    return plugin?.settingsTabCallback;
+  }
+
+  hasPluginSettings(pluginId: string): boolean {
+    const plugin = this.plugins.get(pluginId);
+    return !!plugin?.settingsTabCallback;
   }
 
   getState() {
@@ -375,11 +362,6 @@ class PluginManager {
     const isEnabledInCache = cacheUtils.isPluginEnabled(pluginId);
     const isAlreadyLoaded = plugin.loaded && plugin.instance;
 
-    console.log(`🔍 [PluginManager] Plugin ${pluginId} load check:`, {
-      existsInRegistry: !!plugin,
-      enabledInCache: isEnabledInCache,
-      alreadyLoaded: isAlreadyLoaded
-    });
 
     return isEnabledInCache && !isAlreadyLoaded;
   }
@@ -443,17 +425,12 @@ class PluginManager {
 
   async executeShortcut(shortcut: string, event: KeyboardEvent): Promise<boolean> {
     const normalizedShortcut = this.normalizeShortcut(shortcut);
-    console.log(`🎹 [PluginManager] Trying to execute shortcut: "${shortcut}" -> normalized: "${normalizedShortcut}"`);
-    console.log(`🎹 [PluginManager] Available shortcuts:`, Array.from(this.globalShortcuts.keys()));
-    
     const handler = this.globalShortcuts.get(normalizedShortcut);
     
     if (handler) {
-      console.log(`✅ [PluginManager] Found handler for shortcut: "${normalizedShortcut}"`);
       try {
         await handler();
         event.preventDefault();
-        console.log(`🎯 [PluginManager] Successfully executed shortcut: "${normalizedShortcut}"`);
         return true;
       } catch (error) {
         console.error(`❌ [PluginManager] Failed to execute shortcut "${normalizedShortcut}":`, error);
@@ -461,7 +438,6 @@ class PluginManager {
       }
     }
     
-    console.log(`❌ [PluginManager] No handler found for shortcut: "${normalizedShortcut}"`);
     return false;
   }
 
@@ -553,7 +529,42 @@ class PluginManager {
       },
       
       showNotification: (message: string, type: string = 'info') => {
-        console.log(`[${type.toUpperCase()}] ${message}`);
+        // Import notification store dynamically to avoid circular dependencies
+        import('../stores/notificationStore').then(({ useNotificationStore }) => {
+          const { addNotification } = useNotificationStore.getState();
+          addNotification(message, { 
+            type: type as 'info' | 'success' | 'warning' | 'error'
+          });
+        });
+      },
+      
+      // Enhanced notification methods
+      showInfo: (message: string, title?: string, duration?: number) => {
+        import('../stores/notificationStore').then(({ useNotificationStore }) => {
+          const { showInfo } = useNotificationStore.getState();
+          showInfo(message, title, duration);
+        });
+      },
+      
+      showSuccess: (message: string, title?: string, duration?: number) => {
+        import('../stores/notificationStore').then(({ useNotificationStore }) => {
+          const { showSuccess } = useNotificationStore.getState();
+          showSuccess(message, title, duration);
+        });
+      },
+      
+      showWarning: (message: string, title?: string, duration?: number) => {
+        import('../stores/notificationStore').then(({ useNotificationStore }) => {
+          const { showWarning } = useNotificationStore.getState();
+          showWarning(message, title, duration);
+        });
+      },
+      
+      showError: (message: string, title?: string, duration?: number) => {
+        import('../stores/notificationStore').then(({ useNotificationStore }) => {
+          const { showError } = useNotificationStore.getState();
+          showError(message, title, duration);
+        });
       },
 
       setIcon: async (element: HTMLElement | { current: HTMLElement | null }, iconId: string, size: number = 16) => {
@@ -563,7 +574,34 @@ class PluginManager {
       commands: {
         add: (command: any) => {
           const fullId = `${pluginId}.${command.id}`;
-          this.globalCommands.set(fullId, command.execute);
+          
+          // Create command executor that supports both callback and editorCallback
+          const executor = () => {
+            try {
+              // Check if command has editorCallback and we have an active editor
+              if (command.editorCallback && this.activeEditorAPI) {
+                console.log(`🎯 [PluginManager] Executing editor command: ${fullId}`);
+                return command.editorCallback(this.activeEditorAPI);
+              }
+              // Fall back to regular callback
+              else if (command.callback) {
+                console.log(`🎯 [PluginManager] Executing regular command: ${fullId}`);
+                return command.callback();
+              }
+              // Legacy support for execute method
+              else if (command.execute) {
+                console.log(`🎯 [PluginManager] Executing legacy command: ${fullId}`);
+                return command.execute();
+              }
+              else {
+                console.warn(`⚠️ [PluginManager] Command ${fullId} has no callback method`);
+              }
+            } catch (error) {
+              console.error(`❌ [PluginManager] Error executing command ${fullId}:`, error);
+            }
+          };
+          
+          this.globalCommands.set(fullId, executor);
           
           const plugin = this.plugins.get(pluginId);
           if (plugin) {
@@ -588,12 +626,38 @@ class PluginManager {
           const normalizedShortcut = this.normalizeShortcut(shortcut.shortcut);
           console.log(`⌨️ [PluginManager] Plugin ${pluginId} registering shortcut: "${shortcut.shortcut}" -> normalized: "${normalizedShortcut}"`);
           
-          this.globalShortcuts.set(normalizedShortcut, shortcut.execute);
+          // Create shortcut executor that supports both callback and editorCallback
+          const executor = () => {
+            try {
+              // Check if shortcut has editorCallback and we have an active editor
+              if (shortcut.editorCallback && this.activeEditorAPI) {
+                console.log(`🎯 [PluginManager] Executing editor shortcut: ${normalizedShortcut}`);
+                return shortcut.editorCallback(this.activeEditorAPI);
+              }
+              // Fall back to regular callback
+              else if (shortcut.callback) {
+                console.log(`🎯 [PluginManager] Executing regular shortcut: ${normalizedShortcut}`);
+                return shortcut.callback();
+              }
+              // Legacy support for execute method
+              else if (shortcut.execute) {
+                console.log(`🎯 [PluginManager] Executing legacy shortcut: ${normalizedShortcut}`);
+                return shortcut.execute();
+              }
+              else {
+                console.warn(`⚠️ [PluginManager] Shortcut ${normalizedShortcut} has no callback method`);
+              }
+            } catch (error) {
+              console.error(`❌ [PluginManager] Error executing shortcut ${normalizedShortcut}:`, error);
+            }
+          };
+          
+          this.globalShortcuts.set(normalizedShortcut, executor);
           console.log(`✅ [PluginManager] Shortcut registered. Total shortcuts: ${this.globalShortcuts.size}`);
           
           const plugin = this.plugins.get(pluginId);
           if (plugin) {
-            plugin.shortcuts.set(normalizedShortcut, shortcut.execute);
+            plugin.shortcuts.set(normalizedShortcut, executor);
           }
           
           return () => {
@@ -608,14 +672,12 @@ class PluginManager {
       
       settings: {
         load: (pluginId: string) => {
-          // Load from cache first, will be enhanced to load from file system
           return cacheUtils.getPluginSettings(pluginId);
         },
         save: (pluginId: string, settings: Record<string, any>) => {
-          // Save to both cache and file system
           cacheUtils.setPluginSettings(pluginId, settings);
           this.saveSettingsToFile(pluginId, settings).catch(error => {
-            console.error(`⚠️ [PluginManager] Failed to save settings to file for ${pluginId}:`, error);
+            console.error(`[PluginManager] Failed to save settings to file for ${pluginId}:`, error);
           });
         },
         setHasSettings: (pluginId: string, hasSettings: boolean) => {
@@ -624,7 +686,6 @@ class PluginManager {
         getHasSettings: (pluginId: string) => {
           return cacheUtils.getPluginHasSettings(pluginId);
         },
-        // Enhanced API methods
         loadFromFile: async (pluginId: string) => {
           return await this.loadSettingsFromFile(pluginId);
         },
@@ -638,104 +699,71 @@ class PluginManager {
     };
   }
 
-  /**
-   * Loads plugin settings from the file system (configs.json)
-   */
+
   private async loadSettingsFromFile(pluginId: string): Promise<Record<string, any>> {
     try {
-      console.log(`📁 [PluginManager] Loading settings from file for plugin: ${pluginId}`);
       const result = await invoke<any>('read_plugin_settings', { pluginId });
-      console.log(`✅ [PluginManager] Settings loaded from file for ${pluginId}:`, result);
       return result || {};
     } catch (error) {
-      console.error(`❌ [PluginManager] Failed to load settings from file for ${pluginId}:`, error);
+      console.error(`[PluginManager] Failed to load settings from file for ${pluginId}:`, error);
       return {};
     }
   }
 
-  /**
-   * Saves plugin settings to the file system (configs.json)
-   */
+
   private async saveSettingsToFile(pluginId: string, settings: Record<string, any>): Promise<void> {
     try {
-      console.log(`💾 [PluginManager] Saving settings to file for plugin: ${pluginId}`, settings);
       await invoke('write_plugin_settings', { pluginId, settings });
-      console.log(`✅ [PluginManager] Settings saved to file for ${pluginId}`);
     } catch (error) {
-      console.error(`❌ [PluginManager] Failed to save settings to file for ${pluginId}:`, error);
+      console.error(`[PluginManager] Failed to save settings to file for ${pluginId}:`, error);
       throw error;
     }
   }
 
-  /**
-   * Creates a backup of plugin settings
-   */
   private async backupPluginSettings(pluginId: string): Promise<string> {
     try {
-      console.log(`🔄 [PluginManager] Creating backup for plugin: ${pluginId}`);
       const result = await invoke<string>('backup_plugin_settings', { pluginId });
-      console.log(`✅ [PluginManager] Backup created for ${pluginId}: ${result}`);
       return result;
     } catch (error) {
-      console.error(`❌ [PluginManager] Failed to create backup for ${pluginId}:`, error);
+      console.error(`[PluginManager] Failed to create backup for ${pluginId}:`, error);
       throw error;
     }
   }
-
-  /**
-   * Initializes plugin settings by loading from file system and syncing with cache
-   */
   async initializePluginSettings(pluginId: string): Promise<void> {
     try {
-      console.log(`🔧 [PluginManager] Initializing settings for plugin: ${pluginId}`);
-      
-      // Load settings from file
+      console.log(`🔧 [PluginManager] Initializing settings for plugin: ${pluginId}`);     
       const fileSettings = await this.loadSettingsFromFile(pluginId);
       
-      // Get current cache settings
       const cacheSettings = cacheUtils.getPluginSettings(pluginId);
       
-      // If file settings exist and are newer, use them; otherwise use cache
       let finalSettings = fileSettings;
       
-      // If cache has settings but file doesn't, save cache to file
       if (Object.keys(fileSettings).length === 0 && Object.keys(cacheSettings).length > 0) {
-        console.log(`📄 [PluginManager] File settings empty, using cache settings for ${pluginId}`);
         finalSettings = cacheSettings;
         await this.saveSettingsToFile(pluginId, cacheSettings);
       } else if (Object.keys(fileSettings).length > 0) {
-        // Update cache with file settings
-        console.log(`💾 [PluginManager] Updating cache with file settings for ${pluginId}`);
         cacheUtils.setPluginSettings(pluginId, fileSettings);
       }
       
-      console.log(`✅ [PluginManager] Settings initialized for ${pluginId}:`, finalSettings);
     } catch (error) {
-      console.error(`❌ [PluginManager] Failed to initialize settings for ${pluginId}:`, error);
+      console.error(`[PluginManager] Failed to initialize settings for ${pluginId}:`, error);
     }
   }
 
   private async executePlugin(code: string, api: PluginAPI, manifest: PluginManifest): Promise<any> {
     try {
-      console.log(`⚡ [PluginManager] Executing plugin code directly: ${manifest.id}`);
       
-      // Create a simple environment for the plugin
       const moduleExports = {};
       const module = { exports: moduleExports };
       
-      // Create a safe require function
       const require = (moduleId: string) => {
         if (moduleId === 'inkdown-plugin-api') {
-          // Return an object that mimics the inkdown-plugin-api module
           return {
             Plugin: Plugin,
             Notice: class Notice {
-              constructor(message: string, _timeout?: number) {
-                console.log(`📝 [Notice] ${message}`);
-                // In a real implementation, this would show a notification in the UI
+              constructor(_: string, _timeout?: number) {
               }
-              setMessage(message: string) {
-                console.log(`📝 [Notice] ${message}`);
+              setMessage(_: string) {
                 return this;
               }
               hide() {
@@ -768,137 +796,7 @@ class PluginManager {
                 this.containerEl.innerHTML = '';
               }
             },
-            Setting: class Setting {
-              settingEl: HTMLElement;
-
-              constructor(containerEl: HTMLElement) {
-                this.settingEl = document.createElement('div');
-                this.settingEl.className = 'setting-item';
-                containerEl.appendChild(this.settingEl);
-              }
-
-              setName(name: string): this {
-                const nameEl = document.createElement('div');
-                nameEl.className = 'setting-item-name';
-                nameEl.textContent = name;
-                this.settingEl.appendChild(nameEl);
-                return this;
-              }
-
-              setDesc(desc: string): this {
-                const descEl = document.createElement('div');
-                descEl.className = 'setting-item-description';
-                descEl.textContent = desc;
-                this.settingEl.appendChild(descEl);
-                return this;
-              }
-
-              addText(cb: (text: any) => void): this {
-                const controlEl = document.createElement('div');
-                controlEl.className = 'setting-item-control';
-                
-                const textComponent = {
-                  inputEl: document.createElement('input') as HTMLInputElement,
-                  setValue: function(value: string) {
-                    this.inputEl.value = value;
-                    return this;
-                  },
-                  getValue: function() {
-                    return this.inputEl.value;
-                  },
-                  setPlaceholder: function(placeholder: string) {
-                    this.inputEl.placeholder = placeholder;
-                    return this;
-                  },
-                  onChange: function(callback: (value: string) => void) {
-                    this.inputEl.addEventListener('input', (e) => {
-                      callback((e.target as HTMLInputElement).value);
-                    });
-                    return this;
-                  }
-                };
-                
-                textComponent.inputEl.type = 'text';
-                textComponent.inputEl.className = 'setting-text-input';
-                controlEl.appendChild(textComponent.inputEl);
-                this.settingEl.appendChild(controlEl);
-                
-                cb(textComponent);
-                return this;
-              }
-
-              addToggle(cb: (toggle: any) => void): this {
-                const controlEl = document.createElement('div');
-                controlEl.className = 'setting-item-control';
-                
-                const toggleComponent = {
-                  toggleEl: document.createElement('input') as HTMLInputElement,
-                  setValue: function(value: boolean) {
-                    this.toggleEl.checked = value;
-                    return this;
-                  },
-                  getValue: function() {
-                    return this.toggleEl.checked;
-                  },
-                  onChange: function(callback: (value: boolean) => void) {
-                    this.toggleEl.addEventListener('change', (e) => {
-                      callback((e.target as HTMLInputElement).checked);
-                    });
-                    return this;
-                  }
-                };
-                
-                toggleComponent.toggleEl.type = 'checkbox';
-                toggleComponent.toggleEl.className = 'setting-toggle-input';
-                controlEl.appendChild(toggleComponent.toggleEl);
-                this.settingEl.appendChild(controlEl);
-                
-                cb(toggleComponent);
-                return this;
-              }
-
-              addDropdown(cb: (dropdown: any) => void): this {
-                const controlEl = document.createElement('div');
-                controlEl.className = 'setting-item-control';
-                
-                const dropdownComponent = {
-                  selectEl: document.createElement('select') as HTMLSelectElement,
-                  addOption: function(value: string, text: string) {
-                    const option = document.createElement('option');
-                    option.value = value;
-                    option.textContent = text;
-                    this.selectEl.appendChild(option);
-                    return this;
-                  },
-                  addOptions: function(options: Record<string, string>) {
-                    Object.entries(options).forEach(([value, text]) => {
-                      this.addOption(value, text);
-                    });
-                    return this;
-                  },
-                  setValue: function(value: string) {
-                    this.selectEl.value = value;
-                    return this;
-                  },
-                  getValue: function() {
-                    return this.selectEl.value;
-                  },
-                  onChange: function(callback: (value: string) => void) {
-                    this.selectEl.addEventListener('change', (e) => {
-                      callback((e.target as HTMLSelectElement).value);
-                    });
-                    return this;
-                  }
-                };
-                
-                dropdownComponent.selectEl.className = 'setting-dropdown-input';
-                controlEl.appendChild(dropdownComponent.selectEl);
-                this.settingEl.appendChild(controlEl);
-                
-                cb(dropdownComponent);
-                return this;
-              }
-            }
+            Setting: Setting
           };
         }
         throw new Error(`Module '${moduleId}' is not available`);
@@ -914,56 +812,51 @@ class PluginManager {
 
         async loadSettings(): Promise<void> {
           try {
+            console.log(`[Plugin ${this.manifest.id}] Loading settings...`);
+            
             this.settings = api.settings.load(this.manifest.id);
             
             if (Object.keys(this.settings).length === 0 && api.settings.loadFromFile) {
-              console.log(`📁 [Plugin ${this.manifest.id}] Cache empty, loading from file system...`);
+
               const fileSettings = await api.settings.loadFromFile(this.manifest.id);
               if (Object.keys(fileSettings).length > 0) {
                 this.settings = fileSettings;
                 api.settings.save(this.manifest.id, this.settings);
-                console.log(`✅ [Plugin ${this.manifest.id}] Settings loaded from file and cached`);
               }
             }
+            
           } catch (error) {
-            console.error(`❌ [Plugin ${this.manifest.id}] Failed to load settings:`, error);
+            console.error(`[Plugin ${this.manifest.id}] Failed to load settings:`, error);
             this.settings = {};
           }
         }
 
         async saveSettings(): Promise<void> {
           try {
-            // Save to both cache and file system
             api.settings.save(this.manifest.id, this.settings);
             
             if (api.settings.saveToFile) {
               await api.settings.saveToFile(this.manifest.id, this.settings);
             }
           } catch (error) {
-            console.error(`❌ [Plugin ${this.manifest.id}] Failed to save settings:`, error);
+            console.error(`[Plugin ${this.manifest.id}] Failed to save settings:`, error);
           }
         }
 
-        async reloadSettings(): Promise<void> {
-          console.log(`🔄 [Plugin ${this.manifest.id}] Reloading settings...`);
-          
+        async reloadSettings(): Promise<void> {          
           try {
-            // Load fresh settings (cache first, then file system if needed)
             await this.loadSettings();
             
-            // Notify plugin that settings have changed
             if (typeof this.onSettingsChanged === 'function') {
               try {
                 await this.onSettingsChanged(this.settings);
-                console.log(`✅ [Plugin ${this.manifest.id}] Settings change callback completed`);
+                console.log(`[Plugin ${this.manifest.id}] Settings change callback completed`);
               } catch (error) {
-                console.error(`❌ [Plugin ${this.manifest.id}] Error in onSettingsChanged:`, error);
+                console.error(`[Plugin ${this.manifest.id}] Error in onSettingsChanged:`, error);
               }
-            } else {
-              console.log(`ℹ️ [Plugin ${this.manifest.id}] No onSettingsChanged callback defined - consider adding it to your plugin`);
             }
           } catch (error) {
-            console.error(`❌ [Plugin ${this.manifest.id}] Failed to reload settings:`, error);
+            console.error(`[Plugin ${this.manifest.id}] Failed to reload settings:`, error);
           }
         }
 
@@ -975,7 +868,7 @@ class PluginManager {
           this.settings[key] = value;
           // Immediately persist the change
           this.saveSettings().catch(error => {
-            console.error(`❌ [Plugin ${this.manifest.id}] Failed to persist setting change:`, error);
+            console.error(`[Plugin ${this.manifest.id}] Failed to persist setting change:`, error);
           });
         }
 
@@ -983,7 +876,6 @@ class PluginManager {
         getSettingWithValidation(key: string, defaultValue: any, validator?: (value: any) => boolean): any {
           const value = this.settings[key] ?? defaultValue;
           if (validator && !validator(value)) {
-            console.warn(`⚠️ [Plugin ${this.manifest.id}] Invalid setting value for ${key}, using default`);
             return defaultValue;
           }
           return value;
@@ -996,7 +888,7 @@ class PluginManager {
             }
             return null;
           } catch (error) {
-            console.error(`❌ [Plugin ${this.manifest.id}] Failed to create settings backup:`, error);
+            console.error(`[Plugin ${this.manifest.id}] Failed to create settings backup:`, error);
             return null;
           }
         }
@@ -1016,16 +908,14 @@ class PluginManager {
           return cleanup;
         }
 
-        registerSettings(config: any): () => void {
-          console.log(`📋 [Plugin ${this.manifest.id}] Registering settings config:`, config);
+        createSettingsTab(callback: (containerEl: HTMLElement) => void): () => void {
           
-          // Store the settings config in the plugin manager
+          // Store the settings tab callback in the plugin manager
           const pluginManager = this.app.pluginManager || (globalThis as any).pluginManager;
           if (pluginManager) {
             const plugin = pluginManager.getPlugin(this.manifest.id);
             if (plugin) {
-              plugin.settingsConfig = config;
-              console.log(`📋 [Plugin ${this.manifest.id}] Settings config stored successfully`);
+              plugin.settingsTabCallback = callback;
               
               // Update cache to indicate this plugin has settings
               api.settings.setHasSettings(this.manifest.id, true);
@@ -1033,11 +923,10 @@ class PluginManager {
           }
           
           return () => {
-            console.log(`📋 [Plugin ${this.manifest.id}] Unregistering settings config`);
             if (pluginManager) {
               const plugin = pluginManager.getPlugin(this.manifest.id);
               if (plugin) {
-                plugin.settingsConfig = undefined;
+                plugin.settingsTabCallback = undefined;
                 // Update cache to indicate this plugin no longer has settings
                 api.settings.setHasSettings(this.manifest.id, false);
               }
@@ -1046,7 +935,6 @@ class PluginManager {
         }
 
         addStatusBarItem(item: StatusBarItemConfig): () => void {
-          console.log(`📊 [Plugin ${this.manifest.id}] Adding status bar item:`, item.text);
           
           const fullId = `${this.manifest.id}.${item.id}`;
           const statusBarItem = {
@@ -1065,12 +953,10 @@ class PluginManager {
               plugin.statusBarItems.set(item.id, statusBarItem);
             }
             
-            // Notify listeners to update UI
             pluginManager.notifyListeners();
           }
           
           const cleanup = () => {
-            console.log(`📊 [Plugin ${this.manifest.id}] Removing status bar item: ${item.id}`);
             if (pluginManager) {
               pluginManager.globalStatusBarItems.delete(fullId);
               const plugin = pluginManager.getPlugin(this.manifest.id);
@@ -1085,12 +971,48 @@ class PluginManager {
           return cleanup;
         }
 
+        registerMarkdownPostProcessor(processor: MarkdownPostProcessor): () => void {
+          
+          const cleanup = markdownProcessorRegistry.registerPostProcessor(processor);
+          this.cleanupFunctions.push(cleanup);
+          return cleanup;
+        }
+
+        registerMarkdownCodeBlockProcessor(
+          language: string, 
+          processor: MarkdownCodeBlockProcessor
+        ): () => void {
+          
+          const cleanup = markdownProcessorRegistry.registerCodeBlockProcessor(language, processor);
+          this.cleanupFunctions.push(cleanup);
+          return cleanup;
+        }
+
         addMenuItem(_location: string, item: any): () => void {
-          console.log(`📋 [Plugin ${this.manifest.id}] Adding menu item:`, item.title);
-          // For now, just log - menu implementation can be added later
           return () => {
-            console.log(`📋 [Plugin ${this.manifest.id}] Removing menu item`);
+            console.log(`[Plugin ${this.manifest.id}] Removing menu item`);
           };
+        }
+
+        // Notification convenience methods
+        showNotification(message: string, type?: string): void {
+          this.app.showNotification(message, type);
+        }
+
+        showInfo(message: string, title?: string, duration?: number): void {
+          this.app.showInfo(message, title, duration);
+        }
+
+        showSuccess(message: string, title?: string, duration?: number): void {
+          this.app.showSuccess(message, title, duration);
+        }
+
+        showWarning(message: string, title?: string, duration?: number): void {
+          this.app.showWarning(message, title, duration);
+        }
+
+        showError(message: string, title?: string, duration?: number): void {
+          this.app.showError(message, title, duration);
         }
 
         async onunload(): Promise<void> {
@@ -1127,17 +1049,15 @@ class PluginManager {
         throw new Error('Plugin must export a class that extends Plugin');
       }
       
-      console.log(`🏗️ [PluginManager] Creating plugin instance`);
       const instance = new PluginClass(api, manifest);
       
       if (typeof instance.onload === 'function') {
-        console.log(`🚀 [PluginManager] Calling plugin onload method`);
         await instance.onload();
       }
       
       return instance;
     } catch (error) {
-      console.error('❌ [PluginManager] Plugin execution error:', error);
+      console.error('[PluginManager] Plugin execution error:', error);
       throw error;
     }
   }

@@ -41,17 +41,17 @@ export function PluginEngineProvider({
   }, []);
 
   const forceScanPlugins = useCallback(async () => {
-    console.log(`🔍 [PluginEngineContext] Force scanning plugins...`);
+    console.log(`[PluginEngineContext] Force scanning plugins...`);
     await pluginManager.scanPlugins();
   }, []);
 
   useEffect(() => {
     const enabledPlugins = cacheUtils.getEnabledPlugins();
     if (enabledPlugins.length > 0) {
-      console.log(`🔍 [PluginEngineContext] Found ${enabledPlugins.length} enabled plugins in cache, scanning...`);
+      console.log(`[PluginEngineContext] Found ${enabledPlugins.length} enabled plugins in cache, scanning...`);
       refreshPlugins();
     } else {
-      console.log(`⏭️ [PluginEngineContext] No enabled plugins in cache, skipping scan`);
+      console.log(`PluginEngineContext] No enabled plugins in cache, skipping scan`);
     }
   }, [refreshPlugins]);
 

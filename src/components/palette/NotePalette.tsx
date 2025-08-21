@@ -38,13 +38,12 @@ function NotePaletteComponent({
   const selectedItemRef = useRef<HTMLDivElement>(null);
   const { createNestedPath } = useFileOperations();
 
-  // Função para fazer scroll automático do item selecionado
   const scrollToSelectedItem = useCallback(() => {
     if (!selectedItemRef.current) return;
 
     selectedItemRef.current.scrollIntoView({
       behavior: 'smooth',
-      block: 'nearest', // Só rola se necessário
+      block: 'nearest',
       inline: 'nearest'
     });
   }, []);
@@ -200,10 +199,8 @@ function NotePaletteComponent({
     }
   }, [isOpen]);
 
-  // Effect para scroll automático quando selectedIndex muda
   useEffect(() => {
     if (searchResults.length > 0) {
-      // Usar setTimeout para garantir que o DOM foi atualizado e a ref está atribuída
       const timeoutId = setTimeout(() => {
         scrollToSelectedItem();
       }, 0);

@@ -14,7 +14,6 @@ export const StatusBar = memo(function StatusBar({
   plugins,
   className = ''
 }: StatusBarProps) {
-  // Early return - most performant approach
   if (!selectedFile) {
     return null;
   }
@@ -22,21 +21,8 @@ export const StatusBar = memo(function StatusBar({
   const sections = useMemo(() => {
     const sectionList: StatusBarSection[] = [];
     
-    // Default actions section (file is always selected here)
     const defaultActions = [];
     
-    // Character count
-    if (currentContent) {
-      defaultActions.push({
-        id: 'file-info',
-        label: `${currentContent.length} caracteres`,
-        iconName: 'file-text',
-        onClick: () => console.log('File info clicked'),
-        disabled: false
-      });
-    }
-    
-    // Note actions
     defaultActions.push({
       id: 'rename-note',
       label: 'Renomear nota',
@@ -61,8 +47,8 @@ export const StatusBar = memo(function StatusBar({
       });
     }
     
-    // Plugin actions section
     const pluginActions = [];
+
     for (const plugin of plugins.values()) {
       if (plugin.enabled && plugin.statusBarItems) {
         for (const item of plugin.statusBarItems.values()) {

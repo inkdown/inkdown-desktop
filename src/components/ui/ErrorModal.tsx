@@ -40,7 +40,6 @@ export const ErrorModal = memo(function ErrorModal({
   return (
     <div className="error-modal-overlay fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm">
       <div className="error-modal theme-card max-w-md w-11/12 overflow-hidden rounded-lg shadow-2xl">
-        {/* Header */}
         <div className="flex items-center gap-2 p-4 pb-0 relative">
           <div className="error-modal-icon-error w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
             <AlertCircle size={18} />
@@ -55,12 +54,10 @@ export const ErrorModal = memo(function ErrorModal({
           </button>
         </div>
 
-        {/* Content */}
         <div className="px-4 py-3">
           <p className="theme-text-primary text-xs leading-relaxed mb-0">{message}</p>
         </div>
 
-        {/* Actions */}
         <div className="flex gap-2 px-4 pb-4 justify-end">
           <button 
             onClick={handleCopyError}

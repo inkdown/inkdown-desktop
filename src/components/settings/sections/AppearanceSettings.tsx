@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback } from 'react';
+import { memo, useMemo, useCallback, useEffect } from 'react';
 import { useAppearanceConfig, useConfigStore } from '../../../stores/configStore';
 import { useCustomThemes, useCurrentCustomThemeId, useAppearanceStore } from '../../../stores/appearanceStore';
 
@@ -26,7 +26,7 @@ const AppearanceSettings = memo(() => {
   const customThemes = useCustomThemes();
   const currentCustomThemeId = useCurrentCustomThemeId();
   const { updateAppearanceConfig } = useConfigStore();
-  const { applyCustomTheme, updateTheme } = useAppearanceStore();
+  const { applyCustomTheme, updateTheme, refreshCustomThemes } = useAppearanceStore();
   
   const themeMode = appearanceConfig?.theme || 'light';
   const fontSize = appearanceConfig?.["font-size"] || 14;
@@ -35,6 +35,11 @@ const AppearanceSettings = memo(() => {
   // Loading states
   const isLoading = !appearanceConfig;
   const customThemesLoading = !customThemes;
+
+  // Load custom themes on component mount
+  useEffect(() => {
+    refreshCustomThemes();
+  }, [refreshCustomThemes]);
 
   // Memoize expensive computations
   const getCurrentThemeId = useMemo(() => 

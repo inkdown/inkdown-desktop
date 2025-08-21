@@ -6,7 +6,6 @@ import { useConfigStore } from './configStore';
 import { cacheUtils } from '../utils/localStorage';
 
 export interface AppearanceState {
-  // Theme state
   effectiveTheme: 'light' | 'dark';
   customThemes: CustomTheme[];
   currentCustomThemeId: string | null;
@@ -20,23 +19,19 @@ export interface AppearanceState {
 }
 
 export interface AppearanceActions {
-  // Theme actions
   setEffectiveTheme: (theme: 'light' | 'dark') => void;
   updateTheme: (theme: ThemeMode) => Promise<void>;
   applyCustomTheme: (themeId: string) => Promise<void>;
   removeCustomTheme: () => void;
   refreshCustomThemes: (forceRefresh?: boolean) => Promise<void>;
   
-  // DOM manipulation
   applyThemeToDOM: (themeId: string, isCustom?: boolean) => void;
   updateDOMStyles: () => void;
   
-  // Initialization
   initialize: () => void;
   cleanup: () => void;
   applySavedTheme: () => Promise<void>;
   
-  // Media query handling
   setupMediaQuery: () => void;
   handleMediaQueryChange: () => void;
 }
@@ -48,24 +43,22 @@ export const useAppearanceStore = create<AppearanceStore>()(
     // Initial state
     effectiveTheme: 'light',
     customThemes: [],
-    currentCustomThemeId: null,
+    currentCustomThemeId: typeof localStorage !== 'undefined' ? localStorage.getItem("custom-theme-id") : null,
     customThemesLoading: false,
     mediaQuery: null,
     lastStyleUpdate: 0,
 
-    // Theme actions
     setEffectiveTheme: (theme) => set({ effectiveTheme: theme }),
 
     updateTheme: async (theme) => {
       const configStore = useConfigStore.getState();
       
       set({ currentCustomThemeId: null });
+      
       get().applyThemeToDOM(theme);
       
-      // Update config
       await configStore.updateAppearanceConfig({ theme });
       
-      // Remove custom theme from localStorage
       localStorage.removeItem("custom-theme-id");
       await configStore.updateAppearanceConfig({ "custom-theme": undefined });
     },
@@ -74,9 +67,16 @@ export const useAppearanceStore = create<AppearanceStore>()(
       const { currentCustomThemeId } = get();
       if (currentCustomThemeId === themeId) return;
 
+
       try {
         const cssContent = await invoke<string>("get_theme_css", { themeId });
         
+        // Remove existing custom theme styles
+        const existingStyle = document.getElementById("custom-theme-style");
+        if (existingStyle) {
+          existingStyle.remove();
+        }
+
         get().applyThemeToDOM(themeId, true);
 
         const style = document.createElement("style");
@@ -89,8 +89,10 @@ export const useAppearanceStore = create<AppearanceStore>()(
         localStorage.setItem("custom-theme-id", themeId);
         const configStore = useConfigStore.getState();
         await configStore.updateAppearanceConfig({ "custom-theme": themeId });
+        
       } catch (err) {
-        // Fallback to native theme based on mode
+        console.error('Failed to apply custom theme:', err);
+        
         const parts = themeId.split('-');
         const mode = parts[parts.length - 1];
         
@@ -99,12 +101,16 @@ export const useAppearanceStore = create<AppearanceStore>()(
           get().applyThemeToDOM(mode as 'light' | 'dark');
           await get().updateTheme(mode as ThemeMode);
         }
+        
+        throw err; // Re-throw to let caller handle
       }
     },
 
     removeCustomTheme: () => {
       const { effectiveTheme } = get();
+      
       set({ currentCustomThemeId: null });
+      
       get().applyThemeToDOM(effectiveTheme);
 
       localStorage.removeItem("custom-theme-id");
@@ -122,7 +128,6 @@ export const useAppearanceStore = create<AppearanceStore>()(
         let customThemes: CustomTheme[] = [];
         const cachedThemes = cacheUtils.getCustomThemes() || [];
         
-        // Convert community themes to custom themes format
         const convertCommunityTheme = (theme: any): CustomTheme => ({
           name: theme.name,
           author: theme.author,
@@ -175,8 +180,13 @@ export const useAppearanceStore = create<AppearanceStore>()(
       const { mediaQuery } = get();
 
       root.className = root.className.replace(/theme-\w+/g, "");
+      
       const existingStyle = document.getElementById("custom-theme-style");
-      if (existingStyle) existingStyle.remove();
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+      
+      root.removeAttribute("data-theme");
 
       if (isCustom) {
         root.setAttribute("data-theme", themeId);
@@ -187,6 +197,7 @@ export const useAppearanceStore = create<AppearanceStore>()(
               ? "dark"
               : "light"
             : themeId;
+        
         root.setAttribute("data-theme", effectiveTheme);
         root.classList.add(`theme-${effectiveTheme}`);
         
@@ -194,6 +205,7 @@ export const useAppearanceStore = create<AppearanceStore>()(
           set({ effectiveTheme: effectiveTheme as 'light' | 'dark' });
         }
       }
+
     },
 
     updateDOMStyles: () => {
@@ -218,7 +230,6 @@ export const useAppearanceStore = create<AppearanceStore>()(
       set({ lastStyleUpdate: Date.now() });
     },
 
-    // Media query handling
     setupMediaQuery: () => {
       if (typeof window === "undefined") return;
       
@@ -297,7 +308,6 @@ export const useAppearanceStore = create<AppearanceStore>()(
     initialize: () => {
       const cleanup1 = get().setupMediaQuery();
       
-      // Set up theme event listeners
       if (typeof window !== "undefined") {
         const downloadListener = (event: Event) => get().handleThemeDownloaded(event as CustomEvent);
         const deleteListener = (event: Event) => get().handleThemeDeleted(event as CustomEvent);
@@ -313,35 +323,54 @@ export const useAppearanceStore = create<AppearanceStore>()(
         };
       }
       
-      // Load themes and apply saved theme
-      get().refreshCustomThemes();
-      get().applySavedTheme();
+      // applySavedTheme is now called manually from initializeStores to ensure proper async handling
     },
 
     applySavedTheme: async () => {
-      const { currentCustomThemeId, customThemes } = get();
+      const { currentCustomThemeId } = get();
       const configStore = useConfigStore.getState();
       const { appearanceConfig } = configStore;
       
-      const savedThemeId = currentCustomThemeId || appearanceConfig?.["custom-theme"];
+      // Check multiple sources for saved theme ID
+      const cachedThemeId = localStorage.getItem("custom-theme-id");
+      const configThemeId = appearanceConfig?.["custom-theme"];
+      const savedThemeId = currentCustomThemeId || cachedThemeId || configThemeId;
       
-      if (!savedThemeId) return;
       
-      if (customThemes.length > 0) {
-        const themeExists = customThemes.some((theme) =>
-          theme.variants.some((variant) => variant.id === savedThemeId),
-        );
+      if (!savedThemeId) {
+        return;
+      }
+      
+      
+      try {
+        await get().applyCustomTheme(savedThemeId);
+        return;
+      } catch (err) {
+      }
+      
+      // Fallback: refresh custom themes and verify existence
+      await get().refreshCustomThemes();
+      
+      const { customThemes: updatedCustomThemes } = get();
+      
+      
+      // Find the theme among all custom themes
+      const themeExists = updatedCustomThemes.some((theme) =>
+        theme.variants.some((variant) => variant.id === savedThemeId),
+      );
 
-        if (themeExists) {
-          try {
-            await get().applyCustomTheme(savedThemeId);
-          } catch (err) {
-            console.error("Failed to apply saved theme:", err);
-          }
-        } else {
-          console.warn(`Saved theme '${savedThemeId}' no longer exists`);
-          get().removeCustomTheme();
+
+      if (themeExists) {
+        try {
+          await get().applyCustomTheme(savedThemeId);
+        } catch (err) {
+          console.error("Failed to apply saved theme after scan:", err);
+          localStorage.removeItem("custom-theme-id");
+          await configStore.updateAppearanceConfig({ "custom-theme": undefined });
         }
+      } else {
+        console.warn(`Saved theme '${savedThemeId}' no longer exists`);
+        get().removeCustomTheme();
       }
     },
 
@@ -351,7 +380,6 @@ export const useAppearanceStore = create<AppearanceStore>()(
   }))
 );
 
-// Optimized selectors
 export const useEffectiveTheme = () => useAppearanceStore((state) => state.effectiveTheme);
 export const useCustomThemes = () => useAppearanceStore((state) => state.customThemes);
 export const useCurrentCustomThemeId = () => useAppearanceStore((state) => state.currentCustomThemeId);
