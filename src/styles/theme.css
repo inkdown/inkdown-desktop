@@ -1277,13 +1277,17 @@ body {
   transition: transform 0.2s ease, opacity 0.2s ease !important;
 }
 
-.file-tree-item.drag-over {
+.file-tree-item.drag-over,
+.file-tree-item.directory.drag-over,
+.file-tree-item.file.drag-over {
   background-color: var(--theme-accent) !important;
   color: var(--theme-accent-foreground) !important;
-  border: 1px solid var(--theme-ring) !important;
-  border-radius: 4px !important;
-  box-shadow: 0 0 0 2px var(--theme-ring) !important;
-  transition: all 0.2s ease !important;
+  border: 2px solid var(--theme-ring) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 0 0 3px rgba(var(--theme-ring-rgb), 0.3) !important;
+  transition: all 0.15s ease !important;
+  z-index: 10;
+  transform: scale(1.02) !important;
 }
 
 .file-tree-item.drag-over .file-icon,

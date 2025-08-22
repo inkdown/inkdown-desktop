@@ -45,7 +45,7 @@ export class MarkdownPreview {
     if (this.updateTimeout) {
       clearTimeout(this.updateTimeout);
     }
-    // Reduced debounce time for better responsiveness
+    // Quick debounce for preview mode responsiveness
     this.updateTimeout = window.setTimeout(() => {
       this.updateContent(content);
     }, 50);

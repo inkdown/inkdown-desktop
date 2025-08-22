@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { ExternalLink, Github, Globe, Settings } from "lucide-react";
-import { useConfigManager } from "../../../hooks/useConfigManager";
+import { useWorkspaceConfig, useConfigStore, settingsManager } from "../../../stores/configStore";
 import { openUrl } from "@tauri-apps/plugin-opener"
 
 interface AppInfo {
@@ -16,12 +16,14 @@ const APP_INFO: AppInfo = {
 };
 
 export function AppSettings() {
-  const { workspaceConfig, updateWorkspaceConfig } = useConfigManager();
-  const [devMode, setDevMode] = useState(workspaceConfig?.devMode ?? false);
+  const workspaceConfig = useWorkspaceConfig();
+  const { updateWorkspaceConfig } = useConfigStore();
+  const devModeValue = settingsManager.getWorkspaceSetting('devMode', workspaceConfig);
+  const [devMode, setDevMode] = useState(devModeValue);
 
   useEffect(() => {
-    setDevMode(workspaceConfig?.devMode ?? false);
-  }, [workspaceConfig?.devMode]);
+    setDevMode(devModeValue);
+  }, [devModeValue]);
 
   const handleDevModeChange = useCallback(async (enabled: boolean) => {
     setDevMode(enabled);

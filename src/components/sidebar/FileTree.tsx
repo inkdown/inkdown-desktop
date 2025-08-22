@@ -1,7 +1,6 @@
 import { useState, useCallback, memo, useMemo, useRef, useEffect } from "react";
 import { FileText, ChevronRight, ChevronDown } from "lucide-react";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { platform } from "@tauri-apps/plugin-os";
 import { FileNode, useDirectoryStore } from "../../stores/directoryStore";
 import { ContextMenu } from "../ui/overlays/ContextMenu";
 import { useFileOperations } from "../../hooks/useFileOperations";
@@ -47,7 +46,6 @@ const FileTreeItem = memo(function FileTreeItem({
     isValid: boolean;
     message: string;
   }>({ isValid: true, message: "" });
-  const [isWindowsPlatform, setIsWindowsPlatform] = useState<boolean | null>(null);
   const isInitializedRef = useRef(false);
 
   const {
@@ -68,24 +66,6 @@ const FileTreeItem = memo(function FileTreeItem({
     [node.is_directory, node.name]
   );
 
-  useEffect(() => {
-    if (isWindowsPlatform === null) {
-      const detectPlatform = async () => {
-        try {
-          if (typeof window !== 'undefined' && window.__TAURI__) {
-            const currentPlatform = await platform();
-            setIsWindowsPlatform(currentPlatform === 'windows');
-          } else {
-            setIsWindowsPlatform(false);
-          }
-        } catch (error) {
-          setIsWindowsPlatform(false);
-        }
-      };
-
-      detectPlatform();
-    }
-  }, [isWindowsPlatform]);
 
   const handleInputRef = useCallback((el: HTMLInputElement | null) => {
     if (el && !isInitializedRef.current) {
@@ -93,44 +73,17 @@ const FileTreeItem = memo(function FileTreeItem({
         setEditValue(displayName);
       }
       
-      const focusInput = () => {
-        if (!el.isConnected) return;
-        
-        if (isWindowsPlatform) {
-          // Windows WebView2 specific handling
-          el.focus();
-          el.select();
-          
-          setTimeout(() => {
-            if (document.activeElement !== el) {
-              el.focus();
-            }
-            el.setSelectionRange(0, el.value.length);
-          }, 0);
-          
-          setTimeout(() => {
-            if (document.activeElement !== el) {
-              el.click();
-              el.focus();
-              el.select();
-            }
-          }, 10);
-        } else {
-          // Standard focus for other platforms
+      // Simple cross-platform focus handling
+      setTimeout(() => {
+        if (el.isConnected) {
           el.focus();
           el.select();
         }
-      };
-      
-      if (isWindowsPlatform) {
-        requestAnimationFrame(() => setTimeout(focusInput, 50));
-      } else {
-        setTimeout(focusInput, 50);
-      }
+      }, 50);
       
       isInitializedRef.current = true;
     }
-  }, [editValue, displayName, isWindowsPlatform]);
+  }, [editValue, displayName]);
 
 
   const validatePath = useCallback((pathInput: string) => {

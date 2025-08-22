@@ -15,7 +15,8 @@ export class ExtensionsFactory {
   private static extensionCache = new Map<string, Extension>();
 
   static getBasicExtensions(fontConfig?: FontConfig): Extension[] {
-    const key = JSON.stringify(fontConfig || {});
+    // Use simple string concatenation instead of JSON.stringify for better performance
+    const key = `${fontConfig?.fontSize || 'default'}_${fontConfig?.fontFamily || 'default'}`;
     
     if (this.basicExtensionsCache.has(key)) {
       return this.basicExtensionsCache.get(key)!;

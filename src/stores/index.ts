@@ -26,34 +26,34 @@ export const initializeStores = async () => {
     
     pluginStore.initialize();
     
+    // Subscribe to appearance config changes and schedule DOM updates
     useConfigStore.subscribe(
       (state) => state.appearanceConfig,
       () => {
         const appearance = useAppearanceStore.getState();
         const { currentCustomThemeId } = appearance;
         
-        appearance.updateDOMStyles();
+        // Schedule DOM style updates for next frame to avoid blocking
+        requestAnimationFrame(() => {
+          appearance.updateDOMStyles();
+        });
         
-        const { appearanceConfig } = useConfigStore.getState();
-        
-        if (currentCustomThemeId) {
-          return;
-        }
-        
-        const cachedThemeId = localStorage.getItem("custom-theme-id");
-        const configCustomTheme = appearanceConfig?.["custom-theme"];
-        if (cachedThemeId || configCustomTheme) {
-          return;
-        }
-        
-        if (appearanceConfig?.theme && !appearanceConfig?.["custom-theme"]) {
-          const effectiveTheme = appearanceConfig.theme === 'auto' 
-            ? (appearance.mediaQuery?.matches ? 'dark' : 'light')
-            : appearanceConfig.theme;
+        // Handle theme changes without direct DOM manipulation
+        if (!currentCustomThemeId) {
+          const { appearanceConfig } = useConfigStore.getState();
           
-          if (effectiveTheme !== 'auto') {
-            appearance.setEffectiveTheme(effectiveTheme as 'light' | 'dark');
-            appearance.applyThemeToDOM(effectiveTheme);
+          if (appearanceConfig?.theme && !appearanceConfig?.["custom-theme"]) {
+            const effectiveTheme = appearanceConfig.theme === 'auto' 
+              ? (appearance.mediaQuery?.matches ? 'dark' : 'light')
+              : appearanceConfig.theme;
+            
+            if (effectiveTheme !== 'auto') {
+              // Update state first, then schedule DOM update
+              appearance.setEffectiveTheme(effectiveTheme as 'light' | 'dark');
+              requestAnimationFrame(() => {
+                appearance.applyThemeToDOM(effectiveTheme);
+              });
+            }
           }
         }
       },

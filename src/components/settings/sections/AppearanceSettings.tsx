@@ -1,5 +1,5 @@
 import { memo, useMemo, useCallback, useEffect } from 'react';
-import { useAppearanceConfig, useConfigStore } from '../../../stores/configStore';
+import { useAppearanceConfig, useConfigStore, settingsManager } from '../../../stores/configStore';
 import { useCustomThemes, useCurrentCustomThemeId, useAppearanceStore } from '../../../stores/appearanceStore';
 
 const THEME_OPTIONS = [
@@ -28,9 +28,9 @@ const AppearanceSettings = memo(() => {
   const { updateAppearanceConfig } = useConfigStore();
   const { applyCustomTheme, updateTheme, refreshCustomThemes } = useAppearanceStore();
   
-  const themeMode = appearanceConfig?.theme || 'light';
-  const fontSize = appearanceConfig?.["font-size"] || 14;
-  const fontFamily = appearanceConfig?.["font-family"] || 'Inter, system-ui, sans-serif';
+  const themeMode = settingsManager.getAppearanceSetting('theme', appearanceConfig);
+  const fontSize = settingsManager.getAppearanceSetting('font-size', appearanceConfig);
+  const fontFamily = settingsManager.getAppearanceSetting('font-family', appearanceConfig);
   
   // Loading states
   const isLoading = !appearanceConfig;

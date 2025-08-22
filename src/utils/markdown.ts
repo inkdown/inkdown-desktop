@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { processMarkdownContent, MarkdownPostProcessorContext } from '../plugins/markdown/MarkdownPostProcessor';
 
 export interface ParseResult {
   html: string;
@@ -35,7 +36,14 @@ export async function markdownToHTML(
       throw new Error(result.error);
     }
     
-    return result.html;
+    // Apply post-processors from plugins
+    const context: MarkdownPostProcessorContext = {
+      sourcePath: options.baseUrl || 'unknown'
+    };
+    
+    const processedHtml = await processMarkdownContent(result.html, context);
+    
+    return processedHtml;
   } catch (error) {
     console.error('Erro ao converter markdown para HTML:', error);
     throw error;

@@ -1,10 +1,10 @@
-import { useCallback, memo, useRef, lazy, Suspense, useEffect, useReducer } from "react";
+import { useCallback, memo, useRef, lazy, Suspense, useEffect, useReducer, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSidebarResize } from "../../hooks/useSidebarResize";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import type { ThemeMode } from "../../types/config";
 import { useFileTree, useCurrentDirectory } from "../../stores/directoryStore";
-import { useWorkspaceConfig, useAppearanceConfig, useConfigStore } from "../../stores/configStore";
+import { useWorkspaceConfig, useAppearanceConfig, useConfigStore, settingsManager } from "../../stores/configStore";
 import { useEffectiveTheme } from "../../stores/appearanceStore";
 import { usePlugins } from "../../stores/pluginStore";
 import { Sidebar, SidebarResizer } from "../sidebar";
@@ -74,24 +74,24 @@ export const WorkspacePage = memo(function WorkspacePage() {
   const themeMode = useEffectiveTheme();
   const navigate = useNavigate();
 
-  // Extract appearance config values with defaults
-  const showEditorFooter = workspaceConfig?.showEditorFooter ?? true;
-  const fontSize = appearanceConfig?.["font-size"] ?? 14;
-  const fontFamily = appearanceConfig?.["font-family"] ?? "Inter, system-ui, sans-serif";
+  // Extract config values with proper fallbacks through settings manager
+  const showEditorFooter = settingsManager.getWorkspaceSetting('showEditorFooter', workspaceConfig);
+  const fontSize = settingsManager.getAppearanceSetting('font-size', appearanceConfig);
+  const fontFamily = settingsManager.getAppearanceSetting('font-family', appearanceConfig);
 
+  // Optimized app state tracking - only update when actually needed
   const appStateRef = useRef<{
     activeFile: { path: string; name: string; content: string } | null;
-    workspace: { path: string; name: string; files: any[] };
+    workspace: { path: string; name: string };
     settings: { vimMode: boolean; showLineNumbers: boolean; fontSize: number; fontFamily: string; theme: ThemeMode };
-    theme: { mode: ThemeMode; colors: Record<string, any> };
   }>({
     activeFile: null,
-    workspace: { path: '', name: '', files: [] },
-    settings: { vimMode: false, showLineNumbers: true, fontSize: 14, fontFamily: 'Inter', theme: 'light' },
-    theme: { mode: 'light', colors: {} }
+    workspace: { path: '', name: '' },
+    settings: { vimMode: false, showLineNumbers: true, fontSize: 14, fontFamily: 'Inter', theme: 'light' }
   });
 
-  const updateAppState = useCallback(() => {
+  // Update app state only when core values change
+  useEffect(() => {
     appStateRef.current = {
       activeFile: state.selectedFile ? {
         path: state.selectedFile,
@@ -100,49 +100,43 @@ export const WorkspacePage = memo(function WorkspacePage() {
       } : null,
       workspace: {
         path: currentDirectory || '',
-        name: currentDirectory?.split('/').pop() || '',
-        files: []
+        name: currentDirectory?.split('/').pop() || ''
       },
       settings: {
-        vimMode: workspaceConfig?.vimMode || false,
-        showLineNumbers: workspaceConfig?.showLineNumbers || true,
-        fontSize: fontSize || 14,
-        fontFamily: fontFamily || 'Inter',
+        vimMode: settingsManager.getWorkspaceSetting('vimMode', workspaceConfig),
+        showLineNumbers: settingsManager.getWorkspaceSetting('showLineNumbers', workspaceConfig),
+        fontSize,
+        fontFamily,
         theme: themeMode || ('light' as ThemeMode)
-      },
-      theme: {
-        mode: themeMode || ('light' as ThemeMode),
-        colors: {}
       }
     };
-  }, [state.selectedFile, state.currentContent, currentDirectory, workspaceConfig, themeMode, fontSize, fontFamily]);
-
-  useEffect(() => {
-    updateAppState();
-  }, [updateAppState]);
+  }, [state.selectedFile, state.currentContent, currentDirectory, workspaceConfig?.vimMode, workspaceConfig?.showLineNumbers, fontSize, fontFamily, themeMode]);
 
   const toggleSidebar = useCallback(() => {
-    const currentState = workspaceConfig?.sidebarVisible ?? true;
+    const currentState = settingsManager.getWorkspaceSetting('sidebarVisible', workspaceConfig);
     const newState = !currentState;
 
     updateWorkspaceConfig({ sidebarVisible: newState })
       .then(() => {})
       .catch((_) => {});
-  }, [workspaceConfig?.sidebarVisible, updateWorkspaceConfig]);
+  }, [workspaceConfig, updateWorkspaceConfig]);
 
   const handleFileSelect = useCallback((filePath: string) => {
     dispatch({ type: 'SET_SELECTED_FILE', payload: filePath });
     dispatch({ type: 'RESET_ON_FILE_CHANGE' });
+    // Store active file path for external access
     (window as any).__activeFilePath = filePath;
   }, []);
 
   const handleFilePathChange = useCallback((newPath: string) => {
     dispatch({ type: 'SET_SELECTED_FILE', payload: newPath });
+    (window as any).__activeFilePath = newPath;
   }, []);
 
   const handleSelectNote = useCallback((notePath: string) => {
     dispatch({ type: 'SET_SELECTED_FILE', payload: notePath });
     dispatch({ type: 'SET_PALETTE_OPEN', payload: false });
+    (window as any).__activeFilePath = notePath;
   }, []);
 
   const handleClosePalette = useCallback(() => {
@@ -157,9 +151,20 @@ export const WorkspacePage = memo(function WorkspacePage() {
     togglePreviewRef.current?.();
   }, []);
 
+  // Use a ref to store the latest content and debounce updates
+  const contentUpdateTimeoutRef = useRef<number>();
+  
   const handleContentChange = useCallback((content: string) => {
     if (showEditorFooter) {
-      dispatch({ type: 'SET_CURRENT_CONTENT', payload: content });
+      // Clear any pending update
+      if (contentUpdateTimeoutRef.current) {
+        clearTimeout(contentUpdateTimeoutRef.current);
+      }
+      
+      // Debounce content updates to reduce re-renders
+      contentUpdateTimeoutRef.current = window.setTimeout(() => {
+        dispatch({ type: 'SET_CURRENT_CONTENT', payload: content });
+      }, 100);
     }
   }, [showEditorFooter]);
 
@@ -169,10 +174,23 @@ export const WorkspacePage = memo(function WorkspacePage() {
     if (previousShowFooterRef.current !== showEditorFooter) {
       previousShowFooterRef.current = showEditorFooter;
       if (!showEditorFooter) {
+        // Clear any pending content update
+        if (contentUpdateTimeoutRef.current) {
+          clearTimeout(contentUpdateTimeoutRef.current);
+        }
         dispatch({ type: 'SET_CURRENT_CONTENT', payload: '' });
       }
     }
   }, [showEditorFooter]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (contentUpdateTimeoutRef.current) {
+        clearTimeout(contentUpdateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handlePreviewModeChange = useCallback((previewMode: boolean) => {
     dispatch({ type: 'SET_PREVIEW_MODE', payload: previewMode });
@@ -214,24 +232,24 @@ export const WorkspacePage = memo(function WorkspacePage() {
     );
   }
 
-  const sidebarVisible = workspaceConfig?.sidebarVisible ?? true;
+  const sidebarVisible = settingsManager.getWorkspaceSetting('sidebarVisible', workspaceConfig);
 
-  const KeyboardShortcutsHandler = memo(() => {
-    useKeyboardShortcuts({
-      onToggleSidebar: toggleSidebar,
-      onSave: handleSave,
-      onOpenNotePalette: () => dispatch({ type: 'SET_PALETTE_OPEN', payload: true }),
-      onTogglePreview: handleTogglePreview,
-      onOpenSettings: () => dispatch({ type: 'SET_SETTINGS_OPEN', payload: true }),
-    });
-    return null;
-  });
+  // Memoized keyboard shortcuts callbacks to prevent unnecessary re-renders
+  const keyboardHandlers = useMemo(() => ({
+    onToggleSidebar: toggleSidebar,
+    onSave: handleSave,
+    onOpenNotePalette: () => dispatch({ type: 'SET_PALETTE_OPEN', payload: true }),
+    onTogglePreview: handleTogglePreview,
+    onOpenSettings: () => dispatch({ type: 'SET_SETTINGS_OPEN', payload: true }),
+  }), [toggleSidebar, handleSave, handleTogglePreview]);
 
   const plugins = usePlugins();
 
+  // Use keyboard shortcuts with memoized handlers
+  useKeyboardShortcuts(keyboardHandlers);
+
   return (
     <>
-      <KeyboardShortcutsHandler />
       <TitleBar 
         sidebarWidth={sidebarWidth}
         sidebarVisible={sidebarVisible}
@@ -298,7 +316,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
         )}
 
         <DevTools 
-          isVisible={workspaceConfig?.devMode ?? false}
+          isVisible={settingsManager.getWorkspaceSetting('devMode', workspaceConfig)}
         />
 
         <StatusBar

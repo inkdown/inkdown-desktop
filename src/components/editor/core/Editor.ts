@@ -106,7 +106,8 @@ export class Editor {
     pasteUrlsAsLinks?: boolean;
     tabIndentation?: boolean;
   }): Extension[] {
-    const key = JSON.stringify(config);
+    // Use efficient string concatenation instead of JSON.stringify
+    const key = `${config.markdownShortcuts ? '1' : '0'}_${config.githubMarkdown ? '1' : '0'}_${config.vim ? '1' : '0'}_${config.showLineNumbers ? '1' : '0'}_${config.highlightCurrentLine ? '1' : '0'}_${config.theme || 'light'}_${config.fontSize || 'default'}_${config.fontFamily || 'default'}_${config.pasteUrlsAsLinks ? '1' : '0'}_${config.tabIndentation ? '1' : '0'}`;
     
     if (this.lastExtensionKey === key && this.extensionsCache.has(key)) {
       return this.extensionsCache.get(key)!;
@@ -154,14 +155,25 @@ export class Editor {
     }
   }
 
+  private cursorDebounceTimer?: number;
+
   private handleSelectionUpdate(update: any): void {
-    const selection = update.state.selection.main;
-    const doc = update.state.doc;
-    const line = doc.lineAt(selection.head);
-    const lineNumber = line.number - 1;
-    const column = selection.head - line.from;
+    if (!this.config.onCursor) return;
+
+    // Debounce cursor updates to avoid excessive calls during scrolling
+    if (this.cursorDebounceTimer) {
+      clearTimeout(this.cursorDebounceTimer);
+    }
     
-    this.config.onCursor?.({ line: lineNumber, column });
+    this.cursorDebounceTimer = window.setTimeout(() => {
+      const selection = update.state.selection.main;
+      const doc = update.state.doc;
+      const line = doc.lineAt(selection.head);
+      const lineNumber = line.number - 1;
+      const column = selection.head - line.from;
+      
+      this.config.onCursor?.({ line: lineNumber, column });
+    }, 100);
   }
 
   public getContent(): string {
@@ -169,7 +181,12 @@ export class Editor {
   }
 
   public setContent(content: string): void {
-    if (this.getContent() === content) return;
+    const currentContent = this.getContent();
+    if (currentContent === content) return;
+    
+    // Store current cursor position before content change
+    const currentSelection = this.view.state.selection.main;
+    const cursorPos = currentSelection.head;
     
     this.view.dispatch({
       changes: {
@@ -177,6 +194,11 @@ export class Editor {
         to: this.view.state.doc.length,
         insert: content,
       },
+      // Restore cursor position if the content length allows it
+      selection: {
+        anchor: Math.min(cursorPos, content.length),
+        head: Math.min(cursorPos, content.length)
+      }
     });
     
     this.lastContent = content;
@@ -254,34 +276,53 @@ export class Editor {
     );
     
     if (!hasChanges) return;
-    
+
+    const oldConfig = { ...this.config };
     this.config = { ...this.config, ...updates };
     
-    if (updates.theme) {
+    // Only update theme if it changed
+    if (updates.theme && updates.theme !== oldConfig.theme) {
       this.applyTheme();
     }
     
-    const extensions = this.getCachedExtensions({
-      markdownShortcuts: this.config.markdownShortcuts !== false,
-      githubMarkdown: this.config.githubMarkdown || false,
-      vim: this.config.vim || false,
-      showLineNumbers: this.config.showLineNumbers !== false,
-      highlightCurrentLine: this.config.highlightCurrentLine !== false,
-      theme: this.config.theme || 'light',
-      fontSize: this.config.fontSize,
-      fontFamily: this.config.fontFamily,
-      pasteUrlsAsLinks: this.config.pasteUrlsAsLinks,
-      tabIndentation: this.config.tabIndentation !== false,
-    });
+    // Check if any extension-affecting settings changed
+    const extensionAffectingKeys = [
+      'vim', 'showLineNumbers', 'highlightCurrentLine', 'theme', 
+      'fontSize', 'fontFamily', 'pasteUrlsAsLinks', 'githubMarkdown'
+    ];
     
-    this.view.dispatch({
-      effects: StateEffect.reconfigure.of(extensions)
-    });
+    const needsExtensionUpdate = extensionAffectingKeys.some(key => 
+      updates[key as keyof EditorConfig] !== undefined && 
+      updates[key as keyof EditorConfig] !== oldConfig[key as keyof EditorConfig]
+    );
+    
+    // Only reconfigure extensions if necessary
+    if (needsExtensionUpdate) {
+      const extensions = this.getCachedExtensions({
+        markdownShortcuts: this.config.markdownShortcuts !== false,
+        githubMarkdown: this.config.githubMarkdown || false,
+        vim: this.config.vim || false,
+        showLineNumbers: this.config.showLineNumbers !== false,
+        highlightCurrentLine: this.config.highlightCurrentLine !== false,
+        theme: this.config.theme || 'light',
+        fontSize: this.config.fontSize,
+        fontFamily: this.config.fontFamily,
+        pasteUrlsAsLinks: this.config.pasteUrlsAsLinks,
+        tabIndentation: this.config.tabIndentation !== false,
+      });
+      
+      this.view.dispatch({
+        effects: StateEffect.reconfigure.of(extensions)
+      });
+    }
   }
 
   public destroy(): void {
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
+    }
+    if (this.cursorDebounceTimer) {
+      clearTimeout(this.cursorDebounceTimer);
     }
     this.extensionsCache.clear();
     this.view.destroy();

@@ -29,11 +29,23 @@ export class PluginEditorAPI {
 
 
   setValue(content: string): void {
+    const currentContent = this.view.state.doc.toString();
+    if (currentContent === content) return;
+    
+    // Store current cursor position before content change
+    const currentSelection = this.view.state.selection.main;
+    const cursorPos = currentSelection.head;
+    
     this.view.dispatch({
       changes: {
         from: 0,
         to: this.view.state.doc.length,
         insert: content
+      },
+      // Restore cursor position if the content length allows it
+      selection: {
+        anchor: Math.min(cursorPos, content.length),
+        head: Math.min(cursorPos, content.length)
       }
     });
   }

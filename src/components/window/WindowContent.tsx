@@ -1,151 +1,163 @@
-import { memo, useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import {
-  EditorComponent,
-  EditorComponentHandle,
-} from "../editor/EditorComponent";
+import { EditorComponent } from "../editor/EditorComponent";
 import { Title } from "../editor/Title";
+import type { EditorComponentHandle } from "../editor/EditorComponent";
 import { useError } from "../../contexts/ErrorContext";
 import { useEditingStore } from "../../stores/editingStore";
 import { usePluginStore } from "../../stores/pluginStore";
+import type { ThemeMode } from "../../types/appearance";
 
 interface WindowContentProps {
-  selectedFile: string;
+  selectedFile: string | null;
   onFilePathChange?: (newPath: string) => void;
-  onToggleSidebar: () => void;
-  onSelectNote?: (notePath: string) => void;
-  workspaceConfig: any;
-  themeMode: string;
-  onSaveRef: React.MutableRefObject<(() => void) | null>;
+  themeMode: ThemeMode;
+  onSaveRef?: React.MutableRefObject<(() => void) | null>;
   onTogglePreviewRef?: React.MutableRefObject<(() => void) | null>;
   onContentChange?: (content: string) => void;
-  onPreviewModeChange?: (isPreviewMode: boolean) => void;
+  onPreviewModeChange?: (isPreview: boolean) => void;
   showEditorFooter?: boolean;
 }
 
-export const WindowContent = memo(function WindowContent({
+const WindowContentInternal = ({
   selectedFile,
   onFilePathChange,
   themeMode,
   onSaveRef,
   onTogglePreviewRef,
-  onContentChange: externalOnContentChange,
+  onContentChange,
   onPreviewModeChange,
   showEditorFooter,
-}: WindowContentProps) {
-  const [content, setContent] = useState<string>(""); // Single source of truth for content
+}: WindowContentProps) => {
+  const [fileContent, setFileContent] = useState<string>("");
+  const [currentContent, setCurrentContent] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [isModified, setIsModified] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  
   const editorRef = useRef<EditorComponentHandle>(null);
-  const originalContentRef = useRef<string>(""); // Track original file content for comparison
+  const originalContentRef = useRef<string>("");
+  const contentChangeTimeoutRef = useRef<number>();
+  
   const { showError } = useError();
   const { setActiveFile } = useEditingStore();
   const { setActiveEditor, clearActiveEditor } = usePluginStore();
 
+  const saveFileContent = useCallback(async (filePath: string, content: string): Promise<boolean> => {
+    try {
+      console.log('Saving file:', { filePath, contentLength: content.length });
+      await invoke("write_file", { filePath, content });
+      return true;
+    } catch (error) {
+      console.error("Error saving file:", error);
+      throw error;
+    }
+  }, []);
+
+  // Handle external content change notifications with debouncing
+  const lastNotifiedContentRef = useRef<string>("");
+  
+  useEffect(() => {
+    if (showEditorFooter && currentContent && onContentChange && currentContent !== lastNotifiedContentRef.current) {
+      // Clear any existing timeout
+      if (contentChangeTimeoutRef.current) {
+        clearTimeout(contentChangeTimeoutRef.current);
+      }
+      
+      // Debounce the content change notification
+      contentChangeTimeoutRef.current = window.setTimeout(() => {
+        onContentChange(currentContent);
+        lastNotifiedContentRef.current = currentContent;
+      }, 100);
+      
+      // Cleanup timeout on unmount
+      return () => {
+        if (contentChangeTimeoutRef.current) {
+          clearTimeout(contentChangeTimeoutRef.current);
+        }
+      };
+    }
+  }, [currentContent, showEditorFooter, onContentChange]);
+
   const loadFileContent = useCallback(async (filePath: string) => {
-    if (!filePath) return;
+    if (!filePath || typeof filePath !== 'string') {
+      console.error('Invalid file path:', filePath);
+      return;
+    }
 
     setIsLoading(true);
     setIsModified(false);
 
     try {
-      const fileContent = await invoke<string>("read_file", { path: filePath });
-      setContent(fileContent);
-      originalContentRef.current = fileContent; // Track original for modification detection
-      setActiveFile(filePath, fileContent);
-
-      // Connect plugin to editor AFTER content is loaded
-      setTimeout(() => {
-        if (editorRef.current && typeof editorRef.current.getCoreEditor === 'function') {
-          const coreEditor = editorRef.current.getCoreEditor();
-          if (coreEditor) {
-            console.log('🔌 [WindowContent] Connecting plugin to editor after content load');
-            console.log('🔌 [WindowContent] Editor content length after load:', coreEditor.getContent().length);
-            setActiveEditorRef.current(coreEditor);
-          }
-        }
-      }, 100); // Small delay to ensure editor has rendered with content
-
-    } catch (err) {
-      console.error("Error loading file:", err);
-      showError({
-        title: "Não foi possível abrir o arquivo",
-        message: "Ocorreu um problema ao tentar abrir este arquivo. Verifique se o arquivo existe e se você tem permissão para acessá-lo.",
-        details: err instanceof Error ? err.message : "Erro desconhecido",
-        onRetry: () => loadFileContent(filePath)
+      // Use the correct parameter name for the Rust command
+      const contentStr = await invoke<string>("read_file", { path: filePath });
+      
+      console.log('📖 File loaded:', {
+        path: filePath,
+        contentLength: contentStr.length,
+        contentPreview: contentStr.substring(0, 50) + '...'
       });
-      setContent("");
+      
+      // Simple state updates - key-based remounting prevents cursor issues
+      setFileContent(contentStr);
+      setCurrentContent(contentStr);
+      originalContentRef.current = contentStr;
+      
+      setActiveFile(filePath, contentStr);
+      
+    } catch (error) {
+      console.error("Error loading file:", error);
+      showError({
+        title: "Erro ao carregar arquivo",
+        message: `Não foi possível abrir o arquivo: ${filePath}`,
+        details: error instanceof Error ? error.message : String(error)
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [showError, setActiveFile]);
+  }, [setActiveFile, showError]);
 
-  const saveFileContent = useCallback(async (filePath: string, content: string) => {
-    try {
-      await invoke("write_file", { filePath, content });
-      return true;
-    } catch (err) {
-      console.error("Error saving file:", err);
-      showError({
-        title: "Não foi possível salvar o arquivo",
-        message: "Ocorreu um problema ao tentar salvar suas alterações. Tente novamente ou verifique se você tem permissão para escrever neste local.",
-        details: err instanceof Error ? err.message : "Erro desconhecido"
-      });
-      return false;
-    }
-  }, [showError]);
-
-  const previousFileRef = useRef<string | null>(null);
-  
   useEffect(() => {
-    if (selectedFile && selectedFile !== previousFileRef.current) {
-      previousFileRef.current = selectedFile;
+    if (selectedFile) {
       loadFileContent(selectedFile);
     }
   }, [selectedFile, loadFileContent]);
 
-  // Notify footer about initial content when file loads
-  useEffect(() => {
-    if (showEditorFooter && content && externalOnContentChange) {
-      externalOnContentChange(content);
-    }
-  }, [content, showEditorFooter, externalOnContentChange]);
-
   const handleContentChange = useCallback((newContent: string) => {
-    // DON'T update content state during typing - this causes cursor resets
-    // Only update modification state and notify external consumers
-    setIsModified(newContent !== originalContentRef.current);
-    
-    // Notify footer about content changes
-    if (showEditorFooter && externalOnContentChange) {
-      externalOnContentChange(newContent);
-    }
-  }, [showEditorFooter, externalOnContentChange]);
-
-  const handleSave = useCallback(
-    async (contentToSave: string) => {
-      if (!selectedFile) return;
-
-      try {
-        const success = await saveFileContent(selectedFile, contentToSave);
-        if (success) {
-          originalContentRef.current = contentToSave; // Update original content reference
-          // DON'T update content state - this would trigger editor reset and cursor jump
-          setIsModified(false);
-          console.log('💾 [WindowContent] File saved successfully, cursor position preserved');
-          
-          // Update footer with saved content
-          if (showEditorFooter && externalOnContentChange) {
-            externalOnContentChange(contentToSave);
-          }
-        }
-      } catch (error) {
-        console.error("Error in handleSave:", error);
+    const wasModified = newContent !== originalContentRef.current;
+    setIsModified(wasModified);
+    setCurrentContent(prevContent => {
+      if (prevContent === newContent) {
+        return prevContent;
       }
-    },
-    [selectedFile, saveFileContent, showEditorFooter, externalOnContentChange],
-  );
+      return newContent;
+    });
+  }, []);
+
+  const handleSave = useCallback(async (contentToSave: string) => {
+    if (!selectedFile) return;
+
+    try {
+      const success = await saveFileContent(selectedFile, contentToSave);
+      if (success) {
+        // Update all content references after successful save - but DON'T change fileContent
+        // to avoid triggering initialContent changes that reset cursor
+        originalContentRef.current = contentToSave;
+        setCurrentContent(contentToSave);
+        setIsModified(false);
+        
+        // Update the active file store with saved content
+        setActiveFile(selectedFile, contentToSave);
+      }
+    } catch (error) {
+      console.error("Error in handleSave:", error);
+      showError({
+        title: "Erro ao salvar",
+        message: "Não foi possível salvar o arquivo",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }, [selectedFile, saveFileContent, showError, setActiveFile]);
 
   const handleError = useCallback((error: Error) => {
     console.error("Editor error:", error);
@@ -155,13 +167,6 @@ export const WindowContent = memo(function WindowContent({
       details: error.message
     });
   }, [showError]);
-
-  const handleFilePathChange = useCallback(
-    (newPath: string) => {
-      onFilePathChange?.(newPath);
-    },
-    [onFilePathChange],
-  );
 
   const togglePreviewMode = useCallback(() => {
     setIsPreviewMode((prev) => {
@@ -173,86 +178,80 @@ export const WindowContent = memo(function WindowContent({
 
   const performSave = useCallback(() => {
     if (editorRef.current) {
-      const currentContent = editorRef.current.getContent();
-      handleSave(currentContent);
+      const contentToSave = editorRef.current.getContent();
+      handleSave(contentToSave);
     }
   }, [handleSave]);
 
+  // Set up save and toggle preview refs
   useEffect(() => {
-    onSaveRef.current = performSave;
-    return () => {
-      if (onSaveRef) {
-        onSaveRef.current = null;
-      }
-    };
-  }, [performSave, onSaveRef]);
-
-  useEffect(() => {
+    if (onSaveRef) {
+      onSaveRef.current = performSave;
+    }
     if (onTogglePreviewRef) {
       onTogglePreviewRef.current = togglePreviewMode;
-      return () => {
-        if (onTogglePreviewRef) {
-          onTogglePreviewRef.current = null;
-        }
-      };
     }
-  }, [togglePreviewMode, onTogglePreviewRef]);
+  }, [performSave, togglePreviewMode, onSaveRef, onTogglePreviewRef]);
 
-  // Stable refs to avoid dependency issues - update in useEffect to avoid render-time updates
-  const setActiveEditorRef = useRef(setActiveEditor);
-  const clearActiveEditorRef = useRef(clearActiveEditor);
-  
+  // Plugin integration - ensure the editor is properly registered
   useEffect(() => {
-    setActiveEditorRef.current = setActiveEditor;
-    clearActiveEditorRef.current = clearActiveEditor;
-  }, [setActiveEditor, clearActiveEditor]);
-
-  // Cleanup on unmount
-  useEffect(() => {
+    const editor = editorRef.current?.getCoreEditor();
+    if (editor && selectedFile) {
+      setActiveEditor(editor);
+      
+      // Update global active file for plugins
+      (window as any).__activeFile = {
+        path: selectedFile,
+        name: selectedFile.split("/").pop() || "",
+        content: currentContent || fileContent,
+      };
+      (window as any).__activeFilePath = selectedFile;
+    } else {
+      clearActiveEditor();
+    }
+    
     return () => {
-      clearActiveEditorRef.current();
+      clearActiveEditor();
+      (window as any).__activeFile = null;
+      (window as any).__activeFilePath = null;
     };
-  }, []);
+  }, [editorRef.current, selectedFile, currentContent, fileContent, setActiveEditor, clearActiveEditor]);
 
-  if (!selectedFile) {
+  // Handle file path changes
+  useEffect(() => {
+    if (selectedFile && onFilePathChange) {
+      onFilePathChange(selectedFile);
+    }
+  }, [selectedFile, onFilePathChange]);
+
+  // Handle file path changes (for Title component rename functionality)
+  const handleFilePathChange = useCallback((newPath: string) => {
+    if (onFilePathChange) {
+      onFilePathChange(newPath);
+    }
+  }, [onFilePathChange]);
+
+  if (isLoading) {
     return (
-      <div
-        className="flex-1 flex items-center justify-center"
-      >
-        <div className="text-center">
-          <h2 className="text-xl font-semibold theme-text-primary mb-2">
-            Selecione um arquivo
-          </h2>
-          <p className="theme-text-muted">
-            Escolha um arquivo markdown na barra lateral para começar a editar
-          </p>
+      <div className="h-full w-full flex items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">Carregando arquivo...</p>
         </div>
       </div>
     );
   }
 
-  const fileName = selectedFile?.split("/").pop();
-
-  const resolvedTheme =
-    themeMode === "auto"
-      ? typeof window !== "undefined" &&
-        window.matchMedia?.("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light"
-      : (themeMode as "light" | "dark");
-
-  if (isLoading) {
+  if (!selectedFile) {
     return (
-      <div
-        className="flex-1 flex items-center justify-center"
-      >
+      <div className="h-full w-full flex items-center justify-center">
         <div className="text-center">
-          <div
-            className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4"
-            style={{ borderBottomColor: "var(--theme-primary)" }}
-          ></div>
-          <p className="theme-text-muted">Carregando arquivo...</p>
-          <p className="text-xs theme-text-muted mt-1">{fileName}</p>
+          <h3 className="text-lg font-medium text-muted-foreground mb-2">
+            Nenhum arquivo selecionado
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Selecione um arquivo na barra lateral para começar a editar.
+          </p>
         </div>
       </div>
     );
@@ -275,9 +274,7 @@ export const WindowContent = memo(function WindowContent({
         </div>
       )}
 
-      <div
-        className="px-4 py-3 flex items-center justify-between flex-shrink-0"
-      >
+      <div className="px-4 py-3 flex items-center justify-between flex-shrink-0">
         <Title
           filePath={selectedFile}
           onFilePathChange={handleFilePathChange}
@@ -288,8 +285,8 @@ export const WindowContent = memo(function WindowContent({
       <div className="theme-editor flex-1 flex flex-col min-h-0 relative">
         <EditorComponent
           ref={editorRef}
-          initialContent={content}
-          themeName={resolvedTheme}
+          initialContent={fileContent}
+          themeName={themeMode}
           showPreview={isPreviewMode}
           onContentChange={handleContentChange}
           onSave={handleSave}
@@ -298,4 +295,19 @@ export const WindowContent = memo(function WindowContent({
       </div>
     </div>
   );
+};
+
+
+
+const WindowContent = memo(WindowContentInternal, (prevProps, nextProps) => {
+  return (
+    prevProps.selectedFile === nextProps.selectedFile &&
+    prevProps.themeMode === nextProps.themeMode &&
+    prevProps.showEditorFooter === nextProps.showEditorFooter &&
+    prevProps.onFilePathChange === nextProps.onFilePathChange &&
+    prevProps.onContentChange === nextProps.onContentChange &&
+    prevProps.onPreviewModeChange === nextProps.onPreviewModeChange
+  );
 });
+
+export { WindowContent };

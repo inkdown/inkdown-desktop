@@ -5,6 +5,44 @@ import { ThemeMode, CustomTheme } from '../types/config';
 import { useConfigStore } from './configStore';
 import { cacheUtils } from '../utils/localStorage';
 
+// Theme conversion utility to avoid code duplication
+const createThemeConverter = () => (theme: any): CustomTheme => ({
+  name: theme.name,
+  author: theme.author,
+  description: `Tema ${theme.name} criado por ${theme.author}`,
+  version: "1.0.0",
+  homepage: theme.repo ? `https://github.com/${theme.repo}` : undefined,
+  variants: (theme.modes || []).map((mode: any) => ({
+    id: `${theme.name.toLowerCase().replace(/\s+/g, '-')}-${mode}`,
+    name: `${theme.name} ${mode}`,
+    mode: mode,
+    cssFile: `${mode.toLowerCase()}.css`
+  }))
+});
+
+// Centralized theme ID management to avoid race conditions
+const getCustomThemeId = (): string | null => {
+  if (typeof localStorage === 'undefined') return null;
+  
+  // Priority order: localStorage -> config -> current state
+  const cachedId = localStorage.getItem("custom-theme-id");
+  if (cachedId) return cachedId;
+  
+  const configStore = useConfigStore.getState();
+  const configId = configStore.appearanceConfig?.["custom-theme"];
+  return configId || null;
+};
+
+const setCustomThemeId = (themeId: string | null) => {
+  if (typeof localStorage === 'undefined') return;
+  
+  if (themeId) {
+    localStorage.setItem("custom-theme-id", themeId);
+  } else {
+    localStorage.removeItem("custom-theme-id");
+  }
+};
+
 export interface AppearanceState {
   effectiveTheme: 'light' | 'dark';
   customThemes: CustomTheme[];
@@ -43,7 +81,7 @@ export const useAppearanceStore = create<AppearanceStore>()(
     // Initial state
     effectiveTheme: 'light',
     customThemes: [],
-    currentCustomThemeId: typeof localStorage !== 'undefined' ? localStorage.getItem("custom-theme-id") : null,
+    currentCustomThemeId: getCustomThemeId(),
     customThemesLoading: false,
     mediaQuery: null,
     lastStyleUpdate: 0,
@@ -59,7 +97,7 @@ export const useAppearanceStore = create<AppearanceStore>()(
       
       await configStore.updateAppearanceConfig({ theme });
       
-      localStorage.removeItem("custom-theme-id");
+      setCustomThemeId(null);
       await configStore.updateAppearanceConfig({ "custom-theme": undefined });
     },
 
@@ -86,7 +124,7 @@ export const useAppearanceStore = create<AppearanceStore>()(
 
         set({ currentCustomThemeId: themeId });
         
-        localStorage.setItem("custom-theme-id", themeId);
+        setCustomThemeId(themeId);
         const configStore = useConfigStore.getState();
         await configStore.updateAppearanceConfig({ "custom-theme": themeId });
         
@@ -113,7 +151,7 @@ export const useAppearanceStore = create<AppearanceStore>()(
       
       get().applyThemeToDOM(effectiveTheme);
 
-      localStorage.removeItem("custom-theme-id");
+      setCustomThemeId(null);
       const configStore = useConfigStore.getState();
       configStore.updateAppearanceConfig({ "custom-theme": undefined }).catch(console.error);
     },
@@ -128,19 +166,8 @@ export const useAppearanceStore = create<AppearanceStore>()(
         let customThemes: CustomTheme[] = [];
         const cachedThemes = cacheUtils.getCustomThemes() || [];
         
-        const convertCommunityTheme = (theme: any): CustomTheme => ({
-          name: theme.name,
-          author: theme.author,
-          description: `Tema ${theme.name} criado por ${theme.author}`,
-          version: "1.0.0",
-          homepage: theme.repo ? `https://github.com/${theme.repo}` : undefined,
-          variants: (theme.modes || []).map((mode: any) => ({
-            id: `${theme.name.toLowerCase().replace(/\s+/g, '-')}-${mode}`,
-            name: `${theme.name} ${mode}`,
-            mode: mode,
-            cssFile: `${mode.toLowerCase()}.css`
-          }))
-        });
+        // Use extracted theme conversion utility
+        const convertCommunityTheme = createThemeConverter();
         
         if (cachedThemes.length > 0) {
           customThemes = cachedThemes.map(theme => 
@@ -269,19 +296,7 @@ export const useAppearanceStore = create<AppearanceStore>()(
       const exists = customThemes.some(t => t.name === theme.name && t.author === theme.author);
       if (exists) return;
       
-      const convertedTheme: CustomTheme = {
-        name: theme.name,
-        author: theme.author,
-        description: `Tema ${theme.name} criado por ${theme.author}`,
-        version: "1.0.0",
-        homepage: theme.repo ? `https://github.com/${theme.repo}` : undefined,
-        variants: (theme.modes || []).map((mode: any) => ({
-          id: `${theme.name.toLowerCase().replace(/\s+/g, '-')}-${mode}`,
-          name: `${theme.name} ${mode}`,
-          mode: mode,
-          cssFile: `${mode.toLowerCase()}.css`
-        }))
-      };
+      const convertedTheme = createThemeConverter()(theme);
       
       set({ customThemes: [...customThemes, convertedTheme] });
     },
@@ -327,14 +342,8 @@ export const useAppearanceStore = create<AppearanceStore>()(
     },
 
     applySavedTheme: async () => {
-      const { currentCustomThemeId } = get();
-      const configStore = useConfigStore.getState();
-      const { appearanceConfig } = configStore;
-      
-      // Check multiple sources for saved theme ID
-      const cachedThemeId = localStorage.getItem("custom-theme-id");
-      const configThemeId = appearanceConfig?.["custom-theme"];
-      const savedThemeId = currentCustomThemeId || cachedThemeId || configThemeId;
+      // Use centralized theme ID management
+      const savedThemeId = getCustomThemeId();
       
       
       if (!savedThemeId) {
@@ -365,7 +374,7 @@ export const useAppearanceStore = create<AppearanceStore>()(
           await get().applyCustomTheme(savedThemeId);
         } catch (err) {
           console.error("Failed to apply saved theme after scan:", err);
-          localStorage.removeItem("custom-theme-id");
+          setCustomThemeId(null);
           await configStore.updateAppearanceConfig({ "custom-theme": undefined });
         }
       } else {

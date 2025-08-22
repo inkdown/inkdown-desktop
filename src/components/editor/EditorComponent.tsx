@@ -1,4 +1,4 @@
-import { useRef, forwardRef, useImperativeHandle, useEffect, useMemo, useCallback, memo } from 'react';
+import { useRef, forwardRef, useImperativeHandle, useEffect, useCallback, memo, useMemo } from 'react';
 import { Editor, EditorConfig, EditorStateInfo } from './core/Editor';
 import { MarkdownPreview } from './preview/MarkdownPreview';
 import { useEffectiveTheme } from '../../stores/appearanceStore';
@@ -25,7 +25,7 @@ export interface EditorComponentHandle {
   getContent: () => string;
   setContent: (content: string) => void;
   focus: () => void;
-  getCoreEditor: () => any; // Expose core editor for plugins
+  getCoreEditor: () => any;
 }
 
 const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponentProps>(({
@@ -52,55 +52,10 @@ const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponen
   const editorRef = useRef<Editor | null>(null);
   const previewRef = useRef<MarkdownPreview | null>(null);
   const isInitialized = useRef(false);
-  const currentContentRef = useRef(initialContent);
 
-  const configVimMode = workspaceConfig?.vimMode ?? false;
-  const configShowLineNumbers = workspaceConfig?.showLineNumbers ?? true;
-  const configHighlightCurrentLine = workspaceConfig?.highlightCurrentLine ?? true;
-  const configReadOnly = workspaceConfig?.readOnly ?? false;
-  const configFontSize = appearanceConfig?.["font-size"] ?? 14;
-  const configFontFamily = appearanceConfig?.["font-family"] ?? "Inter, system-ui, sans-serif";
-  const configPasteUrlsAsLinks = workspaceConfig?.pasteUrlsAsLinks ?? true;
-
-  const finalTheme: 'light' | 'dark' = useMemo(() => themeName || effectiveTheme, [themeName, effectiveTheme]);
-
-  const editorConfigRef = useRef<EditorConfig | null>(null);
-  
-  const themeConfig = useMemo(() => ({
-    theme: finalTheme,
-  }), [finalTheme]);
-  
-  const editorSettings = useMemo(() => ({
-    readOnly: configReadOnly ?? readOnly ?? false,
-    vim: configVimMode ?? plugins.includes('vim'),
-    showLineNumbers: configShowLineNumbers ?? showLineNumbers ?? true,
-    highlightCurrentLine: configHighlightCurrentLine ?? highlightCurrentLine ?? true,
-  }), [configReadOnly, readOnly, configVimMode, plugins, configShowLineNumbers, showLineNumbers, configHighlightCurrentLine, highlightCurrentLine]);
-  
-  const fontSettings = useMemo(() => ({
-    fontSize: configFontSize ?? fontSize ?? 14,
-    fontFamily: configFontFamily ?? fontFamily ?? 'Inter, system-ui, sans-serif',
-  }), [configFontSize, fontSize, configFontFamily, fontFamily]);
-  
-  const behaviorSettings = useMemo(() => ({
-    markdownShortcuts: true,
-    githubMarkdown: false,
-    pasteUrlsAsLinks: configPasteUrlsAsLinks,
-  }), [configPasteUrlsAsLinks]);
-  
-  const editorConfig = useMemo((): EditorConfig => {
-    return {
-      container: editorContainerRef.current!,
-      content: initialContent,
-      ...themeConfig,
-      ...editorSettings,
-      ...fontSettings,
-      ...behaviorSettings,
-    };
-  }, [initialContent, themeConfig, editorSettings, fontSettings, behaviorSettings]);
+  const finalTheme: 'light' | 'dark' = themeName || effectiveTheme;
 
   const handleStateChange = useCallback((state: EditorStateInfo) => {
-    currentContentRef.current = state.content;
     onStateChange?.(state);
     
     if (onContentChange) {
@@ -117,28 +72,28 @@ const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponen
 
     try {
       const config: EditorConfig = {
-        ...editorConfig,
         container: editorContainerRef.current,
+        content: initialContent,
+        theme: finalTheme,
+        readOnly: workspaceConfig?.readOnly ?? readOnly,
+        vim: workspaceConfig?.vimMode ?? plugins.includes('vim'),
+        showLineNumbers: workspaceConfig?.showLineNumbers ?? showLineNumbers,
+        highlightCurrentLine: workspaceConfig?.highlightCurrentLine ?? highlightCurrentLine,
+        fontSize: appearanceConfig?.["font-size"] ?? fontSize ?? 14,
+        fontFamily: appearanceConfig?.["font-family"] ?? fontFamily ?? 'Inter, system-ui, sans-serif',
+        markdownShortcuts: true,
+        githubMarkdown: false,
+        pasteUrlsAsLinks: workspaceConfig?.pasteUrlsAsLinks ?? true,
         onChange: handleStateChange,
       };
       
-      editorConfigRef.current = config;
       editorRef.current = new Editor(config);
-
-      if (showPreview && previewContainerRef.current) {
-        previewRef.current = new MarkdownPreview({
-          container: previewContainerRef.current,
-          theme: finalTheme,
-        });
-        previewRef.current.updateFromContent(initialContent);
-      }
-
       isInitialized.current = true;
 
     } catch (error) {
       onError?.(error as Error);
     }
-  }, [editorConfig, handleStateChange, showPreview, finalTheme, onError]);
+  }, [initialContent, handleStateChange, onError]);
 
   useEffect(() => {
     initializeEditor();
@@ -156,149 +111,94 @@ const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponen
     };
   }, [initializeEditor]);
 
-  const prevInitialContentRef = useRef(initialContent);
+  // Update content when initialContent changes - but preserve cursor position
+  const lastInitialContentRef = useRef(initialContent);
   useEffect(() => {
-    if (editorRef.current && isInitialized.current && initialContent !== prevInitialContentRef.current) {
+    if (editorRef.current && isInitialized.current && initialContent !== lastInitialContentRef.current) {
+      console.log('📄 InitialContent changed, updating editor:', {
+        from: lastInitialContentRef.current?.length,
+        to: initialContent.length
+      });
       editorRef.current.setContent(initialContent);
-      currentContentRef.current = initialContent;
-      prevInitialContentRef.current = initialContent;
+      lastInitialContentRef.current = initialContent;
     }
   }, [initialContent]);
 
-  const prevConfigRef = useRef<{
-    theme: string;
-    vim: boolean;
-    showLineNumbers: boolean;
-    highlightCurrentLine: boolean;
-    readOnly: boolean;
-    fontSize: number;
-    fontFamily: string;
-    pasteUrlsAsLinks: boolean;
-  }>({
+  // Memoize editor config to prevent unnecessary re-renders
+  const editorConfig = useMemo(() => ({
     theme: finalTheme,
-    vim: configVimMode,
-    showLineNumbers: configShowLineNumbers,
-    highlightCurrentLine: configHighlightCurrentLine,
-    readOnly: configReadOnly,
-    fontSize: configFontSize,
-    fontFamily: configFontFamily,
-    pasteUrlsAsLinks: configPasteUrlsAsLinks,
-  });
+    vim: workspaceConfig?.vimMode ?? plugins.includes('vim'),
+    showLineNumbers: workspaceConfig?.showLineNumbers ?? showLineNumbers,
+    highlightCurrentLine: workspaceConfig?.highlightCurrentLine ?? highlightCurrentLine,
+    readOnly: workspaceConfig?.readOnly ?? readOnly,
+    fontSize: appearanceConfig?.["font-size"] ?? fontSize ?? 14,
+    fontFamily: appearanceConfig?.["font-family"] ?? fontFamily ?? 'Inter, system-ui, sans-serif',
+    pasteUrlsAsLinks: workspaceConfig?.pasteUrlsAsLinks ?? true,
+  }), [
+    finalTheme,
+    workspaceConfig?.vimMode,
+    workspaceConfig?.showLineNumbers,
+    workspaceConfig?.highlightCurrentLine,
+    workspaceConfig?.readOnly,
+    workspaceConfig?.pasteUrlsAsLinks,
+    appearanceConfig?.["font-size"],
+    appearanceConfig?.["font-family"],
+    plugins,
+    showLineNumbers,
+    highlightCurrentLine,
+    readOnly,
+    fontSize,
+    fontFamily
+  ]);
 
+  // Update config when memoized config changes
   useEffect(() => {
     if (!editorRef.current || !isInitialized.current) return;
 
-    const current = prevConfigRef.current;
-    const changes: Partial<EditorConfig> = {};
-    let hasChanges = false;
+    editorRef.current.updateConfig(editorConfig);
 
-    if (current.theme !== finalTheme) {
-      changes.theme = finalTheme;
-      current.theme = finalTheme;
-      hasChanges = true;
+    if (previewRef.current) {
+      previewRef.current.updateConfig({ theme: finalTheme });
     }
-    if (current.vim !== configVimMode) {
-      changes.vim = configVimMode;
-      current.vim = configVimMode;
-      hasChanges = true;
-    }
-    if (current.showLineNumbers !== configShowLineNumbers) {
-      changes.showLineNumbers = configShowLineNumbers;
-      current.showLineNumbers = configShowLineNumbers;
-      hasChanges = true;
-    }
-    if (current.highlightCurrentLine !== configHighlightCurrentLine) {
-      changes.highlightCurrentLine = configHighlightCurrentLine;
-      current.highlightCurrentLine = configHighlightCurrentLine;
-      hasChanges = true;
-    }
-    if (current.readOnly !== configReadOnly) {
-      changes.readOnly = configReadOnly;
-      current.readOnly = configReadOnly;
-      hasChanges = true;
-    }
-    if (current.fontSize !== configFontSize) {
-      changes.fontSize = configFontSize;
-      current.fontSize = configFontSize;
-      hasChanges = true;
-    }
-    if (current.fontFamily !== configFontFamily) {
-      changes.fontFamily = configFontFamily;
-      current.fontFamily = configFontFamily;
-      hasChanges = true;
-    }
-    if (current.pasteUrlsAsLinks !== configPasteUrlsAsLinks) {
-      changes.pasteUrlsAsLinks = configPasteUrlsAsLinks;
-      current.pasteUrlsAsLinks = configPasteUrlsAsLinks;
-      hasChanges = true;
-    }
+  }, [editorConfig, finalTheme]);
 
-    if (hasChanges) {
-      editorRef.current.updateConfig(changes);
-      
-      if (editorConfigRef.current) {
-        Object.assign(editorConfigRef.current, changes);
-      }
-
-      if (previewRef.current && changes.theme) {
-        previewRef.current.updateConfig({
-          theme: changes.theme,
-        });
-      }
-    }
-  }, [finalTheme, configVimMode, configShowLineNumbers, configHighlightCurrentLine, configReadOnly, configFontSize, configFontFamily, configPasteUrlsAsLinks]);
-
-  const handlePreviewToggle = useCallback(() => {
+  // Handle preview show/hide without recreating editor
+  useEffect(() => {
     if (!isInitialized.current) return;
 
     if (showPreview && !previewRef.current && previewContainerRef.current) {
-      try {
-        previewRef.current = new MarkdownPreview({
-          container: previewContainerRef.current,
-          theme: finalTheme,
-        });
-        const editorContent = editorRef.current?.getContent();
-        const currentContent = editorContent || currentContentRef.current || initialContent;
-        if (currentContent) {
-          previewRef.current.updateFromContent(currentContent);
-        }
-      } catch (error) {
-        console.error('Failed to create preview:', error);
+      previewRef.current = new MarkdownPreview({
+        container: previewContainerRef.current,
+        theme: finalTheme,
+      });
+      if (editorRef.current) {
+        previewRef.current.updateFromContent(editorRef.current.getContent());
       }
     } else if (!showPreview && previewRef.current) {
-      try {
-        previewRef.current.destroy();
-      } catch (error) {
-        console.error('Failed to destroy preview:', error);
-      } finally {
-        previewRef.current = null;
-      }
+      previewRef.current.destroy();
+      previewRef.current = null;
     }
+  }, [showPreview, finalTheme]);
 
-    if (editorRef.current) {
-      if (showPreview) {
-        editorRef.current.blur?.();
-      } else {
-        requestAnimationFrame(() => {
-          editorRef.current?.focus?.();
-        });
-      }
-    }
-  }, [showPreview, finalTheme, initialContent]);
-
+  // Handle editor focus when toggling preview
   useEffect(() => {
-    handlePreviewToggle();
-  }, [handlePreviewToggle]);
+    if (!editorRef.current || !isInitialized.current) return;
 
+    if (showPreview) {
+      editorRef.current.blur?.();
+    } else {
+      requestAnimationFrame(() => {
+        editorRef.current?.focus?.();
+      });
+    }
+  }, [showPreview]);
 
   useImperativeHandle(ref, () => ({
     getContent: () => editorRef.current?.getContent() || '',
     setContent: (content: string) => editorRef.current?.setContent(content),
     focus: () => editorRef.current?.focus(),
-    getCoreEditor: () => editorRef.current, // Expose core editor for plugins
+    getCoreEditor: () => editorRef.current,
   }), []);
-
-
 
   return (
     <div className={`editor-wrapper h-full ${className} relative`}>
@@ -321,9 +221,6 @@ const EditorComponentInternal = forwardRef<EditorComponentHandle, EditorComponen
 EditorComponentInternal.displayName = 'EditorComponentInternal';
 
 export const EditorComponent = memo(EditorComponentInternal, (prevProps, nextProps) => {
-  const pluginsEqual = (prevProps.plugins?.length === nextProps.plugins?.length) &&
-    (prevProps.plugins?.every((plugin, index) => plugin === nextProps.plugins?.[index]) ?? true);
-    
   return (
     prevProps.initialContent === nextProps.initialContent &&
     prevProps.themeName === nextProps.themeName &&
@@ -334,10 +231,9 @@ export const EditorComponent = memo(EditorComponentInternal, (prevProps, nextPro
     prevProps.fontSize === nextProps.fontSize &&
     prevProps.fontFamily === nextProps.fontFamily &&
     prevProps.className === nextProps.className &&
-    pluginsEqual
+    JSON.stringify(prevProps.plugins) === JSON.stringify(nextProps.plugins)
   );
 });
 
 EditorComponent.displayName = 'EditorComponent';
 export default EditorComponent;
-

@@ -1,19 +1,19 @@
 import { memo, useMemo, useCallback } from 'react';
-import { useWorkspaceConfig, useConfigStore } from '../../../stores/configStore';
+import { useWorkspaceConfig, useConfigStore, settingsManager } from '../../../stores/configStore';
 import { ToggleSwitch } from '../ToggleSwitch';
 
 const EditorSettings = memo(() => {
   const workspaceConfig = useWorkspaceConfig();
   const { updateWorkspaceConfig } = useConfigStore();
   
-  // Extract values with defaults
-  const vimMode = workspaceConfig?.vimMode ?? false;
-  const showLineNumbers = workspaceConfig?.showLineNumbers ?? true;
-  const highlightCurrentLine = workspaceConfig?.highlightCurrentLine ?? true;
-  const readOnly = workspaceConfig?.readOnly ?? false;
-  const githubMarkdown = workspaceConfig?.githubMarkdown ?? false;
-  const pasteUrlsAsLinks = workspaceConfig?.pasteUrlsAsLinks ?? true;
-  const showEditorFooter = workspaceConfig?.showEditorFooter ?? true;
+  // Extract values using settings manager for consistent fallbacks
+  const vimMode = settingsManager.getWorkspaceSetting('vimMode', workspaceConfig);
+  const showLineNumbers = settingsManager.getWorkspaceSetting('showLineNumbers', workspaceConfig);
+  const highlightCurrentLine = settingsManager.getWorkspaceSetting('highlightCurrentLine', workspaceConfig);
+  const readOnly = settingsManager.getWorkspaceSetting('readOnly', workspaceConfig);
+  const githubMarkdown = settingsManager.getWorkspaceSetting('githubMarkdown', workspaceConfig);
+  const pasteUrlsAsLinks = settingsManager.getWorkspaceSetting('pasteUrlsAsLinks', workspaceConfig);
+  const showEditorFooter = settingsManager.getWorkspaceSetting('showEditorFooter', workspaceConfig);
 
   // Memoize loading component
   const LoadingComponent = useMemo(() => (

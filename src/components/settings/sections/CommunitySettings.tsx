@@ -347,7 +347,6 @@ export function CommunitySettings() {
               className="flex items-center gap-2 py-2 text-sm font-medium transition-all border-b-2 relative"
               style={{
                 color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                borderColor: isActive ? 'var(--text-accent)' : 'transparent',
                 background: 'none',
                 border: 'none',
                 borderBottom: `2px solid ${isActive ? 'var(--text-accent)' : 'transparent'}`
