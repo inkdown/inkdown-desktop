@@ -24,6 +24,7 @@ export const Sidebar = memo(function Sidebar({
       style={{ 
         width,
         backgroundColor: 'var(--theme-sidebar-background)',
+        borderRight: '1px solid var(--theme-border)',
       }}
     >
       <SidebarContent

@@ -12,4 +12,7 @@ export type { EditorComponentProps, EditorComponentHandle } from './EditorCompon
 
 export { EditorFooter } from './EditorFooter';
 
+export { Title } from './Title';
+export { NotePath } from './NotePath';
+
 export { EditorComponent as default } from './EditorComponent';

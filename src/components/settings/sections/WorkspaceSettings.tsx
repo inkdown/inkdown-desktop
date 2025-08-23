@@ -8,8 +8,14 @@ export function WorkspaceSettings() {
   const navigate = useNavigate();
 
   const handleExitWorkspace = async () => {
-    await clearDirectory();
-    navigate('/');
+    try {
+      await clearDirectory();
+      navigate('/');
+    } catch (error) {
+      console.error('Error exiting workspace:', error);
+      // Still navigate even if clearing fails
+      navigate('/');
+    }
   };
 
   return (

@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { EditorComponent } from "../editor/EditorComponent";
 import { Title } from "../editor/Title";
+import { NotePath } from "../editor/NotePath";
 import type { EditorComponentHandle } from "../editor/EditorComponent";
 import { useError } from "../../contexts/ErrorContext";
 import { useEditingStore } from "../../stores/editingStore";
 import { usePluginStore } from "../../stores/pluginStore";
+import { useCurrentDirectory } from "../../stores/directoryStore";
 import type { ThemeMode } from "../../types/appearance";
 
 interface WindowContentProps {
@@ -17,6 +19,7 @@ interface WindowContentProps {
   onContentChange?: (content: string) => void;
   onPreviewModeChange?: (isPreview: boolean) => void;
   showEditorFooter?: boolean;
+  isPreviewMode?: boolean;
 }
 
 const WindowContentInternal = ({
@@ -28,12 +31,12 @@ const WindowContentInternal = ({
   onContentChange,
   onPreviewModeChange,
   showEditorFooter,
+  isPreviewMode = false,
 }: WindowContentProps) => {
   const [fileContent, setFileContent] = useState<string>("");
   const [currentContent, setCurrentContent] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [isModified, setIsModified] = useState(false);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
   
   const editorRef = useRef<EditorComponentHandle>(null);
   const originalContentRef = useRef<string>("");
@@ -42,6 +45,7 @@ const WindowContentInternal = ({
   const { showError } = useError();
   const { setActiveFile } = useEditingStore();
   const { setActiveEditor, clearActiveEditor } = usePluginStore();
+  const currentDirectory = useCurrentDirectory();
 
   const saveFileContent = useCallback(async (filePath: string, content: string): Promise<boolean> => {
     try {
@@ -54,7 +58,6 @@ const WindowContentInternal = ({
     }
   }, []);
 
-  // Handle external content change notifications with debouncing
   const lastNotifiedContentRef = useRef<string>("");
   
   useEffect(() => {
@@ -140,8 +143,6 @@ const WindowContentInternal = ({
     try {
       const success = await saveFileContent(selectedFile, contentToSave);
       if (success) {
-        // Update all content references after successful save - but DON'T change fileContent
-        // to avoid triggering initialContent changes that reset cursor
         originalContentRef.current = contentToSave;
         setCurrentContent(contentToSave);
         setIsModified(false);
@@ -168,14 +169,6 @@ const WindowContentInternal = ({
     });
   }, [showError]);
 
-  const togglePreviewMode = useCallback(() => {
-    setIsPreviewMode((prev) => {
-      const newMode = !prev;
-      onPreviewModeChange?.(newMode);
-      return newMode;
-    });
-  }, [onPreviewModeChange]);
-
   const performSave = useCallback(() => {
     if (editorRef.current) {
       const contentToSave = editorRef.current.getContent();
@@ -183,15 +176,19 @@ const WindowContentInternal = ({
     }
   }, [handleSave]);
 
+  const togglePreview = useCallback(() => {
+    onPreviewModeChange?.(!isPreviewMode);
+  }, [onPreviewModeChange, isPreviewMode]);
+
   // Set up save and toggle preview refs
   useEffect(() => {
     if (onSaveRef) {
       onSaveRef.current = performSave;
     }
     if (onTogglePreviewRef) {
-      onTogglePreviewRef.current = togglePreviewMode;
+      onTogglePreviewRef.current = togglePreview;
     }
-  }, [performSave, togglePreviewMode, onSaveRef, onTogglePreviewRef]);
+  }, [performSave, togglePreview, onSaveRef, onTogglePreviewRef]);
 
   // Plugin integration - ensure the editor is properly registered
   useEffect(() => {
@@ -259,39 +256,50 @@ const WindowContentInternal = ({
 
 
   return (
-    <div className="flex ml-[8vw] mr-[8vw] flex-col h-full relative">
-      {isModified && (
-        <div className="absolute top-2 right-2 z-10">
-          <div
-            className="px-2 py-1 rounded text-xs font-medium"
-            style={{
-              backgroundColor: "var(--theme-accent)",
-              color: "var(--theme-accent-foreground)",
-            }}
-          >
-            Não salvo
+    <div className="h-full">
+      <div className="theme-editor h-full overflow-auto">
+        <div className="px-[10vw]">
+          <div className="relative py-4">
+            {isModified && (
+              <div className="absolute top-2 right-0 z-10">
+                <div
+                  className="px-2 py-1 rounded text-xs font-medium"
+                  style={{
+                    backgroundColor: "var(--theme-accent)",
+                    color: "var(--theme-accent-foreground)",
+                  }}
+                >
+                  Não salvo
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-center">
+                <NotePath
+                  filePath={selectedFile}
+                  workspacePath={currentDirectory || undefined}
+                  className="opacity-75"
+                />
+              </div>
+              <Title
+                filePath={selectedFile}
+                onFilePathChange={handleFilePathChange}
+                className="text-xl font-semibold theme-text-primary"
+              />
+            </div>
           </div>
+
+          <EditorComponent
+            ref={editorRef}
+            initialContent={fileContent}
+            themeName={themeMode}
+            showPreview={isPreviewMode}
+            onContentChange={handleContentChange}
+            onSave={handleSave}
+            onError={handleError}
+          />
         </div>
-      )}
-
-      <div className="px-4 py-3 flex items-center justify-between flex-shrink-0">
-        <Title
-          filePath={selectedFile}
-          onFilePathChange={handleFilePathChange}
-          className="text-xl font-semibold theme-text-primary"
-        />
-      </div>
-
-      <div className="theme-editor flex-1 flex flex-col min-h-0 relative">
-        <EditorComponent
-          ref={editorRef}
-          initialContent={fileContent}
-          themeName={themeMode}
-          showPreview={isPreviewMode}
-          onContentChange={handleContentChange}
-          onSave={handleSave}
-          onError={handleError}
-        />
       </div>
     </div>
   );
@@ -304,6 +312,7 @@ const WindowContent = memo(WindowContentInternal, (prevProps, nextProps) => {
     prevProps.selectedFile === nextProps.selectedFile &&
     prevProps.themeMode === nextProps.themeMode &&
     prevProps.showEditorFooter === nextProps.showEditorFooter &&
+    prevProps.isPreviewMode === nextProps.isPreviewMode &&
     prevProps.onFilePathChange === nextProps.onFilePathChange &&
     prevProps.onContentChange === nextProps.onContentChange &&
     prevProps.onPreviewModeChange === nextProps.onPreviewModeChange

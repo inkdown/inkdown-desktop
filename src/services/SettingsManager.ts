@@ -100,10 +100,6 @@ export class SettingsManager {
       const cached = cacheUtils.getWorkspaceConfig();
       if (cached) {
         const validated = SettingsValidator.validateWorkspaceConfig(cached);
-        
-        // Background sync from disk (non-blocking)
-        this.backgroundSyncWorkspace(validated);
-        
         return validated;
       }
 
@@ -133,10 +129,6 @@ export class SettingsManager {
       const cached = cacheUtils.getAppearanceConfig();
       if (cached) {
         const validated = SettingsValidator.validateAppearanceConfig(cached);
-        
-        // Background sync from disk (non-blocking)
-        this.backgroundSyncAppearance(validated);
-        
         return validated;
       }
 
@@ -235,38 +227,6 @@ export class SettingsManager {
     return { workspace, appearance };
   }
 
-  // Private methods for background syncing
-  private async backgroundSyncWorkspace(cachedConfig: WorkspaceConfig): Promise<void> {
-    try {
-      const diskConfigStr = await invoke<string>("load_workspace_config");
-      const diskConfig = JSON.parse(diskConfigStr) as Partial<WorkspaceConfig>;
-      const validated = SettingsValidator.validateWorkspaceConfig(diskConfig);
-
-      // Only update cache if disk version is different
-      if (JSON.stringify(validated) !== JSON.stringify(cachedConfig)) {
-        cacheUtils.setWorkspaceConfig(validated);
-        console.log('Background sync updated workspace config from disk');
-      }
-    } catch (error) {
-      console.warn('Background workspace sync failed:', error);
-    }
-  }
-
-  private async backgroundSyncAppearance(cachedConfig: AppearanceConfig): Promise<void> {
-    try {
-      const diskConfigStr = await invoke<string>("load_appearance_config");
-      const diskConfig = JSON.parse(diskConfigStr) as Partial<AppearanceConfig>;
-      const validated = SettingsValidator.validateAppearanceConfig(diskConfig);
-
-      // Only update cache if disk version is different
-      if (JSON.stringify(validated) !== JSON.stringify(cachedConfig)) {
-        cacheUtils.setAppearanceConfig(validated);
-        console.log('Background sync updated appearance config from disk');
-      }
-    } catch (error) {
-      console.warn('Background appearance sync failed:', error);
-    }
-  }
 }
 
 // Export singleton instance

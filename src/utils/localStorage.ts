@@ -58,6 +58,21 @@ class LocalStorageCache {
     }
   }
 
+  // Clean up legacy localStorage entries that conflict with unified cache
+  cleanupLegacyEntries(): void {
+    try {
+      const legacyKeys = ['custom-theme-id', 'inkdown-directory'];
+      legacyKeys.forEach(key => {
+        if (localStorage.getItem(key) !== null) {
+          console.log(`Removing legacy localStorage entry: ${key}`);
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (error) {
+      console.warn('Failed to cleanup legacy entries:', error);
+    }
+  }
+
   exists(key: string): boolean {
     return localStorage.getItem(`inkdown-cache-${key}`) !== null;
   }

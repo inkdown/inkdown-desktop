@@ -8,6 +8,7 @@ import { useConfigStore } from './configStore';
 import { useAppearanceStore } from './appearanceStore';
 import { useDirectoryStore } from './directoryStore';
 import { usePluginStore } from './pluginStore';
+import { cacheManager } from '../utils/localStorage';
 
 export const initializeStores = async () => {
   const configStore = useConfigStore.getState();
@@ -16,11 +17,15 @@ export const initializeStores = async () => {
   const pluginStore = usePluginStore.getState();
   
   try {
+    // Initialize config store first to load cached/disk settings
     await configStore.initialize();
     
-    // Initialize appearance store after config is loaded and wait for theme application
+    // Initialize appearance store after config is loaded
     appearanceStore.initialize();
+    
+    // Apply saved theme and update DOM styles
     await appearanceStore.applySavedTheme();
+    appearanceStore.updateDOMStyles();
     
     await directoryStore.initializeWorkspace();
     
@@ -39,10 +44,12 @@ export const initializeStores = async () => {
         });
         
         // Handle theme changes without direct DOM manipulation
-        if (!currentCustomThemeId) {
-          const { appearanceConfig } = useConfigStore.getState();
-          
-          if (appearanceConfig?.theme && !appearanceConfig?.["custom-theme"]) {
+        // Only override if there's no custom theme active AND no custom theme in config
+        const { appearanceConfig } = useConfigStore.getState();
+        const hasCustomThemeInConfig = appearanceConfig?.["custom-theme"];
+        
+        if (!currentCustomThemeId && !hasCustomThemeInConfig) {
+          if (appearanceConfig?.theme) {
             const effectiveTheme = appearanceConfig.theme === 'auto' 
               ? (appearance.mediaQuery?.matches ? 'dark' : 'light')
               : appearanceConfig.theme;

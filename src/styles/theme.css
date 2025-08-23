@@ -107,7 +107,7 @@
   --inkdown-editor-mono-font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
   --inkdown-editor-font-size: 14px;
   --inkdown-editor-line-height: 1.6;
-  --inkdown-editor-padding: 16px;
+  --inkdown-editor-padding: 16px 0;
   --inkdown-editor-padding-bottom: 35vh;
 
   --inkdown-heading-font-weight: bold;
@@ -745,7 +745,7 @@ body {
 }
 
 .editable-title:not(:focus):hover {
-  background-color: rgba(var(--theme-primary-rgb, 99, 102, 241), 0.05) !important;
+  background-color: transparent !important;
 }
 
 /* === Sidebar Header === */
@@ -860,7 +860,7 @@ body {
   line-height: var(--inkdown-editor-line-height);
   background-color: var(--inkdown-editor-bg);
   color: var(--inkdown-editor-fg);
-  padding: 20px 20px 30vh 32px;
+  padding: 20px 0 30vh 0;
   box-sizing: border-box;
   overflow: visible; /* Remove overflow from content */
 }
@@ -947,7 +947,6 @@ body {
 .preview-container blockquote,
 .markdown-preview-content blockquote {
   border-left: var(--inkdown-quote-border-width) solid var(--inkdown-syntax-quote);
-  padding-left: var(--inkdown-quote-padding-left);
   margin: 16px 0;
   color: var(--inkdown-syntax-quote);
   font-style: italic;
@@ -1268,6 +1267,7 @@ body {
 .markdown-preview-content .task-list-item-checkbox svg {
   transition: opacity 0.2s ease, transform 0.1s ease;
 }
+
 
 /* === Drag and Drop Styles === */
 .file-tree-item.dragging {

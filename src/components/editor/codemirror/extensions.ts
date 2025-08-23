@@ -51,7 +51,7 @@ export class ExtensionsFactory {
           maxWidth: '100%',
         },
         '.cm-content': {
-          padding: '16px',
+          padding: '16px 0',
           minHeight: 'auto',
           lineHeight: '1.6',
           width: '100%',

@@ -296,11 +296,7 @@ const FileTreeItem = memo(function FileTreeItem({
   // Memoize icon to avoid recreation
   const icon = useMemo(() => 
     node.is_directory ? (
-      isExpanded ? (
-        <ChevronDown size={16} className="folder-icon opacity-70" />
-      ) : (
-        <ChevronRight size={16} className="folder-icon opacity-70" />
-      )
+      <ChevronRight size={16} className={`folder-icon opacity-70 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
     ) : (
       <FileText size={16} className="file-icon opacity-60" />
     ),

@@ -7,14 +7,12 @@ import { useFileTree, useCurrentDirectory } from "../../stores/directoryStore";
 import { useWorkspaceConfig, useAppearanceConfig, useConfigStore, settingsManager } from "../../stores/configStore";
 import { useEffectiveTheme } from "../../stores/appearanceStore";
 import { usePlugins } from "../../stores/pluginStore";
-import { Sidebar, SidebarResizer } from "../sidebar";
-import { SidebarHeader } from "../sidebar/SidebarHeader";
+import { Sidebar, SidebarResizer, SidebarHeader, MiniSidebar } from "../sidebar";
 import { MainWindow } from "../window";
 import { NotePalette } from "../palette";
 import { DevTools } from "../dev/DevTools";
 import { TitleBar } from "../ui/TitleBar";
 import { EditorFooter } from "../editor/EditorFooter";
-import { StatusBar } from "../ui/StatusBar";
 
 const SettingsModal = lazy(() => import("../settings/SettingsModal"));
 
@@ -74,12 +72,10 @@ export const WorkspacePage = memo(function WorkspacePage() {
   const themeMode = useEffectiveTheme();
   const navigate = useNavigate();
 
-  // Extract config values with proper fallbacks through settings manager
   const showEditorFooter = settingsManager.getWorkspaceSetting('showEditorFooter', workspaceConfig);
   const fontSize = settingsManager.getAppearanceSetting('font-size', appearanceConfig);
   const fontFamily = settingsManager.getAppearanceSetting('font-family', appearanceConfig);
 
-  // Optimized app state tracking - only update when actually needed
   const appStateRef = useRef<{
     activeFile: { path: string; name: string; content: string } | null;
     workspace: { path: string; name: string };
@@ -124,7 +120,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
   const handleFileSelect = useCallback((filePath: string) => {
     dispatch({ type: 'SET_SELECTED_FILE', payload: filePath });
     dispatch({ type: 'RESET_ON_FILE_CHANGE' });
-    // Store active file path for external access
+
     (window as any).__activeFilePath = filePath;
   }, []);
 
@@ -151,7 +147,6 @@ export const WorkspacePage = memo(function WorkspacePage() {
     togglePreviewRef.current?.();
   }, []);
 
-  // Use a ref to store the latest content and debounce updates
   const contentUpdateTimeoutRef = useRef<number>();
   
   const handleContentChange = useCallback((content: string) => {
@@ -174,7 +169,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
     if (previousShowFooterRef.current !== showEditorFooter) {
       previousShowFooterRef.current = showEditorFooter;
       if (!showEditorFooter) {
-        // Clear any pending content update
+
         if (contentUpdateTimeoutRef.current) {
           clearTimeout(contentUpdateTimeoutRef.current);
         }
@@ -183,7 +178,6 @@ export const WorkspacePage = memo(function WorkspacePage() {
     }
   }, [showEditorFooter]);
 
-  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (contentUpdateTimeoutRef.current) {
@@ -207,6 +201,21 @@ export const WorkspacePage = memo(function WorkspacePage() {
       (window as any).__activeFilePath = null;
     }
   }, [state.selectedFile]);
+
+  // All hooks must be called before any early returns
+  const sidebarVisible = settingsManager.getWorkspaceSetting('sidebarVisible', workspaceConfig);
+  
+  const keyboardHandlers = useMemo(() => ({
+    onToggleSidebar: toggleSidebar,
+    onSave: handleSave,
+    onOpenNotePalette: () => dispatch({ type: 'SET_PALETTE_OPEN', payload: true }),
+    onTogglePreview: handleTogglePreview,
+    onOpenSettings: () => dispatch({ type: 'SET_SETTINGS_OPEN', payload: true }),
+  }), [toggleSidebar, handleSave, handleTogglePreview]);
+
+  const plugins = usePlugins();
+
+  useKeyboardShortcuts(keyboardHandlers);
 
   if (!fileTree || !currentDirectory) {
     return (
@@ -232,62 +241,61 @@ export const WorkspacePage = memo(function WorkspacePage() {
     );
   }
 
-  const sidebarVisible = settingsManager.getWorkspaceSetting('sidebarVisible', workspaceConfig);
-
-  // Memoized keyboard shortcuts callbacks to prevent unnecessary re-renders
-  const keyboardHandlers = useMemo(() => ({
-    onToggleSidebar: toggleSidebar,
-    onSave: handleSave,
-    onOpenNotePalette: () => dispatch({ type: 'SET_PALETTE_OPEN', payload: true }),
-    onTogglePreview: handleTogglePreview,
-    onOpenSettings: () => dispatch({ type: 'SET_SETTINGS_OPEN', payload: true }),
-  }), [toggleSidebar, handleSave, handleTogglePreview]);
-
-  const plugins = usePlugins();
-
-  // Use keyboard shortcuts with memoized handlers
-  useKeyboardShortcuts(keyboardHandlers);
-
   return (
     <>
       <TitleBar 
-        sidebarWidth={sidebarWidth}
-        sidebarVisible={sidebarVisible}
+        sidebarWidth={sidebarVisible ? sidebarWidth : 48}
+        sidebarVisible={sidebarVisible || true}
       />
+      {!sidebarVisible && (
+        <MiniSidebar
+          onOpenSettings={() => dispatch({ type: 'SET_SETTINGS_OPEN', payload: true })}
+          onToggleSidebar={toggleSidebar}
+        />
+      )}
       {sidebarVisible && (
         <SidebarHeader
           projectName={fileTree.name}
           onOpenSettings={() => dispatch({ type: 'SET_SETTINGS_OPEN', payload: true })}
+          onToggleSidebar={toggleSidebar}
           width={sidebarWidth}
         />
       )}
       <div className="h-screen flex relative overflow-hidden">
-        {sidebarVisible && (
-          <>
-            <Sidebar
+        <div 
+          className="transition-all duration-300 ease-in-out"
+          style={{
+            width: sidebarVisible ? `${sidebarWidth}px` : '0px',
+            transform: sidebarVisible ? 'translateX(0)' : `translateX(-${sidebarWidth}px)`,
+            overflow: 'hidden'
+          }}
+        >
+          <Sidebar
             width={sidebarWidth}
             fileTree={fileTree}
             selectedFile={state.selectedFile}
             onFileSelect={handleFileSelect}
             onFileDeleted={handleFileDeleted}
           />
-          <SidebarResizer onMouseDown={handleMouseDown} />
-        </>
-      )}
+        </div>
+        {sidebarVisible && <SidebarResizer onMouseDown={handleMouseDown} />}
 
-      <MainWindow
-        selectedFile={state.selectedFile}
-        onFilePathChange={handleFilePathChange}
-        onToggleSidebar={toggleSidebar}
-        onSelectNote={handleSelectNote}
-        workspaceConfig={workspaceConfig}
-        themeMode={themeMode}
-        onSaveRef={saveRef}
-        onTogglePreviewRef={togglePreviewRef}
-        onContentChange={handleContentChange}
-        onPreviewModeChange={handlePreviewModeChange}
-        showEditorFooter={showEditorFooter}
-      />
+      <div style={{ marginLeft: sidebarVisible ? 0 : '48px' }} className="transition-all duration-300 ease-in-out flex-1">
+        <MainWindow
+          selectedFile={state.selectedFile}
+          onFilePathChange={handleFilePathChange}
+          onToggleSidebar={toggleSidebar}
+          onSelectNote={handleSelectNote}
+          workspaceConfig={workspaceConfig}
+          themeMode={themeMode}
+          onSaveRef={saveRef}
+          onTogglePreviewRef={togglePreviewRef}
+          onContentChange={handleContentChange}
+          onPreviewModeChange={handlePreviewModeChange}
+          showEditorFooter={showEditorFooter}
+          isPreviewMode={state.isPreviewMode}
+        />
+      </div>
 
       <NotePalette
         isOpen={state.isPaletteOpen}
@@ -306,24 +314,67 @@ export const WorkspacePage = memo(function WorkspacePage() {
       )}
 
         {state.selectedFile && showEditorFooter && (
-          <div className="fixed bottom-8 right-2 z-30 pointer-events-none">
-            <EditorFooter
-              content={state.currentContent}
-              isPreviewMode={state.isPreviewMode}
-              onTogglePreview={togglePreviewMode}
-            />
-          </div>
+          <EditorFooter
+            content={state.currentContent}
+            isPreviewMode={state.isPreviewMode}
+            onTogglePreview={togglePreviewMode}
+            statusBarSections={(() => {
+              const sections = [];
+              
+              // Default app actions (always present)
+              sections.push({
+                id: 'default',
+                label: 'Aplicativo',
+                actions: [
+                  {
+                    id: 'rename-note',
+                    label: 'Renomear nota',
+                    iconName: 'edit',
+                    onClick: () => console.log('Rename note clicked'),
+                    disabled: false
+                  },
+                  {
+                    id: 'delete-note',
+                    label: 'Excluir nota',
+                    iconName: 'trash-2',
+                    onClick: () => console.log('Delete note clicked'),
+                    disabled: false
+                  }
+                ]
+              });
+
+              const pluginActions = [];
+              for (const plugin of plugins.values()) {
+                if (plugin.enabled && plugin.statusBarItems) {
+                  for (const item of plugin.statusBarItems.values()) {
+                    pluginActions.push({
+                      id: item.id,
+                      label: item.text,
+                      iconName: item.iconName,
+                      onClick: item.callback || (() => {}),
+                      disabled: false
+                    });
+                  }
+                }
+              }
+              
+              if (pluginActions.length > 0) {
+                sections.push({
+                  id: 'plugins',
+                  label: 'Plugins',
+                  actions: pluginActions
+                });
+              }
+
+              return sections;
+            })()}
+          />
         )}
 
         <DevTools 
           isVisible={settingsManager.getWorkspaceSetting('devMode', workspaceConfig)}
         />
 
-        <StatusBar
-          currentContent={state.currentContent}
-          selectedFile={state.selectedFile}
-          plugins={plugins}
-        />
       </div>
     </>
   );

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCurrentDirectory } from "../stores/directoryStore";
 
@@ -14,9 +14,14 @@ export default function EditorPage() {
   const currentDirectory = useCurrentDirectory();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (!currentDirectory) {
+      navigate("/", { replace: true });
+    }
+  }, [currentDirectory, navigate]);
+
   if (!currentDirectory) {
-    navigate("/", { replace: true });
-    return null;
+    return <LoadingSpinner />;
   }
 
   return (

@@ -14,6 +14,7 @@ interface MainWindowProps {
   onContentChange?: (content: string) => void;
   onPreviewModeChange?: (isPreviewMode: boolean) => void;
   showEditorFooter?: boolean;
+  isPreviewMode?: boolean;
 }
 
 export const MainWindow = memo(function MainWindow({ 
@@ -27,23 +28,22 @@ export const MainWindow = memo(function MainWindow({
   onTogglePreviewRef,
   onContentChange,
   onPreviewModeChange,
-  showEditorFooter
+  showEditorFooter,
+  isPreviewMode
 }: MainWindowProps) {
   return (
-    <div className="flex-1 flex flex-col min-w-0 pt-8 h-full overflow-hidden">
+    <div className="flex-1 flex flex-col pt-2 min-w-0 h-full relative overflow-hidden">
       {selectedFile ? (
         <WindowContent 
           selectedFile={selectedFile} 
           onFilePathChange={onFilePathChange}
-          onToggleSidebar={onToggleSidebar}
-          onSelectNote={onSelectNote}
-          workspaceConfig={workspaceConfig}
           themeMode={themeMode}
           onSaveRef={onSaveRef}
           onTogglePreviewRef={onTogglePreviewRef}
           onContentChange={onContentChange}
           onPreviewModeChange={onPreviewModeChange}
           showEditorFooter={showEditorFooter}
+          isPreviewMode={isPreviewMode}
         />
       ) : (
         <WelcomeScreen />
