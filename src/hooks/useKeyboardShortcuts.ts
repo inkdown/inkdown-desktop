@@ -7,6 +7,7 @@ interface UseKeyboardShortcutsOptions {
   onOpenNotePalette?: () => void;
   onTogglePreview?: () => void;
   onOpenSettings?: () => void;
+  onCreateNewNote?: () => void;
 }
 
 function buildShortcutString(event: KeyboardEvent, isMac: boolean): string {
@@ -74,6 +75,12 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
 
         if (key === 'b' && event.shiftKey) {
           optionsRef.current.onToggleSidebar?.();
+          event.preventDefault();
+          return;
+        }
+
+        if (key === 'n' && event.shiftKey) {
+          optionsRef.current.onCreateNewNote?.();
           event.preventDefault();
           return;
         }

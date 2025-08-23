@@ -3,6 +3,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightAc
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown'; 
 import { vim } from '@replit/codemirror-vim';
+import { languages } from '@codemirror/language-data';
 import { createInkdownTheme } from './theme';
 
 interface FontConfig {
@@ -24,7 +25,6 @@ export class ExtensionsFactory {
     
     const extensions = this.buildBasicExtensions(fontConfig);
     
-    // Cache management
     if (this.basicExtensionsCache.size >= 5) {
       const firstKey = this.basicExtensionsCache.keys().next().value;
       if(firstKey) {
@@ -106,7 +106,9 @@ export class ExtensionsFactory {
   static getMarkdown(): Extension {
     const key = 'markdown';
     if (!this.extensionCache.has(key)) {
-      this.extensionCache.set(key, markdown());
+      this.extensionCache.set(key, markdown({
+        codeLanguages: languages
+      }));
     }
     return this.extensionCache.get(key)!;
   }

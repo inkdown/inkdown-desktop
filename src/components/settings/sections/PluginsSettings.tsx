@@ -1,5 +1,6 @@
 import { memo, useState, useCallback, useMemo, useEffect } from 'react';
-import { Settings, AlertCircle, RefreshCw } from 'lucide-react';
+import { Settings, AlertCircle, RefreshCw, FolderOpen } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import { usePlugins, usePluginLoading, usePluginError, usePluginStore } from '../../../stores/pluginStore';
 import type { LoadedPlugin } from '../../../plugins/types/plugin';
 import { PluginSettingsModal } from '../PluginSettingsModal';
@@ -79,6 +80,15 @@ export const PluginsSettings = memo(function PluginsSettings() {
     setSelectedPlugin(null);
   }, []);
 
+  const handleOpenPluginsDirectory = useCallback(async () => {
+    try {
+      const pluginsPath = await invoke<string>('get_plugins_directory_path');
+      await invoke('open_directory_in_explorer', { path: pluginsPath });
+    } catch (error) {
+      console.error('Failed to open plugins directory:', error);
+    }
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -124,19 +134,33 @@ export const PluginsSettings = memo(function PluginsSettings() {
               Gerencie seus plugins instalados
             </p>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors"
-            style={{
-              backgroundColor: 'var(--theme-secondary)',
-              color: 'var(--theme-secondary-foreground)',
-              borderColor: 'var(--theme-border)'
-            }}
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Atualizar
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenPluginsDirectory}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors"
+              style={{
+                backgroundColor: 'var(--theme-secondary)',
+                color: 'var(--theme-secondary-foreground)',
+                borderColor: 'var(--theme-border)'
+              }}
+              title="Abrir pasta de plugins"
+            >
+              <FolderOpen className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors"
+              style={{
+                backgroundColor: 'var(--theme-secondary)',
+                color: 'var(--theme-secondary-foreground)',
+                borderColor: 'var(--theme-border)'
+              }}
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Atualizar
+            </button>
+          </div>
         </div>
 
         {plugins.length === 0 ? (

@@ -1,7 +1,6 @@
 import { EditorView } from '@codemirror/view';
 import { EditorState, StateEffect, type Extension } from '@codemirror/state';
 import { ExtensionsFactory } from '../codemirror/extensions';
-
 export interface EditorConfig {
   container: HTMLElement;
   content?: string;

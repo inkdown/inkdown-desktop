@@ -53,13 +53,13 @@ const sections = [
 const SettingsSidebar = memo<SettingsSidebarProps>(({ activeSection, onSectionChange }) => {
   return (
     <div 
-      className="w-44"
+      className="w-44 h-full flex flex-col"
       style={{ 
         borderRight: '1px solid var(--sidebar-border)',
         backgroundColor: 'var(--sidebar-background)'
       }}
     >
-      <nav className="p-2">
+      <nav className="p-2 pt-4 flex-1">
         {sections.map((section) => {
           const Icon = section.icon;
           const isActive = activeSection === section.id;

@@ -324,7 +324,7 @@ function NotePaletteComponent({
       >
         <div
           className="p-4 border-b"
-          style={{ borderColor: "var(--theme-border)" }}
+          style={{ borderColor: "var(--theme-secondary)" }}
         >
           <input
             ref={inputRef}
@@ -336,7 +336,7 @@ function NotePaletteComponent({
             className="w-full bg-transparent!  px-1s py-1s border-none! focus:outline-none text-base"
             style={{
               ...inputStyle,
-              borderColor: !pathValidation.isValid && searchQuery.trim() ? "var(--theme-destructive)" : "var(--theme-border)",
+              borderColor: !pathValidation.isValid && searchQuery.trim() ? "var(--theme-destructive)" : "var(--theme-secondary)",
               opacity: !pathValidation.isValid && searchQuery.trim() ? 0.7 : 1,
             }}
           />
@@ -374,10 +374,10 @@ function NotePaletteComponent({
                 style={{
                   backgroundColor:
                     index === selectedIndex
-                      ? "var(--theme-accent)"
+                      ? "var(--theme-muted-foreground)"
                       : "transparent",
                   borderColor: "var(--theme-border)",
-                  color: "var(--theme-foreground)",
+                  color: "var(--theme-primary)",
                 }}
                 onClick={() => {
                   onSelectNote(note.path);
@@ -444,15 +444,7 @@ function NotePaletteComponent({
             >
               <div className="text-sm space-y-1">
                 <p>
-                  Digite para buscar notas ou pressione <kbd style={{ 
-                    backgroundColor: "var(--theme-muted)", 
-                    padding: "2px 6px", 
-                    borderRadius: "4px",
-                    fontFamily: "monospace"
-                  }}>Shift+Enter</kbd> para criar
-                </p>
-                <p className="text-xs opacity-75">
-                  Exemplos: "nota.md", "pasta/nota", "projeto/"
+                  Digite para buscar notas
                 </p>
               </div>
             </div>
@@ -462,8 +454,7 @@ function NotePaletteComponent({
         <div
           className="px-4 py-3 border-t text-xs flex justify-between items-center"
           style={{
-            borderColor: "var(--theme-border)",
-            backgroundColor: "var(--theme-muted)",
+            borderColor: "var(--theme-secondary)",
             color: "var(--theme-muted-foreground)",
           }}
         >

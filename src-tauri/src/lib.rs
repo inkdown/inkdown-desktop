@@ -35,6 +35,9 @@ pub fn run() {
             commands::config::load_workspace_config,
             commands::config::is_first_run,
             commands::config::clear_workspace_config,
+            commands::config::get_plugins_directory_path,
+            commands::config::get_themes_directory_path,
+            commands::config::open_directory_in_explorer,
             // File operations
             commands::files::read_file,
             commands::files::write_file,

@@ -1,4 +1,6 @@
 import { memo, useMemo, useCallback, useEffect } from 'react';
+import { FolderOpen } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import { useAppearanceConfig, useConfigStore, settingsManager } from '../../../stores/configStore';
 import { useCustomThemes, useCurrentCustomThemeId, useAppearanceStore } from '../../../stores/appearanceStore';
 
@@ -74,6 +76,15 @@ const AppearanceSettings = memo(() => {
     updateAppearanceConfig({ "font-family": fontFamily });
   }, [updateAppearanceConfig]);
 
+  const handleOpenThemesDirectory = useCallback(async () => {
+    try {
+      const themesPath = await invoke<string>('get_themes_directory_path');
+      await invoke('open_directory_in_explorer', { path: themesPath });
+    } catch (error) {
+      console.error('Failed to open themes directory:', error);
+    }
+  }, []);
+
   // Memoize loading component
   const LoadingComponent = useMemo(() => (
     <div className="space-y-6">
@@ -105,23 +116,37 @@ const AppearanceSettings = memo(() => {
           <label className="block text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
             Tema
           </label>
-          <select
-            value={getCurrentThemeId}
-            onChange={(e) => handleThemeChange(e.target.value)}
-            className="w-full px-2 py-1.5 rounded text-xs focus:ring-1 focus:ring-opacity-50 outline-none"
-            style={{
-              border: '1px solid var(--input-border)',
-              backgroundColor: 'var(--input-background)',
-              color: 'var(--input-foreground)',
-            }}
-            disabled={customThemesLoading}
-          >
-            {getAllThemeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex gap-2">
+            <select
+              value={getCurrentThemeId}
+              onChange={(e) => handleThemeChange(e.target.value)}
+              className="flex-1 px-2 py-1.5 rounded text-xs focus:ring-1 focus:ring-opacity-50 outline-none"
+              style={{
+                border: '1px solid var(--input-border)',
+                backgroundColor: 'var(--input-background)',
+                color: 'var(--input-foreground)',
+              }}
+              disabled={customThemesLoading}
+            >
+              {getAllThemeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleOpenThemesDirectory}
+              className="px-2 py-1.5 rounded text-xs hover:opacity-80 transition-opacity flex items-center gap-1"
+              style={{
+                backgroundColor: 'var(--button-secondary-background)',
+                color: 'var(--button-secondary-foreground)',
+                border: '1px solid var(--input-border)'
+              }}
+              title="Abrir pasta de temas"
+            >
+              <FolderOpen size={12} />
+            </button>
+          </div>
           <div className="text-xs opacity-70" style={{ color: 'var(--text-secondary)' }}>
             Tema atual aplicado. Visite a seção "Plugins & Temas" para mais opções.
           </div>

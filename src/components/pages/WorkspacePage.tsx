@@ -2,6 +2,7 @@ import { useCallback, memo, useRef, lazy, Suspense, useEffect, useReducer, useMe
 import { useNavigate } from "react-router-dom";
 import { useSidebarResize } from "../../hooks/useSidebarResize";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
+import { useFileOperations } from "../../hooks/useFileOperations";
 import type { ThemeMode } from "../../types/config";
 import { useFileTree, useCurrentDirectory } from "../../stores/directoryStore";
 import { useWorkspaceConfig, useAppearanceConfig, useConfigStore, settingsManager } from "../../stores/configStore";
@@ -71,6 +72,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
   const { updateWorkspaceConfig } = useConfigStore();
   const themeMode = useEffectiveTheme();
   const navigate = useNavigate();
+  const { createFile } = useFileOperations();
 
   const showEditorFooter = settingsManager.getWorkspaceSetting('showEditorFooter', workspaceConfig);
   const fontSize = settingsManager.getAppearanceSetting('font-size', appearanceConfig);
@@ -194,6 +196,17 @@ export const WorkspacePage = memo(function WorkspacePage() {
     dispatch({ type: 'SET_PREVIEW_MODE', payload: !state.isPreviewMode });
   }, [state.isPreviewMode]);
 
+  const handleCreateNewNote = useCallback(async () => {
+    if (!currentDirectory) return;
+    
+    const newPath = await createFile(currentDirectory, "New Note");
+    if (newPath) {
+      dispatch({ type: 'SET_SELECTED_FILE', payload: newPath });
+      dispatch({ type: 'RESET_ON_FILE_CHANGE' });
+      (window as any).__activeFilePath = newPath;
+    }
+  }, [currentDirectory, createFile]);
+
   const handleFileDeleted = useCallback((deletedPath: string) => {
     if (state.selectedFile === deletedPath) {
       dispatch({ type: 'SET_SELECTED_FILE', payload: null });
@@ -211,7 +224,8 @@ export const WorkspacePage = memo(function WorkspacePage() {
     onOpenNotePalette: () => dispatch({ type: 'SET_PALETTE_OPEN', payload: true }),
     onTogglePreview: handleTogglePreview,
     onOpenSettings: () => dispatch({ type: 'SET_SETTINGS_OPEN', payload: true }),
-  }), [toggleSidebar, handleSave, handleTogglePreview]);
+    onCreateNewNote: handleCreateNewNote,
+  }), [toggleSidebar, handleSave, handleTogglePreview, handleCreateNewNote]);
 
   const plugins = usePlugins();
 

@@ -2,6 +2,7 @@ use serde_json;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use tauri::{AppHandle, command};
 
 pub fn get_or_create_config_dir() -> Result<PathBuf, String> {
     let home_dir = env::var("HOME")
@@ -299,4 +300,57 @@ pub fn load_workspace_config() -> Result<String, String> {
     
     serde_json::to_string_pretty(&config)
         .map_err(|e| format!("Failed to serialize config: {}", e))
+}
+
+#[tauri::command]
+pub fn get_plugins_directory_path() -> Result<String, String> {
+    let config_dir = get_or_create_config_dir()?;
+    let plugins_dir = config_dir.join("plugins");
+    
+    // Create plugins directory if it doesn't exist
+    if !plugins_dir.exists() {
+        fs::create_dir_all(&plugins_dir)
+            .map_err(|e| format!("Failed to create plugins directory: {}", e))?;
+    }
+    
+    plugins_dir
+        .to_str()
+        .ok_or_else(|| "Invalid path encoding".to_string())
+        .map(|s| s.to_string())
+}
+
+#[tauri::command]
+pub fn get_themes_directory_path() -> Result<String, String> {
+    let config_dir = get_or_create_config_dir()?;
+    let themes_dir = config_dir.join("themes");
+    
+    // Create themes directory if it doesn't exist
+    if !themes_dir.exists() {
+        fs::create_dir_all(&themes_dir)
+            .map_err(|e| format!("Failed to create themes directory: {}", e))?;
+    }
+    
+    themes_dir
+        .to_str()
+        .ok_or_else(|| "Invalid path encoding".to_string())
+        .map(|s| s.to_string())
+}
+
+#[tauri::command]
+pub async fn open_directory_in_explorer(app_handle: AppHandle, path: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    
+    let path_buf = PathBuf::from(&path);
+    if !path_buf.exists() {
+        return Err(format!("Directory does not exist: {}", path));
+    }
+    
+    if !path_buf.is_dir() {
+        return Err(format!("Path is not a directory: {}", path));
+    }
+    
+    app_handle
+        .opener()
+        .open_path(&path, None::<String>)
+        .map_err(|e| format!("Failed to open directory: {}", e))
 }

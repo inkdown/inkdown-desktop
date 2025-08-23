@@ -118,39 +118,27 @@ export function SettingsModal({ isOpen, onClose, initialSection = 'workspace' }:
           border: '1px solid var(--modal-border)'
         }}
       >
-        <div 
-          className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 z-10"
+        {/* Close button in top-right corner */}
+        <button
+          onClick={handleClose}
+          className="absolute top-4 right-4 z-20 p-1 rounded hover:opacity-70 transition-opacity"
           style={{ 
-            borderBottom: '1px solid var(--modal-border)',
-            backgroundColor: 'var(--modal-background)'
+            color: 'var(--text-secondary)',
+            backgroundColor: 'transparent'
           }}
+          title="Fechar configurações"
         >
-          <h2 
-            className="text-base font-medium"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            Configurações
-          </h2>
-          <button
-            onClick={handleClose}
-            className="p-1 rounded transition-colors hover:opacity-70"
-            style={{ 
-              color: 'var(--text-secondary)',
-              background: 'none',
-              border: 'none'
-            }}
-          >
-            <X size={18} />
-          </button>
-        </div>
+          <X size={20} />
+        </button>
 
-        <div className="flex w-full pt-12">
+        {/* Main layout with full-height sidebar */}
+        <div className="flex w-full h-full">
           <SettingsSidebar
             activeSection={activeSection}
             onSectionChange={handleSectionChange}
           />
           
-          <div className="flex-1 p-5 overflow-y-auto text-sm">
+          <div className="flex-1 p-5 pt-12 overflow-y-auto text-sm">
             {renderSection}
           </div>
         </div>
