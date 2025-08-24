@@ -71,7 +71,19 @@ pub fn run() {
             // Plugin settings commands
             commands::plugins::read_plugin_settings,
             commands::plugins::write_plugin_settings,
-            commands::plugins::backup_plugin_settings
+            commands::plugins::backup_plugin_settings,
+            // Tab management commands
+            commands::tabs::create_tab,
+            commands::tabs::close_tab,
+            commands::tabs::set_active_tab,
+            commands::tabs::update_tab_content,
+            commands::tabs::update_tab_file,
+            commands::tabs::save_tab_state,
+            commands::tabs::get_tab_session,
+            commands::tabs::get_tab_content,
+            commands::tabs::cleanup_tab_cache,
+            commands::tabs::save_tab_session_to_disk,
+            commands::tabs::load_tab_session_from_disk
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

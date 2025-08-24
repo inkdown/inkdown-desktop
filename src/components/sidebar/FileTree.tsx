@@ -17,7 +17,8 @@ const RESERVED_NAMES = [
 interface FileTreeItemProps {
   node: FileNode;
   level: number;
-  onFileSelect: (path: string) => void;
+  onFileSelect: (path: string, event?: React.MouseEvent) => void;
+  onFileDoubleClick?: (path: string, event?: React.MouseEvent) => void;
   onFileDeleted: (deletedPath: string) => void;
   selectedFile: string | null;
   onRefresh: () => void;
@@ -30,6 +31,7 @@ const FileTreeItem = memo(function FileTreeItem({
   node,
   level,
   onFileSelect,
+  onFileDoubleClick,
   onFileDeleted,
   selectedFile,
   onRefresh,
@@ -169,12 +171,18 @@ const FileTreeItem = memo(function FileTreeItem({
     [node.is_directory, isExpanded],
   );
 
-  const handleSelect = useCallback(() => {
+  const handleSelect = useCallback((event?: React.MouseEvent) => {
     if (!node.is_directory) {
-      onFileSelect(node.path);
+      onFileSelect(node.path, event);
       setActiveFile(node.path, "");
     }
   }, [node.is_directory, node.path, onFileSelect, setActiveFile]);
+
+  const handleDoubleClick = useCallback((event?: React.MouseEvent) => {
+    if (!node.is_directory && onFileDoubleClick) {
+      onFileDoubleClick(node.path, event);
+    }
+  }, [node.is_directory, node.path, onFileDoubleClick]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -310,6 +318,7 @@ const FileTreeItem = memo(function FileTreeItem({
         style={containerStyle}
         draggable={!isWorkspaceRoot && !isCurrentlyEditing}
         onClick={node.is_directory ? handleToggle : handleSelect}
+        onDoubleClick={node.is_directory ? handleToggle : handleDoubleClick}
         onContextMenu={handleContextMenu}
         onDragStart={(e) => dragHandlers.handleDragStart(e, node.path, node.is_directory, node.name)}
         onDragEnd={dragHandlers.handleDragEnd}
@@ -372,6 +381,7 @@ const FileTreeItem = memo(function FileTreeItem({
               node={child}
               level={level + 1}
               onFileSelect={onFileSelect}
+              onFileDoubleClick={onFileDoubleClick}
               onFileDeleted={onFileDeleted}
               selectedFile={selectedFile}
               onRefresh={onRefresh}
@@ -430,7 +440,8 @@ const FileTreeItem = memo(function FileTreeItem({
 
 interface FileTreeProps {
   fileTree: FileNode;
-  onFileSelect: (path: string) => void;
+  onFileSelect: (path: string, event?: React.MouseEvent) => void;
+  onFileDoubleClick?: (path: string, event?: React.MouseEvent) => void;
   onFileDeleted: (deletedPath: string) => void;
   selectedFile: string | null;
   className?: string;
@@ -439,6 +450,7 @@ interface FileTreeProps {
 export const FileTree = memo(function FileTree({
   fileTree,
   onFileSelect,
+  onFileDoubleClick,
   onFileDeleted,
   selectedFile,
   className = "",
@@ -566,6 +578,7 @@ export const FileTree = memo(function FileTree({
             node={fileTree}
             level={0}
             onFileSelect={onFileSelect}
+            onFileDoubleClick={onFileDoubleClick}
             onFileDeleted={onFileDeleted}
             selectedFile={selectedFile}
             onRefresh={handleRefresh}
@@ -579,6 +592,7 @@ export const FileTree = memo(function FileTree({
               node={child}
               level={0}
               onFileSelect={onFileSelect}
+              onFileDoubleClick={onFileDoubleClick}
               onFileDeleted={onFileDeleted}
               selectedFile={selectedFile}
               onRefresh={handleRefresh}

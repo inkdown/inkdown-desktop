@@ -6,7 +6,8 @@ interface SidebarProps {
   width: number;
   fileTree: FileNode;
   selectedFile: string | null;
-  onFileSelect: (filePath: string) => void;
+  onFileSelect: (filePath: string, event?: React.MouseEvent) => void;
+  onFileDoubleClick?: (filePath: string, event?: React.MouseEvent) => void;
   onFileDeleted: (deletedPath: string) => void;
 }
 
@@ -15,6 +16,7 @@ export const Sidebar = memo(function Sidebar({
   fileTree,
   selectedFile,
   onFileSelect,
+  onFileDoubleClick,
   onFileDeleted,
 }: SidebarProps) {
   
@@ -31,6 +33,7 @@ export const Sidebar = memo(function Sidebar({
         fileTree={fileTree}
         selectedFile={selectedFile}
         onFileSelect={onFileSelect}
+        onFileDoubleClick={onFileDoubleClick}
         onFileDeleted={onFileDeleted}
       />
     </div>

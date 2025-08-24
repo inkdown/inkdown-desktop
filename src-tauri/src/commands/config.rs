@@ -2,7 +2,7 @@ use serde_json;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tauri::{AppHandle, command};
+use tauri::AppHandle;
 
 pub fn get_or_create_config_dir() -> Result<PathBuf, String> {
     let home_dir = env::var("HOME")
@@ -233,18 +233,13 @@ pub fn update_workspace_config(config: serde_json::Value) -> Result<(), String> 
     } else {
         create_default_workspace_config()
     };
-
-    // Debug: Check if workspace_path exists before update
-    let workspace_path_before = current_config.get("workspace_path").cloned();
     
     if let serde_json::Value::Object(config_map) = config {
         for (key, value) in config_map {
             current_config[key] = value;
         }
     }
-    
-    // Debug: Check if workspace_path exists after update
-    let workspace_path_after = current_config.get("workspace_path").cloned();
+
 
     let config_string = serde_json::to_string_pretty(&current_config)
         .map_err(|e| format!("Failed to serialize config: {}", e))?;

@@ -3,7 +3,6 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::sync::Mutex;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PluginManifest {
@@ -36,8 +35,6 @@ pub struct PluginInfo {
     pub loaded: bool,
     pub error: Option<String>,
 }
-
-type PluginCache = Mutex<HashMap<String, PluginInfo>>;
 
 fn get_plugins_config_dir() -> Result<String, String> {
     let config_dir = super::config::get_app_config_dir()?;

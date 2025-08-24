@@ -1,15 +1,18 @@
 import { memo, useEffect } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, Square, X } from 'lucide-react';
+import { SimpleTabBar } from '../tabs/SimpleTabBar';
 
 interface TitleBarProps {
   sidebarWidth?: number;
   sidebarVisible?: boolean;
+  onNewTab?: () => void;
 }
 
 export const TitleBar = memo(function TitleBar({ 
   sidebarWidth = 0, 
-  sidebarVisible = true 
+  sidebarVisible = true,
+  onNewTab
 }: TitleBarProps) {
   useEffect(() => {
     const appWindow = getCurrentWindow();
@@ -39,9 +42,16 @@ export const TitleBar = memo(function TitleBar({
   };
 
   return (
-    <div className="titlebar" style={titleBarStyle}>
-      <div data-tauri-drag-region className="titlebar-drag-region">
+    <div className="titlebar-container" style={titleBarStyle}>
+      {/* Drag area - positioned behind tabs */}
+      <div className="titlebar-drag-area" data-tauri-drag-region></div>
+      
+      {/* Tab Bar - takes up available space */}
+      <div className="titlebar-tabs">
+        <SimpleTabBar onNewTab={onNewTab} />
       </div>
+      
+      {/* Window Controls */}
       <div className="titlebar-controls">
         <button 
           id="titlebar-minimize" 

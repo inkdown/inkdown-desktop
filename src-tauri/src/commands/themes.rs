@@ -124,13 +124,6 @@ pub fn get_theme_css(theme_id: String) -> Result<String, String> {
                             format!("Failed to read CSS file '{}': {}", variant.css_file, e)
                         });
                     } else {
-                        if let Ok(entries) = fs::read_dir(&theme_path) {
-                            for entry in entries {
-                                if let Ok(entry) = entry {
-                                }
-                            }
-                        }
-
                         return Err(format!(
                             "CSS file '{}' not found for theme '{}' at path: {:?}",
                             variant.css_file, theme.name, css_file_path

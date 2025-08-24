@@ -1035,17 +1035,35 @@ body {
 }
 
 /* === TitleBar === */
-.titlebar {
+.titlebar-container {
   height: 32px;
   background-color: var(--theme-editor-background);
   user-select: none;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  align-items: stretch;
   position: fixed;
   top: 0;
   right: 0;
   z-index: 1000;
+}
+
+.titlebar-tabs {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  position: relative;
+}
+
+.titlebar-drag-area {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 120px; /* Leave space for window controls */
+  bottom: 0;
+  z-index: -1;
+  pointer-events: auto;
 }
 
 .titlebar-drag-region {

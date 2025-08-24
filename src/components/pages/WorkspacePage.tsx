@@ -8,12 +8,14 @@ import { useFileTree, useCurrentDirectory } from "../../stores/directoryStore";
 import { useWorkspaceConfig, useAppearanceConfig, useConfigStore, settingsManager } from "../../stores/configStore";
 import { useEffectiveTheme } from "../../stores/appearanceStore";
 import { usePlugins } from "../../stores/pluginStore";
+import { useTabStore, useActiveTab } from "../../stores/tabStore";
 import { Sidebar, SidebarResizer, SidebarHeader, MiniSidebar } from "../sidebar";
 import { MainWindow } from "../window";
 import { NotePalette } from "../palette";
 import { DevTools } from "../dev/DevTools";
 import { TitleBar } from "../ui/TitleBar";
 import { EditorFooter } from "../editor/EditorFooter";
+import { TabContextMenu } from "../tabs";
 
 const SettingsModal = lazy(() => import("../settings/SettingsModal"));
 
@@ -73,6 +75,10 @@ export const WorkspacePage = memo(function WorkspacePage() {
   const themeMode = useEffectiveTheme();
   const navigate = useNavigate();
   const { createFile } = useFileOperations();
+  
+  // Tab system integration
+  const { createTab, closeTab, loadSession, getActiveTab, setActiveTab, getTabByFilePath, updateTabFile } = useTabStore();
+  const activeTab = useActiveTab();
 
   const showEditorFooter = settingsManager.getWorkspaceSetting('showEditorFooter', workspaceConfig);
   const fontSize = settingsManager.getAppearanceSetting('font-size', appearanceConfig);
@@ -119,23 +125,74 @@ export const WorkspacePage = memo(function WorkspacePage() {
       .catch((_) => {});
   }, [workspaceConfig, updateWorkspaceConfig]);
 
-  const handleFileSelect = useCallback((filePath: string) => {
-    dispatch({ type: 'SET_SELECTED_FILE', payload: filePath });
-    dispatch({ type: 'RESET_ON_FILE_CHANGE' });
-
-    (window as any).__activeFilePath = filePath;
-  }, []);
+  // Handle file click: create new tab if Ctrl is held, otherwise overlay current tab
+  const handleFileClick = useCallback(async (filePath: string, event?: React.MouseEvent) => {
+    try {
+      if (event?.ctrlKey || event?.metaKey) {
+        // Ctrl+click: create new tab or activate existing tab
+        const existingTab = getTabByFilePath(filePath);
+        
+        if (existingTab) {
+          // Tab already exists, just activate it
+          await setActiveTab(existingTab.id);
+        } else {
+          // Create a new dedicated tab for this file
+          await createTab({ file_path: filePath });
+        }
+      } else {
+        // Regular click: overlay current tab with clicked file content
+        const currentActiveTab = getActiveTab();
+        
+        if (currentActiveTab) {
+          // Update the active tab to show the clicked file (overlay behavior)
+          await updateTabFile(currentActiveTab.id, filePath);
+        } else {
+          // No active tab exists, create one for this file
+          await createTab({ file_path: filePath });
+        }
+      }
+      
+      // Update local state
+      dispatch({ type: 'SET_SELECTED_FILE', payload: filePath });
+      dispatch({ type: 'RESET_ON_FILE_CHANGE' });
+      (window as any).__activeFilePath = filePath;
+    } catch (error) {
+      console.error('Failed to handle file click:', error);
+      // Fallback to just updating local state
+      dispatch({ type: 'SET_SELECTED_FILE', payload: filePath });
+      dispatch({ type: 'RESET_ON_FILE_CHANGE' });
+      (window as any).__activeFilePath = filePath;
+    }
+  }, [getActiveTab, updateTabFile, createTab, getTabByFilePath, setActiveTab]);
 
   const handleFilePathChange = useCallback((newPath: string) => {
     dispatch({ type: 'SET_SELECTED_FILE', payload: newPath });
     (window as any).__activeFilePath = newPath;
   }, []);
 
-  const handleSelectNote = useCallback((notePath: string) => {
-    dispatch({ type: 'SET_SELECTED_FILE', payload: notePath });
-    dispatch({ type: 'SET_PALETTE_OPEN', payload: false });
-    (window as any).__activeFilePath = notePath;
-  }, []);
+  const handleSelectNote = useCallback(async (notePath: string) => {
+    try {
+      const existingTab = getTabByFilePath(notePath);
+      
+      if (existingTab) {
+        // Tab already exists, just activate it
+        await setActiveTab(existingTab.id);
+      } else {
+        // Always create new tab when selecting from palette
+        await createTab({ file_path: notePath });
+      }
+      
+      dispatch({ type: 'SET_SELECTED_FILE', payload: notePath });
+      dispatch({ type: 'SET_PALETTE_OPEN', payload: false });
+      (window as any).__activeFilePath = notePath;
+    } catch (error) {
+      console.error('Failed to handle note selection:', error);
+      // Fallback to old behavior
+      dispatch({ type: 'SET_SELECTED_FILE', payload: notePath });
+      dispatch({ type: 'SET_PALETTE_OPEN', payload: false });
+      (window as any).__activeFilePath = notePath;
+    }
+  }, [getTabByFilePath, setActiveTab, createTab]);
 
   const handleClosePalette = useCallback(() => {
     dispatch({ type: 'SET_PALETTE_OPEN', payload: false });
@@ -201,19 +258,72 @@ export const WorkspacePage = memo(function WorkspacePage() {
     
     const newPath = await createFile(currentDirectory, "New Note");
     if (newPath) {
-      dispatch({ type: 'SET_SELECTED_FILE', payload: newPath });
-      dispatch({ type: 'RESET_ON_FILE_CHANGE' });
-      (window as any).__activeFilePath = newPath;
+      // Create tab for new note
+      try {
+        await createTab({ file_path: newPath });
+        dispatch({ type: 'SET_SELECTED_FILE', payload: newPath });
+        dispatch({ type: 'RESET_ON_FILE_CHANGE' });
+        (window as any).__activeFilePath = newPath;
+      } catch (error) {
+        console.error('Failed to create tab for new note:', error);
+      }
     }
-  }, [currentDirectory, createFile]);
+  }, [currentDirectory, createFile, createTab]);
 
-  const handleFileDeleted = useCallback((deletedPath: string) => {
-    if (state.selectedFile === deletedPath) {
-      dispatch({ type: 'SET_SELECTED_FILE', payload: null });
-      dispatch({ type: 'RESET_ON_FILE_CHANGE' });
-      (window as any).__activeFilePath = null;
+  // Tab-related handlers
+  const handleCreateNewTab = useCallback(async () => {
+    try {
+      // Create an empty tab (no file_path)
+      await createTab();
+    } catch (error) {
+      console.error('Failed to create new tab:', error);
     }
-  }, [state.selectedFile]);
+  }, [createTab]);
+
+  const handleCloseActiveTab = useCallback(async () => {
+    const { session } = useTabStore.getState();
+    const active = getActiveTab();
+    
+    if (active) {
+      try {
+        // If this is the last tab, create a new empty tab first
+        if (session && session.tabs.length <= 1) {
+          await createTab(); // Create empty tab first
+        }
+        
+        await closeTab(active.id);
+        // The sync effect will handle updating selected file based on remaining tabs
+      } catch (error) {
+        console.error('Failed to close active tab:', error);
+      }
+    }
+  }, [closeTab, getActiveTab, createTab]);
+
+  const handleFileDeleted = useCallback(async (deletedPath: string) => {
+    try {
+      // Close tab if it exists for the deleted file
+      const existingTab = getTabByFilePath(deletedPath);
+      if (existingTab) {
+        await closeTab(existingTab.id);
+      }
+      
+      // Update local state if this was the selected file
+      if (state.selectedFile === deletedPath) {
+        dispatch({ type: 'SET_SELECTED_FILE', payload: null });
+        dispatch({ type: 'RESET_ON_FILE_CHANGE' });
+        (window as any).__activeFilePath = null;
+      }
+    } catch (error) {
+      console.error('Failed to handle file deletion:', error);
+      
+      // Fallback to old behavior
+      if (state.selectedFile === deletedPath) {
+        dispatch({ type: 'SET_SELECTED_FILE', payload: null });
+        dispatch({ type: 'RESET_ON_FILE_CHANGE' });
+        (window as any).__activeFilePath = null;
+      }
+    }
+  }, [state.selectedFile, getTabByFilePath, closeTab]);
 
   // All hooks must be called before any early returns
   const sidebarVisible = settingsManager.getWorkspaceSetting('sidebarVisible', workspaceConfig);
@@ -225,11 +335,71 @@ export const WorkspacePage = memo(function WorkspacePage() {
     onTogglePreview: handleTogglePreview,
     onOpenSettings: () => dispatch({ type: 'SET_SETTINGS_OPEN', payload: true }),
     onCreateNewNote: handleCreateNewNote,
-  }), [toggleSidebar, handleSave, handleTogglePreview, handleCreateNewNote]);
+    onCreateNewTab: handleCreateNewTab,
+    onCloseActiveTab: handleCloseActiveTab,
+  }), [toggleSidebar, handleSave, handleTogglePreview, handleCreateNewNote, handleCreateNewTab, handleCloseActiveTab]);
 
   const plugins = usePlugins();
 
   useKeyboardShortcuts(keyboardHandlers);
+
+  // Initialize tab system when workspace is ready
+  useEffect(() => {
+    if (currentDirectory && fileTree) {
+      const initializeTabs = async () => {
+        try {
+          await loadSession(currentDirectory);
+          
+          // Wait a bit for state to update, then check if we need an empty tab
+          setTimeout(() => {
+            const currentSession = useTabStore.getState().session;
+            if (!currentSession || currentSession.tabs.length === 0) {
+              createTab().catch(error => {
+                console.warn('Failed to create initial empty tab:', error);
+              });
+            }
+          }, 100);
+          
+        } catch (error) {
+          console.warn('Failed to load tab session:', error);
+          // Create empty tab on failure
+          createTab().catch(tabError => {
+            console.warn('Failed to create initial empty tab:', tabError);
+          });
+        }
+      };
+      
+      initializeTabs();
+    }
+  }, [currentDirectory, fileTree, loadSession, createTab]);
+
+  // Sync active tab with selected file - prevent infinite loops
+  const lastSyncedTabPath = useRef<string | null>(null);
+  const lastSelectedFile = useRef<string | null>(null);
+  
+  useEffect(() => {
+    if (activeTab?.file_path && 
+        activeTab.file_path !== lastSyncedTabPath.current) {
+      
+      lastSyncedTabPath.current = activeTab.file_path;
+      lastSelectedFile.current = activeTab.file_path;
+      dispatch({ type: 'SET_SELECTED_FILE', payload: activeTab.file_path });
+      (window as any).__activeFilePath = activeTab.file_path;
+      
+    } else if (!activeTab && lastSyncedTabPath.current !== null) {
+      // No active tab exists, clear selected file
+      lastSyncedTabPath.current = null;
+      lastSelectedFile.current = null;
+      dispatch({ type: 'SET_SELECTED_FILE', payload: null });
+      (window as any).__activeFilePath = null;
+    } else if (activeTab && !activeTab.file_path) {
+      // Empty tab active, clear selected file
+      lastSyncedTabPath.current = null;
+      lastSelectedFile.current = null;
+      dispatch({ type: 'SET_SELECTED_FILE', payload: null });
+      (window as any).__activeFilePath = null;
+    }
+  }, [activeTab?.file_path, activeTab?.id, activeTab]);
 
   if (!fileTree || !currentDirectory) {
     return (
@@ -260,7 +430,9 @@ export const WorkspacePage = memo(function WorkspacePage() {
       <TitleBar 
         sidebarWidth={sidebarVisible ? sidebarWidth : 48}
         sidebarVisible={sidebarVisible || true}
+        onNewTab={handleCreateNewTab}
       />
+      
       {!sidebarVisible && (
         <MiniSidebar
           onOpenSettings={() => dispatch({ type: 'SET_SETTINGS_OPEN', payload: true })}
@@ -275,7 +447,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
           width={sidebarWidth}
         />
       )}
-      <div className="h-screen flex relative overflow-hidden">
+      <div className="flex relative overflow-hidden" style={{ height: 'calc(100vh - 32px)' }}>
         <div 
           className="transition-all duration-300 ease-in-out"
           style={{
@@ -288,7 +460,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
             width={sidebarWidth}
             fileTree={fileTree}
             selectedFile={state.selectedFile}
-            onFileSelect={handleFileSelect}
+            onFileSelect={handleFileClick}
             onFileDeleted={handleFileDeleted}
           />
         </div>
@@ -335,7 +507,6 @@ export const WorkspacePage = memo(function WorkspacePage() {
             statusBarSections={(() => {
               const sections = [];
               
-              // Default app actions (always present)
               sections.push({
                 id: 'default',
                 label: 'Aplicativo',
@@ -390,6 +561,7 @@ export const WorkspacePage = memo(function WorkspacePage() {
         />
 
       </div>
+      <TabContextMenu />
     </>
   );
 });

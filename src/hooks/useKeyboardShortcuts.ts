@@ -8,6 +8,8 @@ interface UseKeyboardShortcutsOptions {
   onTogglePreview?: () => void;
   onOpenSettings?: () => void;
   onCreateNewNote?: () => void;
+  onCreateNewTab?: () => void;
+  onCloseActiveTab?: () => void;
 }
 
 function buildShortcutString(event: KeyboardEvent, isMac: boolean): string {
@@ -48,63 +50,79 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
   executeShortcutRef.current = executeShortcut;
 
   useEffect(() => {
-    let debounceTimer: number | undefined;
-    
     const handleKeyDown = async (event: KeyboardEvent) => {
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
+      // Skip processing only for specific input elements, NOT CodeMirror
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
       }
       
-      debounceTimer = window.setTimeout(async () => {
-        if (executeShortcutRef.current) {
-          const shortcutStr = buildShortcutString(event, isMac);
-          
-          if (shortcutStr) {
-            const handled = await executeShortcutRef.current(shortcutStr, event);
-            if (handled) {
-              return;
-            }
-          }
-        }
+      // Skip only for elements that are explicitly text inputs (not CodeMirror)
+      if (target.contentEditable === 'true' && !target.classList.contains('cm-content')) {
+        return;
+      }
+
+      // Check plugins first (but without debounce for better performance)
+      if (executeShortcutRef.current) {
+        const shortcutStr = buildShortcutString(event, isMac);
         
-        const isCtrlOrCmd = isMac ? event.metaKey : event.ctrlKey;
-        
-        if (!isCtrlOrCmd) return;
-
-        const key = event.key.toLowerCase();
-
-        if (key === 'b' && event.shiftKey) {
-          optionsRef.current.onToggleSidebar?.();
-          event.preventDefault();
-          return;
-        }
-
-        if (key === 'n' && event.shiftKey) {
-          optionsRef.current.onCreateNewNote?.();
-          event.preventDefault();
-          return;
-        }
-
-        if (event.shiftKey) return;
-
-        const handlerName = keyMap.get(key);
-        if (handlerName) {
-          const handler = optionsRef.current[handlerName as keyof typeof optionsRef.current];
-          if (handler) {
-            handler();
+        if (shortcutStr) {
+          const handled = await executeShortcutRef.current(shortcutStr, event);
+          if (handled) {
             event.preventDefault();
+            return;
           }
         }
-      }, 10);
+      }
+      
+      const isCtrlOrCmd = isMac ? event.metaKey : event.ctrlKey;
+      
+      if (!isCtrlOrCmd) return;
+
+      const key = event.key.toLowerCase();
+
+      // Handle tab shortcuts with highest priority (Ctrl+T, Ctrl+W)
+      if (key === 't' && !event.shiftKey) {
+        event.preventDefault();
+        optionsRef.current.onCreateNewTab?.();
+        return;
+      }
+
+      if (key === 'w' && !event.shiftKey) {
+        event.preventDefault();
+        optionsRef.current.onCloseActiveTab?.();
+        return;
+      }
+
+      // Handle Ctrl+N (new note) - no shift needed
+      if (key === 'n' && !event.shiftKey) {
+        event.preventDefault();
+        optionsRef.current.onCreateNewNote?.();
+        return;
+      }
+
+      // Handle other shortcuts with Shift  
+      if (key === 'b' && event.shiftKey) {
+        event.preventDefault();
+        optionsRef.current.onToggleSidebar?.();
+        return;
+      }
+
+      const handlerName = keyMap.get(key);
+      if (handlerName) {
+        const handler = optionsRef.current[handlerName as keyof typeof optionsRef.current];
+        if (handler) {
+          event.preventDefault();
+          handler();
+        }
+      }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
+    // Use capture phase to ensure shortcuts work even when titlebar is focused
+    document.addEventListener('keydown', handleKeyDown, true);
     
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-      }
+      document.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [isMac, keyMap]);
 }

@@ -5,7 +5,8 @@ import { FileNode } from '../../stores/directoryStore';
 interface SidebarContentProps {
   fileTree: FileNode;
   selectedFile: string | null;
-  onFileSelect: (filePath: string) => void;
+  onFileSelect: (filePath: string, event?: React.MouseEvent) => void;
+  onFileDoubleClick?: (filePath: string, event?: React.MouseEvent) => void;
   onFileDeleted: (deletedPath: string) => void;
 }
 
@@ -13,6 +14,7 @@ export const SidebarContent = memo(function SidebarContent({
   fileTree,
   selectedFile,
   onFileSelect,
+  onFileDoubleClick,
   onFileDeleted
 }: SidebarContentProps) {
   return (
@@ -20,6 +22,7 @@ export const SidebarContent = memo(function SidebarContent({
       <FileTree
         fileTree={fileTree}
         onFileSelect={onFileSelect}
+        onFileDoubleClick={onFileDoubleClick}
         onFileDeleted={onFileDeleted}
         selectedFile={selectedFile}
         className="h-full"
